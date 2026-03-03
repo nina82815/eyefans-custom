@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>eYeFANS 客製測試</title>
+  <style>
+    body{font-family:system-ui,-apple-system; padding:20px;}
+    .row{display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap;}
+    .card{border:1px solid #ddd; border-radius:12px; padding:16px; max-width:520px;}
+    .swatches button{width:36px;height:36px;border-radius:999px;border:1px solid #ccc;margin:6px;cursor:pointer;}
+    .label{margin-top:12px;font-weight:600;}
+    input{padding:10px 12px; font-size:16px; width:220px;}
+  </style>
+</head>
+<body>
+  <h2>eYeFANS 客製撞色（測試）</h2>
+
+  <div class="row">
+    <div class="card">
+   <div class="label">視角</div>
+<div class="swatches" id="viewBtns">
+  <button type="button" data-view="front">正面</button>
+  <button type="button" data-view="side">側面</button>
+  <button type="button" data-view="a45">45°</button>
+</div>
+
+<div id="viewer" style="width:480px; max-width:100%;">
+  <div class="view" id="view-front"></div>
+  <div class="view" id="view-side" style="display:none;"></div>
+  <div class="view" id="view-a45" style="display:none;"></div>
+</div>
+ 
+
+
+</div>
+    </div>
+
+    <div class="card">
+      <div class="label">鏡框顏色</div>
+      <div class="swatches">
+        <button data-target="frame" data-color="#111111" style="background:#111111"></button>
+        <button data-target="frame" data-color="#FFFFFF" style="background:#FFFFFF"></button>
+        <button data-target="frame" data-color="#F6C7D1" style="background:#F6C7D1"></button>
+        <button data-target="frame" data-color="#0B3A67" style="background:#0B3A67"></button>
+      </div>
+
+      <div class="label">鏡腳顏色</div>
+      <div class="swatches">
+        <button data-target="temple" data-color="#111111" style="background:#111111"></button>
+        <button data-target="temple" data-color="#FFFFFF" style="background:#FFFFFF"></button>
+        <button data-target="temple" data-color="#FFD23F" style="background:#FFD23F"></button>
+        <button data-target="temple" data-color="#7AB7A6" style="background:#7AB7A6"></button>
+      </div>
+
+      <div class="label">鏡片材質</div>
+<div class="swatches lensBtns">
+  <button type="button" data-lens="pc">PC耐衝擊</button>
+  <button type="button" data-lens="blue">抗藍光</button>
+</div>
+
+      <div class="label">刻字（英文10字內）</div>
+      <input id="engrave" maxlength="10" placeholder="PEIYU" />
+    </div>
+  </div>
+
+  <script>
+  const svgs = {}; // front/side/a45 -> svg element
+  const state = {
+    frame: "#ff0000",
+    temple: "#111111",
+    lens: "rgba(15,15,15,0.7)",
+    engraveText: (document.getElementById('engrave')?.value || 'PEIYU').toUpperCase()
+  };
+
+  async function loadSvgInto(fileName, mountId, key){
+    const res = await fetch(fileName);
+    const txt = await res.text();
+    document.getElementById(mountId).innerHTML = txt;
+
+    const svg = document.querySelector(`#${mountId} svg`);
+    svgs[key] = svg;
+
+    applyStateTo(svg);
+  }
+
+  function setFillDeep(svg, targetId, color){
+    if(!svg) return;
+    const root = svg.querySelector('#' + targetId);
+    if(!root) { console.warn('找不到 id:', targetId); return; }
+
+    root.setAttribute('fill', color);
+    root.querySelectorAll('path, polygon, rect, circle, ellipse').forEach(el=>{
+      el.setAttribute('fill', color);
+    });
+  }
+
+  function applyStateTo(svg){
+    if(!svg) return;
+    setFillDeep(svg, "frame", state.frame);
+    setFillDeep(svg, "temple", state.temple);
+    setFillDeep(svg, "lens", state.lens);
+
+    const t = svg.querySelector('#engraveText');
+    if(t) t.textContent = state.engraveText || ' ';
+  }
+
+  function showView(key){
+    ['front','side','a45'].forEach(k=>{
+      const el = document.getElementById(`view-${k}`);
+      if(el) el.style.display = (k===key) ? 'block' : 'none';
+    });
+  }
+
+  // ====== 載入三個 SVG 檔 ======
+  Promise.all([
+    loadSvgInto('front.svg', 'view-front', 'front'),
+    loadSvgInto('side.svg',  'view-side',  'side'),
+    loadSvgInto('a45.svg',   'view-a45',   'a45'),
+  ]).then(()=>{
+    showView('front');
+  });
+
+  // ====== 視角切換 ======
+  document.querySelectorAll('#viewBtns button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      showView(btn.dataset.view);
+    });
+  });
+
+  // ====== 鏡框/鏡腳色票 ======
+  document.querySelectorAll('button[data-target][data-color]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const target = btn.dataset.target; // frame / temple
+      const color = btn.dataset.color;
+
+      state[target] = color;
+      Object.values(svgs).forEach(svg => setFillDeep(svg, target, color));
+    });
+  });
+
+  // ====== 鏡片材質 ======
+  document.querySelectorAll('[data-lens]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const t = btn.dataset.lens;
+
+      if(t === "pc")   state.lens = "rgba(15,15,15,0.7)";
+      if(t === "blue") state.lens = "rgba(60,100,180,0.28)";
+
+      Object.values(svgs).forEach(svg => setFillDeep(svg, "lens", state.lens));
+    });
+  });
+
+  // ====== 刻字同步 ======
+  const input = document.getElementById('engrave');
+  if(input){
+    input.addEventListener('input', ()=>{
+      let txt = (input.value || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,10);
+      if(input.value !== txt) input.value = txt;
+
+      state.engraveText = txt || ' ';
+      Object.values(svgs).forEach(svg=>{
+        const t = svg?.querySelector('#engraveText');
+        if(t) t.textContent = state.engraveText;
+      });
+    });
+  }
+</script>
