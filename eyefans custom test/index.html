@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>eYeFANS 客製撞色（測試）</title>
+  <style>
+    :root{
+      --border: rgba(0,0,0,.10);
+      --muted: rgba(0,0,0,.55);
+      --card: #fff;
+      --bg: #fafafa;
+    }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", sans-serif;
+      background: var(--bg);
+      padding: 20px;
+      color:#111;
+    }
+    h2{ margin:0 0 14px; font-size: 28px; letter-spacing:.2px; }
+
+    .row{
+      display:flex;
+      gap:18px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.04);
+    }
+
+    /* 左：預覽 */
+    #viewerCard{ width: 520px; max-width: 100%; }
+    #viewer{
+      width: 750px;
+      max-width: 100%;
+      aspect-ratio: 1 / 1;
+      border:1px solid var(--border);
+      border-radius:16px;
+      overflow:hidden;
+      background:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+    }
+    .view{
+      width:100%;
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .view svg{
+      width: 92%;
+      height: 92%;
+      display:block;
+    }
+
+    /* 右：設定 */
+    #controlsCard{ width: 380px; max-width: 100%; }
+
+    .sectionTitle{
+      font-weight: 800;
+      font-size: 18px;
+      margin: 6px 0 10px;
+    }
+    .subLabel{
+      font-weight: 700;
+      margin-top: 14px;
+      margin-bottom: 8px;
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .pickedName{
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 13px;
+      white-space:nowrap;
+    }
+
+    /* 視角按鈕 */
+    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; }
+    .pill{
+      border:1px solid var(--border);
+      background:#f3f3f3;
+      color:#111;
+      padding: 10px 12px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-weight:700;
+      font-size:14px;
+    }
+    .pill.active{
+      background:#111;
+      border-color:#111;
+      color:#fff;
+    }
+
+    /* 色票 */
+    .swatches{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .swatches button{
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 2px solid rgba(0,0,0,.18);
+      cursor:pointer;
+      position:relative;
+      background: transparent;
+      padding:0;
+      outline:none;
+    }
+    .swatches button.active{
+      border-color:#111;
+      box-shadow: 0 0 0 2px rgba(0,0,0,.08);
+    }
+    .swatches button::after{
+      content:"";
+      position:absolute;
+      inset:6px;
+      border-radius:999px;
+      background: var(--c, #000);
+    }
+
+    /* 手機更順 */
+    @media (max-width: 920px){
+      #viewerCard{ width: 100%; }
+      #controlsCard{ width: 100%; }
+    }
+
+    .hint{
+      margin-top:10px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height:1.5;
+    }
+  </style>
+</head>
+<body>
+  <h2>eYeFANS 客製撞色（測試）</h2>
+
+  <div class="row">
+
+    <!-- 左：預覽 -->
+    <div class="card" id="viewerCard">
+     </div>
+      <div class="sectionTitle">視角</div>
+      <div class="btnRow" id="viewBtns">
+        <button class="pill active" type="button" data-view="front">正面</button>
+        <button class="pill" type="button" data-view="side">側面</button>
+        <button class="pill" type="button" data-view="a45">45°</button>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div id="viewer">
+        <div class="view" id="view-front"></div>
+        <div class="view" id="view-side" style="display:none;"></div>
+        <div class="view" id="view-a45" style="display:none;"></div>
+      </div>
+
+
+    <!-- 右：控制 -->
+    <div class="card" id="controlsCard">
+      <div class="sectionTitle">顏色設定</div>
+
+      <div class="subLabel">
+        <div>鏡框顏色</div>
+        <div class="pickedName" id="pickedFrame">—</div>
+      </div>
+      <div class="swatches" id="frameSwatches"></div>
+
+      <div class="subLabel">
+        <div>鏡腳顏色</div>
+        <div class="pickedName" id="pickedTemple">—</div>
+      </div>
+      <div class="swatches" id="templeSwatches"></div>
+
+      <div class="subLabel">
+        <div>鏡片顏色</div>
+        <div class="pickedName" id="pickedLens">—</div>
+      </div>
+      <div class="swatches" id="lensSwatches"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // =========================
+    // 1) 色票資料：你要加色就加在這裡
+    // =========================
+    const FRAME_COLORS = [
+      { name: "櫻花粉", value: "#eecad4" },
+      { name: "粉紫", value: "#d0b5d6" },
+      { name: "暖黃", value: "#f2e325" },
+      { name: "豆綠", value: "#90b395" },
+      { name: "深藍", value: "#0d426e" },
+      { name: "復古粉", value: "#cf69a5" },
+      { name: "芋頭紫", value: "#a284ba" },
+      { name: "奶油黃", value: "#fbc966" },
+      { name: "薄荷綠", value: "#6aa1a4" },
+      { name: "單寧藍", value: "#4984b7" },
+      { name: "梅子", value: "#bd838f" },
+      { name: "奶茶", value: "#dcad9b" },
+      { name: "橙黃", value: "#eaa419" },
+      { name: "青釉綠", value: "#465d55" },
+      { name: "天藍", value: "#09afe9" },
+      { name: "玫瑰", value: "#a84258" },
+      { name: "咖啡牛奶", value: "#a58b84" },
+      { name: "枯黃", value: "#d8b269" },
+      { name: "霧面黑", value: "#0f0f10" },
+      { name: "灰色", value: "#898989" },
+      { name: "咖啡紅茶", value: "#8a382c" },
+      { name: "茶色", value: "#a16238" },
+      { name: "狼棕", value: "#b0905f" },
+      { name: "霧面白", value: "#ffffff" },
+      { name: "琥珀", type: "pattern", value: "url(#amberPattern)", thumb: "amber.png" }
+      // 想加就照這格式加：
+      // { name:"可可棕", value:"#6b4a34" },
+    ];
+
+    const TEMPLE_COLORS = [
+      { name: "櫻花粉", value: "#eecad4" },
+      { name: "粉紫", value: "#d0b5d6" },
+      { name: "暖黃", value: "#f2e325" },
+      { name: "豆綠", value: "#90b395" },
+      { name: "深藍", value: "#0d426e" },
+      { name: "復古粉", value: "#cf69a5" },
+      { name: "芋頭紫", value: "#a284ba" },
+      { name: "奶油黃", value: "#fbc966" },
+      { name: "薄荷綠", value: "#6aa1a4" },
+      { name: "單寧藍", value: "#4984b7" },
+      { name: "梅子", value: "#bd838f" },
+      { name: "奶茶", value: "#dcad9b" },
+      { name: "橙黃", value: "#eaa419" },
+      { name: "青釉綠", value: "#465d55" },
+      { name: "天藍", value: "#09afe9" },
+      { name: "玫瑰", value: "#a84258" },
+      { name: "咖啡牛奶", value: "#a58b84" },
+      { name: "枯黃", value: "#d8b269" },
+      { name: "霧面黑", value: "#0f0f10" },
+      { name: "灰色", value: "#898989" },
+      { name: "咖啡紅茶", value: "#8a382c" },
+      { name: "茶色", value: "#a16238" },
+      { name: "狼棕", value: "#b0905f" },
+      { name: "霧面白", value: "#ffffff" },
+      { name: "琥珀", type: "pattern", value: "url(#amberPattern)", thumb: "amber.png" }
+    ];
+
+    // 鏡片用 rgba 才有透明感（越小越透明）
+    const LENS_COLORS = [
+      { name: "三號灰片", value: "rgba(25,25,28,0.70)" },
+      { name: "抗藍光", value: "rgba(180,150,90,0.38)" },
+    ];
+
+    // =========================
+    // 2) 狀態
+    // =========================
+    const state = {
+      view: "front",
+      frame: FRAME_COLORS[0],
+      temple: TEMPLE_COLORS[0],
+      lens: LENS_COLORS[0],
+    };
+
+    // =========================
+    // 3) 載入 SVG（3個視角）
+    // =========================
+    async function loadSvgInto(fileName, mountId, key){
+      const mount = document.getElementById(mountId);
+      if(!mount) return;
+
+      const res = await fetch(fileName, { cache: "no-store" });
+      if(!res.ok) throw new Error(`載入失敗：${fileName}`);
+      const text = await res.text();
+
+      mount.innerHTML = text;
+      const svg = mount.querySelector("svg");
+      if(!svg) throw new Error(`找不到 svg：${fileName}`);
+
+      // 讓 svg 比較好縮放
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+      svgs[key] = svg;
+    }
+
+    const svgs = {}; // {front: SVGElement, side:..., a45:...}
+
+  // =========================
+  // ★ 新增：確保每個 SVG 都有琥珀 pattern（amberPattern）
+  // =========================
+ function ensureAmberPattern(svgEl){
+  if(!svgEl) return;
+
+  // 如果已經有 pattern 就不要再建
+  if(svgEl.querySelector("#amberPattern")) return;
+
+  let defs = svgEl.querySelector("defs");
+
+  if(!defs){
+    defs = document.createElementNS("http://www.w3.org/2000/svg","defs");
+    svgEl.insertBefore(defs, svgEl.firstChild);
+  }
+
+  const pattern = document.createElementNS("http://www.w3.org/2000/svg","pattern");
+  pattern.setAttribute("id","amberPattern");
+  pattern.setAttribute("patternUnits","objectBoundingBox");
+  pattern.setAttribute("width","1");
+  pattern.setAttribute("height","1");
+
+  const img = document.createElementNS("http://www.w3.org/2000/svg","image");
+  img.setAttributeNS(null,"href","amber.png");
+  img.setAttribute("width","1");
+  img.setAttribute("height","1");
+  img.setAttribute("preserveAspectRatio","xMidYMid slice");
+
+  pattern.appendChild(img);
+  defs.appendChild(pattern);
+}
+  // =========================
+  // 4) 填色工具：把某個 id 下面可填色元素都改色
+  // =========================
+  function setFillDeep(svgEl, targetId, color){
+    if(!svgEl) return;
+    const root = svgEl.querySelector("#" + targetId);
+    if(!root) return;
+
+    // ★ 新增：如果是琥珀 pattern，先確保這個 svg 裡有 pattern 定義
+    if(typeof color === "string" && color.includes("url(#amberPattern)")){
+      ensureAmberPattern(svgEl);
+    }
+
+    // 若本身就是 path 也照顧
+    if(root.tagName && root.tagName.toLowerCase() === "path"){
+      root.setAttribute("fill", color);
+    }
+
+    root.querySelectorAll("path, polygon, rect, circle, ellipse").forEach(el=>{
+      el.setAttribute("fill", color);
+    });
+  }
+
+    function updatePickedNames(){
+      document.getElementById("pickedFrame").textContent = state.frame?.name ?? "—";
+      document.getElementById("pickedTemple").textContent = state.temple?.name ?? "—";
+      document.getElementById("pickedLens").textContent = state.lens?.name ?? "—";
+    }
+
+   function updateAll(){
+  Object.values(svgs).forEach(svgEl=>{
+    // 如果是琥珀，確保 pattern 存在
+    if(state.frame.type === "pattern"){
+      ensureAmberPattern(svgEl);
+    }
+
+    // 鏡框
+    setFillDeep(svgEl, "frame", state.frame.value);
+
+    // 鏡腳
+    setFillDeep(svgEl, "temple", state.temple.value);
+
+    // 鏡片
+    setFillDeep(svgEl, "lens", state.lens.value);
+  });
+
+  updatePickedNames();
+}
+
+    // =========================
+    // 5) 視角切換
+    // =========================
+    function showView(viewKey){
+      state.view = viewKey;
+      document.getElementById("view-front").style.display = (viewKey === "front") ? "flex" : "none";
+      document.getElementById("view-side").style.display  = (viewKey === "side")  ? "flex" : "none";
+      document.getElementById("view-a45").style.display   = (viewKey === "a45")   ? "flex" : "none";
+
+      document.querySelectorAll("#viewBtns .pill").forEach(btn=>{
+        btn.classList.toggle("active", btn.dataset.view === viewKey);
+      });
+    }
+
+    document.getElementById("viewBtns").addEventListener("click", (e)=>{
+      const btn = e.target.closest("button[data-view]");
+      if(!btn) return;
+      showView(btn.dataset.view);
+    });
+
+    // =========================
+    // 6) 生成色票 UI（含顯示名稱）
+    // =========================
+    function renderSwatches(mountId, list, onPick, isActive){
+  const mount = document.getElementById(mountId);
+  mount.innerHTML = "";
+
+  list.forEach(item=>{
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.title = item.name;
+    btn.classList.toggle("active", isActive(item));
+
+    // ✅ 純色：用 CSS 變數 --c 當背景
+    if(item.type !== "pattern"){
+      btn.style.setProperty("--c", item.value);
+      btn.classList.add("swatch-solid");
+    }else{
+      // ✅ 琥珀：用縮圖顯示（amber.png）
+      btn.classList.add("swatch-pattern");
+      btn.style.backgroundImage = `url(${item.thumb})`;
+      btn.style.backgroundSize = "cover";
+      btn.style.backgroundPosition = "center";
+    }
+
+    btn.addEventListener("click", ()=>{
+      onPick(item);
+      mount.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+    });
+
+    mount.appendChild(btn);
+  });
+}
+
+    // =========================
+    // 7) 啟動
+    // =========================
+    (async function init(){
+      try{
+        await Promise.all([
+          loadSvgInto("front.svg", "view-front", "front"),
+          loadSvgInto("side.svg",  "view-side",  "side"),
+          loadSvgInto("a45.svg",   "view-a45",   "a45"),
+        ]);
+
+        renderSwatches("frameSwatches", FRAME_COLORS, (item)=>{ state.frame=item; updateAll(); }, (item)=>item===state.frame);
+        renderSwatches("templeSwatches", TEMPLE_COLORS,(item)=>{ state.temple=item; updateAll(); }, (item)=>item===state.temple);
+        renderSwatches("lensSwatches", LENS_COLORS,   (item)=>{ state.lens=item; updateAll(); }, (item)=>item===state.lens);
+
+        showView("front");
+        updateAll();
+      }catch(err){
+        console.error(err);
+        alert("初始化失敗：\n" + err.message + "\n\n請確認 front.svg / side.svg / a45.svg 跟 index.html 同一層，且檔名完全一致。");
+      }
+    })();
+  </script>
+</body>
+</html>
