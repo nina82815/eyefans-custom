@@ -1,24 +1,25 @@
 const FRAME_COLORS = [
-  { name: "櫻花粉", value: "#eecad4" },
-  { name: "粉紫", value: "#d0b5d6" },
-  { name: "暖黃", value: "#f2e325" },
-  { name: "豆綠", value: "#90b395" },
-  { name: "深藍", value: "#0d426e" },
-  { name: "復古粉", value: "#cf69a5" },
-  { name: "芋頭紫", value: "#a284ba" },
-  { name: "奶油黃", value: "#fbc966" },
-  { name: "薄荷綠", value: "#6aa1a4" },
-  { name: "單寧藍", value: "#4984b7" },
-  { name: "梅子", value: "#bd838f" },
-  { name: "奶茶", value: "#dcad9b" },
-  { name: "青釉綠", value: "#465d55" },
-  { name: "天藍", value: "#09afe9" },
-  { name: "玫瑰", value: "#a84258" },
-  { name: "咖啡牛奶", value: "#a58b84" },
-  { name: "枯黃", value: "#d8b269" },
+  // Screen-preview midtones calibrated from the 2026 front-view product photos.
+  { name: "櫻花粉", value: "#e8b4bf" },
+  { name: "粉紫", value: "#c3b3c8" },
+  { name: "暖黃", value: "#d5c452" },
+  { name: "豆綠", value: "#919871" },
+  { name: "深藍", value: "#2b4261" },
+  { name: "復刻粉", value: "#c87da9" },
+  { name: "芋頭紫", value: "#b48bbe" },
+  { name: "奶油黃", value: "#ddaa5b" },
+  { name: "薄荷綠", value: "#658987" },
+  { name: "丹寧藍", value: "#506799" },
+  { name: "梅子", value: "#a77c90" },
+  { name: "奶茶", value: "#ddb89d" },
+  { name: "青釉綠", value: "#485b50" },
+  { name: "天藍", value: "#2285ac" },
+  { name: "玫瑰", value: "#9c5354" },
+  { name: "咖啡牛奶", value: "#8f8079" },
+  { name: "枯黃", value: "#9c8d6c" },
   { name: "霧面黑", value: "#0f0f10" },
-  { name: "灰色", value: "#898989" },
-  { name: "咖啡紅茶", value: "#8a382c" },
+  { name: "灰色", value: "#717171" },
+  { name: "咖啡紅茶", value: "#834c4c" },
   { name: "霧面白", value: "#ffffff" },
   { name: "琥珀", type: "pattern", value: "amber", thumb: "amber.png" }
 ];
@@ -64,44 +65,10 @@ const LENS_COLORS = [
   },
   {
     id: "blue-tea",
-    name: "抗藍光茶片",
+    name: "抗藍光鏡片",
     value: "rgba(180,150,90,.38)",
     swatch: "rgba(180,150,90,.55)",
     photoFill: "rgba(222,181,92,.38)"
-  },
-  {
-    id: "white-mirror",
-    name: "白水銀鏡片",
-    type: "gradient",
-    value: "#cbd4d8",
-    swatch: "linear-gradient(135deg,#59666c 0%,#f9fdff 23%,#9da9ae 43%,#ffffff 65%,#69767c 100%)",
-    photoOpacity: .82,
-    photoBlendMode: "normal",
-    gradientStops: [
-      { offset: "0%", color: "#59666c" },
-      { offset: "23%", color: "#f9fdff" },
-      { offset: "43%", color: "#9da9ae" },
-      { offset: "65%", color: "#ffffff" },
-      { offset: "100%", color: "#69767c" }
-    ]
-  },
-  {
-    id: "rainbow-mirror",
-    name: "彩虹水銀鏡片",
-    type: "gradient",
-    value: "#69b9c8",
-    swatch: "linear-gradient(135deg,#8a70c8 0%,#4bb9e5 18%,#5ed29a 36%,#f4df62 53%,#f09a58 69%,#dc6da8 85%,#836ec5 100%)",
-    photoOpacity: .84,
-    photoBlendMode: "normal",
-    gradientStops: [
-      { offset: "0%", color: "#8a70c8" },
-      { offset: "18%", color: "#4bb9e5" },
-      { offset: "36%", color: "#5ed29a" },
-      { offset: "53%", color: "#f4df62" },
-      { offset: "69%", color: "#f09a58" },
-      { offset: "85%", color: "#dc6da8" },
-      { offset: "100%", color: "#836ec5" }
-    ]
   }
 ];
 
@@ -179,7 +146,7 @@ const PRINT_FONTS = {
     hanWidth: 1
   },
   purpleSmile: {
-    label: "Purple Smile",
+    label: "圓潤手寫體",
     family: '"eYeFans Purple Smile", "eYeFans GenSen Rounded", "PingFang TC", sans-serif',
     weight: "400",
     uppercaseWidth: .655,
@@ -187,7 +154,7 @@ const PRINT_FONTS = {
     hanWidth: 1
   },
   baksoSapi: {
-    label: "Bakso Sapi",
+    label: "童趣積木體",
     family: '"eYeFans Bakso Sapi", "eYeFans GenSen Rounded", "PingFang TC", sans-serif',
     weight: "400",
     uppercaseWidth: .647,
@@ -372,40 +339,6 @@ function paintGroup(svg, groupId, fill) {
   });
 }
 
-function ensureLensGradient(svg, key, lens) {
-  const gradientId = `lens-${lens.id}-${key}`;
-  const existing = svg.querySelector(`#${gradientId}`);
-  if (existing) return gradientId;
-
-  let defs = svg.querySelector("defs");
-  if (!defs) {
-    defs = svgElement("defs");
-    svg.insertBefore(defs, svg.firstChild);
-  }
-
-  const gradient = svgElement("linearGradient");
-  gradient.setAttribute("id", gradientId);
-  gradient.setAttribute("x1", "0%");
-  gradient.setAttribute("y1", "0%");
-  gradient.setAttribute("x2", "100%");
-  gradient.setAttribute("y2", "100%");
-
-  lens.gradientStops.forEach(stopConfig => {
-    const stop = svgElement("stop");
-    stop.setAttribute("offset", stopConfig.offset);
-    stop.setAttribute("stop-color", stopConfig.color);
-    gradient.appendChild(stop);
-  });
-
-  defs.appendChild(gradient);
-  return gradientId;
-}
-
-function lensFillFor(lens, key, svg) {
-  if (lens.type !== "gradient") return lens.value;
-  return `url(#${ensureLensGradient(svg, key, lens)})`;
-}
-
 function fillFor(color, key) {
   return color.type === "pattern" ? `url(#${ensureAmberPattern(svgs[key], key)})` : color.value;
 }
@@ -414,7 +347,7 @@ function updateColors() {
   Object.entries(svgs).forEach(([key, svg]) => {
     paintGroup(svg, "frame", fillFor(state.frame, key));
     paintGroup(svg, "temple", fillFor(state.temple, key));
-    paintGroup(svg, "lens", lensFillFor(state.lens, key, svg));
+    paintGroup(svg, "lens", state.lens.value);
   });
 }
 
@@ -433,9 +366,7 @@ function updatePhotoComposite() {
     if (layer.logoCoverBase) {
       layer.logoCoverBase.setAttribute("fill", PHOTO_COVER_FILLS[state.temple.name] || PHOTO_COVER_FILLS[DEFAULT_PHOTO_COLOR]);
     }
-    const lensFill = state.lens.type === "gradient"
-      ? `url(#${ensureLensGradient(layer.svg, `photo-${key}`, state.lens)})`
-      : state.lens.photoFill;
+    const lensFill = state.lens.photoFill;
     layer.lensTints.forEach(shape => {
       shape.style.fill = lensFill || "transparent";
       shape.style.opacity = String(state.lens.photoOpacity ?? 1);
@@ -1045,7 +976,7 @@ function updateConditionalFields() {
     ? "僅支援 A–Z／a–z，最多 10 個英文字母；不接受中文、數字、空格與符號。"
     : "支援中文、英文與數字；中文可使用注音、拼音等輸入法，完成選字後計算字數。";
   document.getElementById("font-help").textContent = isEngraving
-    ? "雷雕僅提供 Purple Smile 與 Bakso Sapi 兩款英文字體。"
+    ? "雷雕僅提供圓潤手寫體與童趣積木體兩款英文字體。"
     : "英文類字體不含中文字形；輸入中文時會自動以中文圓體補足。";
   document.getElementById("print-note").textContent = isEngraving
     ? "模擬位置為左外側鏡腳；白色僅為雷雕效果示意，實品深淺會依鏡腳材質與正式打樣呈現。"
@@ -1072,9 +1003,8 @@ function updateConditionalFields() {
 function setChip(id, item) {
   const chip = document.getElementById(id);
   const isPattern = item.type === "pattern";
-  const isGradient = item.type === "gradient";
-  chip.style.backgroundColor = isPattern ? "#a16238" : isGradient ? item.value : item.swatch || item.value;
-  chip.style.backgroundImage = isPattern ? "url('amber.png')" : isGradient ? item.swatch : "none";
+  chip.style.backgroundColor = isPattern ? "#a16238" : item.swatch || item.value;
+  chip.style.backgroundImage = isPattern ? "url('amber.png')" : "none";
   chip.style.backgroundSize = "cover";
 }
 
