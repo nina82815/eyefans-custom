@@ -55,8 +55,54 @@ const SIZE_COLOR_AVAILABILITY = {
 };
 
 const LENS_COLORS = [
-  { name: "三號灰片", value: "rgba(25,25,28,.78)", swatch: "rgba(25,25,28,.78)" },
-  { name: "抗藍光茶片", value: "rgba(180,150,90,.38)", swatch: "rgba(180,150,90,.55)" }
+  {
+    id: "gray",
+    name: "三號灰片",
+    value: "rgba(25,25,28,.78)",
+    swatch: "rgba(25,25,28,.78)",
+    photoFill: "transparent"
+  },
+  {
+    id: "blue-tea",
+    name: "抗藍光茶片",
+    value: "rgba(180,150,90,.38)",
+    swatch: "rgba(180,150,90,.55)",
+    photoFill: "rgba(222,181,92,.38)"
+  },
+  {
+    id: "white-mirror",
+    name: "白水銀鏡片",
+    type: "gradient",
+    value: "#cbd4d8",
+    swatch: "linear-gradient(135deg,#59666c 0%,#f9fdff 23%,#9da9ae 43%,#ffffff 65%,#69767c 100%)",
+    photoOpacity: .82,
+    photoBlendMode: "normal",
+    gradientStops: [
+      { offset: "0%", color: "#59666c" },
+      { offset: "23%", color: "#f9fdff" },
+      { offset: "43%", color: "#9da9ae" },
+      { offset: "65%", color: "#ffffff" },
+      { offset: "100%", color: "#69767c" }
+    ]
+  },
+  {
+    id: "rainbow-mirror",
+    name: "彩虹水銀鏡片",
+    type: "gradient",
+    value: "#69b9c8",
+    swatch: "linear-gradient(135deg,#8a70c8 0%,#4bb9e5 18%,#5ed29a 36%,#f4df62 53%,#f09a58 69%,#dc6da8 85%,#836ec5 100%)",
+    photoOpacity: .84,
+    photoBlendMode: "normal",
+    gradientStops: [
+      { offset: "0%", color: "#8a70c8" },
+      { offset: "18%", color: "#4bb9e5" },
+      { offset: "36%", color: "#5ed29a" },
+      { offset: "53%", color: "#f4df62" },
+      { offset: "69%", color: "#f09a58" },
+      { offset: "85%", color: "#dc6da8" },
+      { offset: "100%", color: "#836ec5" }
+    ]
+  }
 ];
 
 const VIEW_FILES = {
@@ -326,6 +372,40 @@ function paintGroup(svg, groupId, fill) {
   });
 }
 
+function ensureLensGradient(svg, key, lens) {
+  const gradientId = `lens-${lens.id}-${key}`;
+  const existing = svg.querySelector(`#${gradientId}`);
+  if (existing) return gradientId;
+
+  let defs = svg.querySelector("defs");
+  if (!defs) {
+    defs = svgElement("defs");
+    svg.insertBefore(defs, svg.firstChild);
+  }
+
+  const gradient = svgElement("linearGradient");
+  gradient.setAttribute("id", gradientId);
+  gradient.setAttribute("x1", "0%");
+  gradient.setAttribute("y1", "0%");
+  gradient.setAttribute("x2", "100%");
+  gradient.setAttribute("y2", "100%");
+
+  lens.gradientStops.forEach(stopConfig => {
+    const stop = svgElement("stop");
+    stop.setAttribute("offset", stopConfig.offset);
+    stop.setAttribute("stop-color", stopConfig.color);
+    gradient.appendChild(stop);
+  });
+
+  defs.appendChild(gradient);
+  return gradientId;
+}
+
+function lensFillFor(lens, key, svg) {
+  if (lens.type !== "gradient") return lens.value;
+  return `url(#${ensureLensGradient(svg, key, lens)})`;
+}
+
 function fillFor(color, key) {
   return color.type === "pattern" ? `url(#${ensureAmberPattern(svgs[key], key)})` : color.value;
 }
@@ -334,7 +414,7 @@ function updateColors() {
   Object.entries(svgs).forEach(([key, svg]) => {
     paintGroup(svg, "frame", fillFor(state.frame, key));
     paintGroup(svg, "temple", fillFor(state.temple, key));
-    paintGroup(svg, "lens", state.lens.value);
+    paintGroup(svg, "lens", lensFillFor(state.lens, key, svg));
   });
 }
 
@@ -345,7 +425,6 @@ function photoAssetFor(color) {
 function updatePhotoComposite() {
   const frameAsset = photoAssetFor(state.frame);
   const templeAsset = photoAssetFor(state.temple);
-  const teaLens = state.lens.name === "抗藍光茶片";
 
   Object.entries(photoLayers).forEach(([key, layer]) => {
     setSvgHref(layer.frame, frameAsset[key]);
@@ -354,8 +433,13 @@ function updatePhotoComposite() {
     if (layer.logoCoverBase) {
       layer.logoCoverBase.setAttribute("fill", PHOTO_COVER_FILLS[state.temple.name] || PHOTO_COVER_FILLS[DEFAULT_PHOTO_COLOR]);
     }
+    const lensFill = state.lens.type === "gradient"
+      ? `url(#${ensureLensGradient(layer.svg, `photo-${key}`, state.lens)})`
+      : state.lens.photoFill;
     layer.lensTints.forEach(shape => {
-      shape.style.fill = teaLens ? "rgba(222, 181, 92, .38)" : "transparent";
+      shape.style.fill = lensFill || "transparent";
+      shape.style.opacity = String(state.lens.photoOpacity ?? 1);
+      shape.style.mixBlendMode = state.lens.photoBlendMode || "screen";
     });
   });
 
@@ -987,8 +1071,10 @@ function updateConditionalFields() {
 
 function setChip(id, item) {
   const chip = document.getElementById(id);
-  chip.style.backgroundColor = item.type === "pattern" ? "#a16238" : item.swatch || item.value;
-  chip.style.backgroundImage = item.type === "pattern" ? "url('amber.png')" : "none";
+  const isPattern = item.type === "pattern";
+  const isGradient = item.type === "gradient";
+  chip.style.backgroundColor = isPattern ? "#a16238" : isGradient ? item.value : item.swatch || item.value;
+  chip.style.backgroundImage = isPattern ? "url('amber.png')" : isGradient ? item.swatch : "none";
   chip.style.backgroundSize = "cover";
 }
 
@@ -1030,6 +1116,7 @@ function announceAndNotifyParent() {
       frame: state.frame.name,
       temple: state.temple.name,
       lens: state.lens.name,
+      lensId: state.lens.id,
       printMode,
       uvPrintMode: state.customizationMode === "uv" ? state.printMode : null,
       icon1: usesIcon ? state.icon1 : null,
