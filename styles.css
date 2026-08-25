@@ -191,6 +191,8 @@ button { color: inherit; }
 .customization-mode-options button.is-active { color: white; border-color: var(--ink); background: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .customization-mode-options button.is-active small { color: rgba(255,255,255,.72); }
 .customization-mode-options button:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 2px; }
+.customization-mode-section.is-locked .customization-mode-options button:not(.is-active) { display: none; }
+.customization-mode-section.is-locked .customization-mode-options button.is-active { cursor: default; opacity: 1; }
 
 .engraving-rule { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 3px 8px; align-items: center; margin: 0; padding: 11px 12px; border-radius: 10px; color: var(--ink-2); background: #f3efe7; font-size: 10px; line-height: 1.5; }
 .engraving-rule[hidden] { display: none; }

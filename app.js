@@ -161,6 +161,7 @@ const ENGLISH_FONT_KEYS = new Set(["purpleSmile", "baksoSapi"]);
 
 const state = {
   customizationMode: "uv",
+  customizationModeLocked: false,
   size: "M",
   view: "a45",
   renderMode: "photo",
@@ -373,6 +374,16 @@ function customizationModeFromLocation() {
       : "uv";
   } catch (error) {
     return "uv";
+  }
+}
+
+function customizationModeLockedFromLocation() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const requestedLock = params.get("locked") || params.get("lock");
+    return requestedLock === "1" || requestedLock?.toLowerCase() === "true";
+  } catch (error) {
+    return false;
   }
 }
 
@@ -892,7 +903,17 @@ function updateConditionalFields() {
     document.getElementById("customization-mode-options"),
     button => button.dataset.customizationMode === mode
   );
-  document.getElementById("picked-customization-mode").textContent = config.shortLabel;
+  const customizationModeSection = document.querySelector(".customization-mode-section");
+  customizationModeSection.classList.toggle("is-locked", state.customizationModeLocked);
+  document.getElementById("customization-mode-title").textContent = state.customizationModeLocked
+    ? "本商品方案"
+    : "客製方案";
+  document.getElementById("picked-customization-mode").textContent = state.customizationModeLocked
+    ? `${config.shortLabel} · 已鎖定`
+    : config.shortLabel;
+  document.querySelectorAll("#customization-mode-options button").forEach(button => {
+    button.disabled = state.customizationModeLocked;
+  });
 
   const personalizationSection = document.getElementById("personalization-section");
   personalizationSection.hidden = mode === "color";
@@ -997,6 +1018,7 @@ function announceAndNotifyParent() {
     selection: {
       customizationMode: state.customizationMode,
       customizationModeLabel: customizationConfig.label,
+      customizationModeLocked: state.customizationModeLocked,
       size: state.size,
       view: state.view,
       renderMode: state.renderMode,
@@ -1038,7 +1060,11 @@ function updateAll() {
 function bindControls() {
   document.getElementById("customization-mode-options").addEventListener("click", event => {
     const button = event.target.closest("button[data-customization-mode]");
-    if (!button || button.dataset.customizationMode === state.customizationMode) return;
+    if (
+      state.customizationModeLocked
+      || !button
+      || button.dataset.customizationMode === state.customizationMode
+    ) return;
     const seedName = state.nameSource;
     savePersonalizationDraft();
     state.customizationMode = button.dataset.customizationMode;
@@ -1179,6 +1205,7 @@ function bindControls() {
 
 async function init() {
   state.customizationMode = customizationModeFromLocation();
+  state.customizationModeLocked = customizationModeLockedFromLocation();
   loadPersonalizationDraft(state.nameSource);
   preparePhotoLayers();
   bindControls();
