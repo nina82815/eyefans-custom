@@ -63,6 +63,7 @@ const svgs = {};
 const printLayers = {};
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XLINK_NS = "http://www.w3.org/1999/xlink";
+const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 30 };
 
 function svgElement(tag) {
   return document.createElementNS(SVG_NS, tag);
@@ -111,8 +112,9 @@ function preparePrintLayer(svg, key) {
 
   const sourceText = root.querySelector("text");
   const transform = sourceText?.getAttribute("transform") || "";
-  const fontFamily = sourceText?.getAttribute("font-family") || "BaksoSapi, Arial, sans-serif";
-  const fontSize = Number.parseFloat(sourceText?.getAttribute("font-size")) || (key === "side" ? 36 : 24);
+  const latinFontFamily = sourceText?.getAttribute("font-family") || "BaksoSapi, Arial, sans-serif";
+  const originalFontSize = Number.parseFloat(sourceText?.getAttribute("font-size")) || (key === "side" ? 36 : 24);
+  const fontSize = originalFontSize * (key === "side" ? .72 : key === "a45" ? .82 : 1);
 
   const content = svgElement("g");
   content.setAttribute("class", "uv-print-content");
@@ -123,7 +125,7 @@ function preparePrintLayer(svg, key) {
   [iconA, iconB].forEach(icon => icon.setAttribute("preserveAspectRatio", "xMidYMid meet"));
 
   const text = svgElement("text");
-  text.setAttribute("font-family", fontFamily);
+  text.setAttribute("font-family", latinFontFamily);
   text.setAttribute("font-size", String(fontSize));
   text.setAttribute("font-weight", "700");
   text.setAttribute("fill", key === "front" ? "#ffffff" : "#fffdf8");
@@ -134,7 +136,8 @@ function preparePrintLayer(svg, key) {
   content.append(iconA, text, iconB);
   root.replaceChildren(content);
   root.style.pointerEvents = "none";
-  printLayers[key] = { root, content, iconA, iconB, text, fontSize };
+  svg.appendChild(root);
+  printLayers[key] = { root, content, iconA, iconB, text, fontSize, latinFontFamily };
 }
 
 async function loadSvg(key, fileName) {
@@ -181,7 +184,40 @@ function updateColors() {
 }
 
 function estimatedTextWidth(name, fontSize) {
-  return Math.max(fontSize * .65, name.length * fontSize * .57);
+  const width = Array.from(name).reduce((total, character) => {
+    return total + (isCjk(character) ? fontSize : character === " " ? fontSize * .34 : fontSize * .57);
+  }, 0);
+  return Math.max(fontSize * .65, width);
+}
+
+function isCjk(character) {
+  return /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/u.test(character);
+}
+
+function printUnits(character) {
+  if (isCjk(character)) return 2.5;
+  if (character === " ") return .5;
+  return 1;
+}
+
+function normalizeName(value) {
+  const allowed = value.toUpperCase().replace(/[^A-Z0-9 \u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/gu, "");
+  let result = "";
+  let units = 0;
+  for (const character of Array.from(allowed)) {
+    const nextUnits = printUnits(character);
+    if (units + nextUnits > 10) break;
+    result += character;
+    units += nextUnits;
+  }
+  return { value: result, units };
+}
+
+function nameCountLabel(name, units) {
+  const characters = Array.from(name);
+  if (characters.length > 0 && characters.every(isCjk)) return `${characters.length}/4`;
+  if (characters.some(isCjk)) return `${units}/10`;
+  return `${characters.length}/10`;
 }
 
 function positionIcon(icon, x, size) {
@@ -202,24 +238,36 @@ function updatePrint() {
     const nameWidth = estimatedTextWidth(state.name || " ", layer.fontSize);
     const firstId = state.order === "normal" ? state.icon1 : state.icon2;
     const secondId = state.order === "normal" ? state.icon2 : state.icon1;
+    const totalWidth = showIcons && showName
+      ? (iconSize * 2) + (gap * 2) + nameWidth
+      : showIcons
+        ? (iconSize * 2) + gap
+        : nameWidth;
+    const startX = (PRINT_CENTER_OFFSET[key] || 0) - (totalWidth / 2);
 
     setSvgHref(layer.iconA, `assets/uv-icons/${firstId}.svg`);
     setSvgHref(layer.iconB, `assets/uv-icons/${secondId}.svg`);
     layer.text.textContent = state.name || " ";
+    layer.text.setAttribute(
+      "font-family",
+      Array.from(state.name).some(isCjk)
+        ? '"PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif'
+        : layer.latinFontFamily
+    );
     layer.text.setAttribute("y", "0");
     layer.iconA.style.display = showIcons ? "inline" : "none";
     layer.iconB.style.display = showIcons ? "inline" : "none";
     layer.text.style.display = showName ? "inline" : "none";
 
     if (showIcons && showName) {
-      positionIcon(layer.iconA, 0, iconSize);
-      layer.text.setAttribute("x", String(iconSize + gap));
-      positionIcon(layer.iconB, iconSize + gap + nameWidth + gap, iconSize);
+      positionIcon(layer.iconA, startX, iconSize);
+      layer.text.setAttribute("x", String(startX + iconSize + gap));
+      positionIcon(layer.iconB, startX + iconSize + gap + nameWidth + gap, iconSize);
     } else if (showIcons) {
-      positionIcon(layer.iconA, 0, iconSize);
-      positionIcon(layer.iconB, iconSize + gap, iconSize);
+      positionIcon(layer.iconA, startX, iconSize);
+      positionIcon(layer.iconB, startX + iconSize + gap, iconSize);
     } else {
-      layer.text.setAttribute("x", "0");
+      layer.text.setAttribute("x", String(startX));
     }
   });
 }
@@ -410,10 +458,10 @@ function bindControls() {
   });
 
   document.getElementById("name-input").addEventListener("input", event => {
-    const normalized = event.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, 10);
-    event.target.value = normalized;
-    state.name = normalized;
-    document.getElementById("name-count").textContent = `${normalized.length}/10`;
+    const normalized = normalizeName(event.target.value);
+    event.target.value = normalized.value;
+    state.name = normalized.value;
+    document.getElementById("name-count").textContent = nameCountLabel(normalized.value, normalized.units);
     updateAll();
   });
 }
