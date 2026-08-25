@@ -35,17 +35,90 @@
         <span class="preview-status"><i></i> 即時模擬</span>
       </div>
 
-      <div class="view-tabs" id="view-tabs" aria-label="選擇預覽角度">
-        <button class="view-tab is-active" type="button" data-view="front" aria-pressed="true">正面</button>
-        <button class="view-tab" type="button" data-view="side" aria-pressed="false">側面</button>
-        <button class="view-tab" type="button" data-view="a45" aria-pressed="false">45°</button>
+      <div class="preview-toolbar">
+        <div class="view-tabs" id="view-tabs" aria-label="選擇預覽角度">
+          <button class="view-tab is-active" type="button" data-view="front" aria-pressed="true">正面</button>
+          <button class="view-tab" type="button" data-view="side" aria-pressed="false">側面</button>
+          <button class="view-tab" type="button" data-view="a45" aria-pressed="false">45°</button>
+        </div>
+        <div class="render-mode-options" id="render-mode-options" aria-label="選擇預覽模式">
+          <button class="is-active" type="button" data-render-mode="photo" aria-pressed="true">實拍測試</button>
+          <button type="button" data-render-mode="model" aria-pressed="false">配色模型</button>
+        </div>
       </div>
+      <p class="photo-mode-note" id="photo-mode-note"><b>實拍測試</b> 目前支援櫻花粉、霧面白、琥珀；90° 側面沿用配色模型。</p>
 
-      <div class="viewer" id="viewer" aria-live="polite">
+      <div class="viewer is-photo-mode" id="viewer" aria-live="polite">
         <div class="loading" id="loading-state"><span></span>正在載入眼鏡模型</div>
-        <div class="view" id="view-front"></div>
+        <div class="view" id="view-front" data-photo-ready>
+          <svg class="photo-composite" id="photo-front" viewBox="0 0 591 235" preserveAspectRatio="xMidYMid meet" role="img" aria-label="正面實拍眼鏡預覽">
+            <defs>
+              <mask id="photo-front-silhouette" x="0" y="0" width="591" height="235" maskUnits="userSpaceOnUse" style="mask-type:alpha">
+                <image href="assets/photos/white-front.png" x="0" y="0" width="591" height="235" preserveAspectRatio="none"></image>
+              </mask>
+              <clipPath id="photo-front-temple-clip" clipPathUnits="userSpaceOnUse">
+                <path d="M0 146C13 142 32 148 51 163C38 174 18 181 1 177ZM591 146C578 142 559 148 540 163C553 174 573 181 590 177Z"></path>
+              </clipPath>
+            </defs>
+            <g mask="url(#photo-front-silhouette)">
+              <image class="photo-frame-image" href="assets/photos/sakura-front.png" x="0" y="0" width="591" height="235" preserveAspectRatio="none"></image>
+              <image class="photo-temple-image" href="assets/photos/sakura-front.png" x="0" y="0" width="591" height="235" preserveAspectRatio="none" clip-path="url(#photo-front-temple-clip)"></image>
+              <g class="photo-lens-tints">
+                <ellipse cx="153" cy="124" rx="108" ry="94"></ellipse>
+                <ellipse cx="438" cy="124" rx="108" ry="94"></ellipse>
+              </g>
+            </g>
+          </svg>
+        </div>
         <div class="view" id="view-side" hidden></div>
-        <div class="view" id="view-a45" hidden></div>
+        <div class="view" id="view-a45" data-photo-ready hidden>
+          <svg class="photo-composite" id="photo-a45" viewBox="0 0 1643 686" preserveAspectRatio="xMidYMid meet" role="img" aria-label="45 度實拍眼鏡預覽">
+            <defs>
+              <mask id="photo-a45-silhouette" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" style="mask-type:alpha">
+                <image href="assets/photos/white-a45.png" x="0" y="0" width="1643" height="686" preserveAspectRatio="none"></image>
+              </mask>
+              <clipPath id="photo-a45-temple-clip" clipPathUnits="userSpaceOnUse">
+                <path d="M1115 0H1643V686H1115ZM986 398L1160 492L1165 543C1120 579 1060 552 980 488Z"></path>
+              </clipPath>
+              <clipPath id="photo-a45-print-safe" clipPathUnits="userSpaceOnUse">
+                <path d="M1165 95L1492 183L1472 323L1148 238Z"></path>
+              </clipPath>
+              <pattern id="photo-a45-logo-pattern" patternUnits="userSpaceOnUse" width="1643" height="686">
+                <image class="photo-logo-pattern-image" href="assets/photos/sakura-a45.png" x="-830" y="0" width="3286" height="686" preserveAspectRatio="none"></image>
+              </pattern>
+              <linearGradient id="photo-a45-cover-sakura" gradientUnits="userSpaceOnUse" x1="1130" y1="82" x2="1455" y2="302">
+                <stop offset="0" stop-color="#edc4cf"></stop>
+                <stop offset="1" stop-color="#d796aa"></stop>
+              </linearGradient>
+              <linearGradient id="photo-a45-cover-white" gradientUnits="userSpaceOnUse" x1="1130" y1="82" x2="1455" y2="302">
+                <stop offset="0" stop-color="#f6f5f2"></stop>
+                <stop offset="1" stop-color="#cbc9c5"></stop>
+              </linearGradient>
+              <pattern id="photo-a45-cover-amber" patternUnits="userSpaceOnUse" width="360" height="360" patternTransform="rotate(9.5)">
+                <image href="amber.png" x="0" y="0" width="360" height="360" preserveAspectRatio="xMidYMid slice"></image>
+              </pattern>
+            </defs>
+            <g mask="url(#photo-a45-silhouette)">
+              <image class="photo-frame-image" href="assets/photos/sakura-a45.png" x="0" y="0" width="1643" height="686" preserveAspectRatio="none"></image>
+              <image class="photo-temple-image" href="assets/photos/sakura-a45.png" x="0" y="0" width="1643" height="686" preserveAspectRatio="none" clip-path="url(#photo-a45-temple-clip)"></image>
+              <g class="photo-lens-tints">
+                <path d="M130 112C226 98 280 170 278 290C278 435 230 568 169 583C96 599 57 516 45 389C31 251 52 127 130 112Z"></path>
+                <path d="M676 61C807 52 913 124 946 251C978 390 906 564 790 620C671 674 565 592 516 461C463 318 469 133 567 84C596 69 631 63 676 61Z"></path>
+              </g>
+              <path class="photo-logo-cover-base" d="M1110 55C1248 57 1407 88 1507 139L1457 323C1337 280 1211 248 1095 229Z" fill="url(#photo-a45-cover-sakura)"></path>
+              <path class="photo-logo-cover" d="M1110 55C1248 57 1407 88 1507 139L1457 323C1337 280 1211 248 1095 229Z" fill="url(#photo-a45-logo-pattern)"></path>
+            </g>
+            <g clip-path="url(#photo-a45-print-safe)">
+              <g class="photo-print-root" transform="translate(1318 216) rotate(9.5)">
+                <g class="uv-print-content">
+                  <image class="photo-print-icon-a" preserveAspectRatio="xMidYMid meet"></image>
+                  <text class="photo-print-text" y="0" paint-order="stroke"></text>
+                  <image class="photo-print-icon-b" preserveAspectRatio="xMidYMid meet"></image>
+                </g>
+              </g>
+            </g>
+          </svg>
+        </div>
         <p class="print-view-hint" id="print-view-hint">UV 彩印位於右外側鏡腳，請切換「側面」或「45°」查看。</p>
       </div>
 
@@ -164,7 +237,7 @@
           </div>
         </fieldset>
 
-        <p class="print-note">模擬位置為右外側鏡腳；側面最接近實際比例，成品仍以正式打樣為準。</p>
+        <p class="print-note">模擬位置為右外側鏡腳；實拍 45° 可確認整體效果，成品位置與色澤仍以正式打樣為準。</p>
       </section>
     </aside>
   </main>
