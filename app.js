@@ -93,6 +93,19 @@ const TEXT_COLOR_OPTIONS = {
   rainbow: { label: "逐字彩色", fill: "#e66d3f", stroke: "#111111", outlineWidth: "0.5pt" }
 };
 
+const ENGRAVING_TEXT_STYLE = {
+  label: "白色雷雕示意",
+  fill: "#fffdf8",
+  stroke: "none",
+  outlineWidth: "0"
+};
+
+const CUSTOMIZATION_MODES = {
+  color: { label: "框腳配色", shortLabel: "純配色" },
+  engraving: { label: "框腳配色＋雷雕", shortLabel: "白色雷雕" },
+  uv: { label: "框腳配色＋UV 彩印", shortLabel: "UV 彩印" }
+};
+
 const RAINBOW_PRINT_COLORS = ["#ef6a4b", "#efbd3f", "#63a56f", "#43a5bd", "#8b72c7", "#df6f99"];
 
 const MODE_NAMES = {
@@ -137,7 +150,10 @@ const PRINT_FONTS = {
   }
 };
 
+const ENGLISH_FONT_KEYS = new Set(["purpleSmile", "baksoSapi"]);
+
 const state = {
+  customizationMode: "uv",
   size: "M",
   view: "a45",
   renderMode: "photo",
@@ -155,6 +171,13 @@ const state = {
   caseMode: "preserve",
   order: "normal"
 };
+
+const customizationDrafts = {
+  uv: { nameSource: "PEIYU", font: "baksoSapi", caseMode: "preserve" },
+  engraving: { nameSource: null, font: "baksoSapi", caseMode: "preserve" }
+};
+
+let nameValidationMessage = "";
 
 const svgs = {};
 const printLayers = {};
@@ -342,6 +365,76 @@ function updatePhotoComposite() {
   document.getElementById("photo-mode-note").hidden = !photoMode;
 }
 
+function customizationModeFromLocation() {
+  try {
+    const requestedMode = new URLSearchParams(window.location.search).get("mode");
+    return Object.prototype.hasOwnProperty.call(CUSTOMIZATION_MODES, requestedMode)
+      ? requestedMode
+      : "uv";
+  } catch (error) {
+    return "uv";
+  }
+}
+
+function syncCustomizationModeInUrl() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("mode", state.customizationMode);
+    window.history.replaceState(null, "", url);
+  } catch (error) {
+    // The simulator can still work when embedded in a restricted host page.
+  }
+}
+
+function effectivePrintMode() {
+  if (state.customizationMode === "color") return "none";
+  if (state.customizationMode === "engraving") return "name";
+  return state.printMode;
+}
+
+function effectiveTextStyle() {
+  if (state.customizationMode === "engraving") return ENGRAVING_TEXT_STYLE;
+  return TEXT_COLOR_OPTIONS[state.textColor] || TEXT_COLOR_OPTIONS.white;
+}
+
+function usesRainbowText() {
+  return state.customizationMode === "uv" && state.textColor === "rainbow";
+}
+
+function personalizationDraftKey(mode = state.customizationMode) {
+  return mode === "uv" || mode === "engraving" ? mode : null;
+}
+
+function savePersonalizationDraft() {
+  const key = personalizationDraftKey();
+  if (!key) return;
+  customizationDrafts[key].nameSource = state.nameSource;
+  customizationDrafts[key].font = state.font;
+  customizationDrafts[key].caseMode = state.caseMode;
+}
+
+function loadPersonalizationDraft(seedName = state.nameSource) {
+  const key = personalizationDraftKey();
+  nameValidationMessage = "";
+  if (!key) return;
+
+  const draft = customizationDrafts[key];
+  if (key === "engraving" && draft.nameSource === null) {
+    const normalized = normalizeEngravingName(seedName);
+    draft.nameSource = normalized.value;
+    if (normalized.changed) {
+      nameValidationMessage = "雷雕僅支援英文字母，請重新確認姓名。";
+    }
+  }
+
+  state.nameSource = draft.nameSource || "";
+  state.caseMode = draft.caseMode || "preserve";
+  state.name = applyCase(state.nameSource);
+  state.font = key === "engraving" && !ENGLISH_FONT_KEYS.has(draft.font)
+    ? "baksoSapi"
+    : draft.font;
+}
+
 function estimatedTextWidth(name, fontSize, fontMetrics = PRINT_FONTS.baksoSapi) {
   const width = Array.from(name).reduce((total, character) => {
     if (isCjk(character)) return total + (fontSize * fontMetrics.hanWidth);
@@ -365,7 +458,7 @@ function measuredTextWidth(name, fontSize, fontMetrics = PRINT_FONTS.baksoSapi) 
 }
 
 function printTextWidth(name, fontSize, fontMetrics = PRINT_FONTS.baksoSapi) {
-  if (state.textColor !== "rainbow" || typeof document === "undefined") {
+  if (!usesRainbowText() || typeof document === "undefined") {
     return measuredTextWidth(name, fontSize, fontMetrics);
   }
   if (!textMeasureContext) textMeasureContext = document.createElement("canvas").getContext("2d");
@@ -382,7 +475,7 @@ function printTextWidth(name, fontSize, fontMetrics = PRINT_FONTS.baksoSapi) {
 }
 
 function applyPrintTextColor(textElement, value) {
-  const option = TEXT_COLOR_OPTIONS[state.textColor] || TEXT_COLOR_OPTIONS.white;
+  const option = effectiveTextStyle();
   const printableValue = value || " ";
   textElement.replaceChildren();
   textElement.setAttributeNS(XML_NS, "xml:space", "preserve");
@@ -393,7 +486,7 @@ function applyPrintTextColor(textElement, value) {
   textElement.style.paintOrder = "stroke fill";
   textElement.style.vectorEffect = "non-scaling-stroke";
 
-  if (state.textColor !== "rainbow") {
+  if (!usesRainbowText()) {
     textElement.textContent = printableValue;
     return;
   }
@@ -421,8 +514,9 @@ function printUnits(character) {
   return 1;
 }
 
-function normalizeName(value) {
-  const allowed = value.normalize("NFC").replace(/[^A-Za-z0-9 \p{Script=Han}]/gu, "");
+function normalizeUvName(value) {
+  const normalizedValue = value.normalize("NFC");
+  const allowed = normalizedValue.replace(/[^A-Za-z0-9 \p{Script=Han}]/gu, "");
   let result = "";
   let units = 0;
   for (const character of Array.from(allowed)) {
@@ -431,7 +525,19 @@ function normalizeName(value) {
     result += character;
     units += nextUnits;
   }
-  return { value: result, units };
+  return { value: result, units, changed: result !== normalizedValue };
+}
+
+function normalizeEngravingName(value) {
+  const normalizedValue = value.normalize("NFC");
+  const result = normalizedValue.replace(/[^A-Za-z]/g, "").slice(0, 10);
+  return { value: result, units: result.length, changed: result !== normalizedValue };
+}
+
+function normalizeName(value) {
+  return state.customizationMode === "engraving"
+    ? normalizeEngravingName(value)
+    : normalizeUvName(value);
 }
 
 function applyCase(value, mode = state.caseMode) {
@@ -442,6 +548,7 @@ function applyCase(value, mode = state.caseMode) {
 
 function nameCountLabel(name, units) {
   const characters = Array.from(name);
+  if (state.customizationMode === "engraving") return `${characters.length}/10`;
   if (characters.length > 0 && characters.every(isCjk)) return `${characters.length}/4`;
   if (characters.some(isCjk)) return `${units}/10`;
   return `${characters.length}/10`;
@@ -455,10 +562,11 @@ function positionIcon(icon, x, size) {
 }
 
 function updatePrint() {
+  const printMode = effectivePrintMode();
   Object.entries(printLayers).forEach(([key, layer]) => {
-    const showIcons = state.printMode === "both" || state.printMode === "icon";
-    const showName = state.printMode === "both" || state.printMode === "name";
-    layer.root.style.display = state.printMode === "none" || key === "front" ? "none" : "inline";
+    const showIcons = printMode === "both" || printMode === "icon";
+    const showName = printMode === "both" || printMode === "name";
+    layer.root.style.display = printMode === "none" || key === "front" ? "none" : "inline";
 
     const selectedFont = PRINT_FONTS[state.font];
     const baseIconSize = layer.fontSize * .88;
@@ -509,9 +617,10 @@ function updatePhotoPrint() {
   const layer = photoPrintLayer;
   if (!layer) return;
 
-  const showIcons = state.printMode === "both" || state.printMode === "icon";
-  const showName = state.printMode === "both" || state.printMode === "name";
-  layer.root.style.display = state.renderMode === "photo" && state.printMode !== "none" ? "inline" : "none";
+  const printMode = effectivePrintMode();
+  const showIcons = printMode === "both" || printMode === "icon";
+  const showName = printMode === "both" || printMode === "name";
+  layer.root.style.display = state.renderMode === "photo" && printMode !== "none" ? "inline" : "none";
 
   const selectedFont = PRINT_FONTS[state.font];
   const baseIconSize = layer.fontSize * .88;
@@ -704,12 +813,15 @@ function leavePhotoModeSelections() {
 
 function updatePrintViewHint() {
   const hint = document.getElementById("print-view-hint");
-  if (state.renderMode === "photo") {
+  const printMode = effectivePrintMode();
+  if (state.renderMode === "photo" || printMode === "none") {
     hint.hidden = true;
     return;
   }
-  hint.textContent = "UV 彩印位於左外側鏡腳，請切換「側面」或「左側 45°」查看。";
-  hint.hidden = state.view !== "front" || state.printMode === "none";
+  hint.textContent = state.customizationMode === "engraving"
+    ? "雷雕位於左外側鏡腳，請切換「側面」或「左側 45°」查看。"
+    : "UV 彩印位於左外側鏡腳，請切換「側面」或「左側 45°」查看。";
+  hint.hidden = state.view !== "front";
 }
 
 function swatchStyle(item) {
@@ -799,15 +911,78 @@ function renderIconCatalog() {
 }
 
 function updateConditionalFields() {
-  const usesIcon = state.printMode === "both" || state.printMode === "icon";
-  const usesName = state.printMode === "both" || state.printMode === "name";
-  document.getElementById("icon-field").hidden = !usesIcon;
+  const mode = state.customizationMode;
+  const config = CUSTOMIZATION_MODES[mode] || CUSTOMIZATION_MODES.uv;
+  const isUv = mode === "uv";
+  const isEngraving = mode === "engraving";
+  const printMode = effectivePrintMode();
+  const usesIcon = printMode === "both" || printMode === "icon";
+  const usesName = printMode === "both" || printMode === "name";
+
+  setActiveButtons(
+    document.getElementById("customization-mode-options"),
+    button => button.dataset.customizationMode === mode
+  );
+  document.getElementById("picked-customization-mode").textContent = config.shortLabel;
+
+  const personalizationSection = document.getElementById("personalization-section");
+  personalizationSection.hidden = mode === "color";
+  document.getElementById("personalization-title").textContent = isEngraving ? "雷雕客製" : "UV 彩印客製";
+  document.getElementById("picked-print").textContent = isEngraving
+    ? "白色英文雷雕"
+    : MODE_NAMES[state.printMode];
+  document.getElementById("engraving-rule").hidden = !isEngraving;
+
+  document.getElementById("print-mode-field").hidden = !isUv;
+  document.getElementById("icon-field").hidden = !isUv || !usesIcon;
   document.getElementById("name-field").hidden = !usesName;
-  document.getElementById("text-color-field").hidden = !usesName;
+  document.getElementById("text-color-field").hidden = !isUv || !usesName;
   document.getElementById("font-field").hidden = !usesName;
   document.getElementById("case-field").hidden = !usesName;
-  document.getElementById("layout-field").hidden = state.printMode !== "both";
-  document.getElementById("picked-print").textContent = MODE_NAMES[state.printMode];
+  document.getElementById("layout-field").hidden = !isUv || state.printMode !== "both";
+  document.getElementById("chinese-font-group").hidden = isEngraving;
+
+  const nameInput = document.getElementById("name-input");
+  nameInput.maxLength = isEngraving ? 10 : 24;
+  nameInput.value = state.name;
+  nameInput.style.fontFamily = PRINT_FONTS[state.font].family;
+  if (isEngraving) {
+    nameInput.lang = "en";
+    nameInput.pattern = "[A-Za-z]*";
+  } else {
+    nameInput.removeAttribute("lang");
+    nameInput.removeAttribute("pattern");
+  }
+
+  document.getElementById("name-legend-label").textContent = isEngraving ? "輸入雷雕英文" : "輸入名字";
+  document.getElementById("name-limit-label").textContent = isEngraving ? "英文 10 字" : "英文 10 字／中文 4 字";
+  document.getElementById("name-count").textContent = nameCountLabel(state.nameSource, Array.from(state.nameSource).reduce((total, character) => total + printUnits(character), 0));
+  document.getElementById("name-help").textContent = isEngraving
+    ? "僅支援 A–Z／a–z，最多 10 個英文字母；不接受中文、數字、空格與符號。"
+    : "支援中文、英文與數字；中文可使用注音、拼音等輸入法，完成選字後計算字數。";
+  document.getElementById("font-help").textContent = isEngraving
+    ? "雷雕僅提供 Purple Smile 與 Bakso Sapi 兩款英文字體。"
+    : "英文類字體不含中文字形；輸入中文時會自動以中文圓體補足。";
+  document.getElementById("print-note").textContent = isEngraving
+    ? "模擬位置為左外側鏡腳；白色僅為雷雕效果示意，實品深淺會依鏡腳材質與正式打樣呈現。"
+    : "模擬位置為左外側鏡腳；實拍左側 45° 可確認整體效果，成品位置與色澤仍以正式打樣為準。";
+
+  const validation = document.getElementById("name-validation");
+  validation.textContent = nameValidationMessage;
+  validation.hidden = !nameValidationMessage || !isEngraving;
+
+  setActiveButtons(
+    document.getElementById("font-options"),
+    button => button.dataset.font === state.font
+  );
+  setActiveButtons(
+    document.getElementById("print-mode-options"),
+    button => button.dataset.mode === state.printMode
+  );
+  setActiveButtons(
+    document.getElementById("case-options"),
+    button => button.dataset.case === state.caseMode
+  );
 }
 
 function setChip(id, item) {
@@ -829,30 +1004,43 @@ function updateSummary() {
 }
 
 function announceAndNotifyParent() {
+  const customizationConfig = CUSTOMIZATION_MODES[state.customizationMode] || CUSTOMIZATION_MODES.uv;
+  const printMode = effectivePrintMode();
+  const usesIcon = printMode === "both" || printMode === "icon";
+  const usesName = printMode === "both" || printMode === "name";
   const textColorLabel = TEXT_COLOR_OPTIONS[state.textColor]?.label || TEXT_COLOR_OPTIONS.white.label;
-  const print = state.printMode === "none"
+  const personalization = state.customizationMode === "color"
     ? "不加印刷"
-    : `${MODE_NAMES[state.printMode]}${state.printMode !== "name" ? `／圖案 ${state.icon1}+${state.icon2}` : ""}${state.printMode !== "icon" ? `／${state.name || "未輸入名字"}／文字${textColorLabel}` : ""}`;
+    : state.customizationMode === "engraving"
+      ? `白色英文雷雕／${state.name || "未輸入英文"}`
+      : printMode === "none"
+        ? "不加印刷"
+        : `${MODE_NAMES[printMode]}${usesIcon ? `／圖案 ${state.icon1}+${state.icon2}` : ""}${usesName ? `／${state.name || "未輸入名字"}／文字${textColorLabel}` : ""}`;
   const previewMode = state.renderMode === "photo" ? "實拍效果" : "2D 自由配色";
-  const summary = `${previewMode}、尺寸 ${state.size}、鏡框 ${state.frame.name}、鏡腳 ${state.temple.name}、鏡片 ${state.lens.name}、${print}`;
+  const summary = `${previewMode}、${customizationConfig.label}、尺寸 ${state.size}、鏡框 ${state.frame.name}、鏡腳 ${state.temple.name}、鏡片 ${state.lens.name}、${personalization}`;
   document.getElementById("live-status").textContent = summary;
   window.parent?.postMessage({
     type: "eyefans-customizer-change",
     selection: {
+      customizationMode: state.customizationMode,
+      customizationModeLabel: customizationConfig.label,
       size: state.size,
       view: state.view,
       renderMode: state.renderMode,
       frame: state.frame.name,
       temple: state.temple.name,
       lens: state.lens.name,
-      printMode: state.printMode,
-      icon1: state.icon1,
-      icon2: state.icon2,
-      name: state.name,
-      textColor: state.textColor,
-      font: state.font,
-      caseMode: state.caseMode,
-      order: state.order,
+      printMode,
+      uvPrintMode: state.customizationMode === "uv" ? state.printMode : null,
+      icon1: usesIcon ? state.icon1 : null,
+      icon2: usesIcon ? state.icon2 : null,
+      name: usesName ? state.name : "",
+      textColor: usesName
+        ? state.customizationMode === "engraving" ? "white" : state.textColor
+        : null,
+      font: usesName ? state.font : null,
+      caseMode: usesName ? state.caseMode : null,
+      order: printMode === "both" ? state.order : null,
       summary
     }
   }, "*");
@@ -871,6 +1059,17 @@ function updateAll() {
 }
 
 function bindControls() {
+  document.getElementById("customization-mode-options").addEventListener("click", event => {
+    const button = event.target.closest("button[data-customization-mode]");
+    if (!button || button.dataset.customizationMode === state.customizationMode) return;
+    const seedName = state.nameSource;
+    savePersonalizationDraft();
+    state.customizationMode = button.dataset.customizationMode;
+    loadPersonalizationDraft(seedName);
+    syncCustomizationModeInUrl();
+    updateAll();
+  });
+
   document.getElementById("size-options").addEventListener("click", event => {
     const button = event.target.closest("button[data-size]");
     if (!button || button.dataset.size === state.size) return;
@@ -935,7 +1134,10 @@ function bindControls() {
   document.getElementById("font-options").addEventListener("click", event => {
     const button = event.target.closest("button[data-font]");
     if (!button) return;
+    if (state.customizationMode === "engraving" && !ENGLISH_FONT_KEYS.has(button.dataset.font)) return;
     state.font = button.dataset.font;
+    const draftKey = personalizationDraftKey();
+    if (draftKey) customizationDrafts[draftKey].font = state.font;
     setActiveButtons(document.getElementById("font-options"), candidate => candidate === button);
     document.getElementById("name-input").style.fontFamily = PRINT_FONTS[state.font].family;
     updateAll();
@@ -954,6 +1156,8 @@ function bindControls() {
     if (!button) return;
     state.caseMode = button.dataset.case;
     state.name = applyCase(state.nameSource);
+    const draftKey = personalizationDraftKey();
+    if (draftKey) customizationDrafts[draftKey].caseMode = state.caseMode;
     document.getElementById("name-input").value = state.name;
     setActiveButtons(document.getElementById("case-options"), candidate => candidate === button);
     updateAll();
@@ -964,8 +1168,13 @@ function bindControls() {
 
   const commitNameInput = () => {
     const normalized = normalizeName(nameInput.value);
+    nameValidationMessage = state.customizationMode === "engraving" && normalized.changed
+      ? "雷雕僅支援英文字母，其他字元已移除。"
+      : "";
     state.nameSource = normalized.value;
     state.name = applyCase(normalized.value);
+    const draftKey = personalizationDraftKey();
+    if (draftKey) customizationDrafts[draftKey].nameSource = normalized.value;
     nameInput.value = state.name;
     document.getElementById("name-count").textContent = nameCountLabel(normalized.value, normalized.units);
     updateAll();
@@ -987,6 +1196,8 @@ function bindControls() {
 }
 
 async function init() {
+  state.customizationMode = customizationModeFromLocation();
+  loadPersonalizationDraft(state.nameSource);
   preparePhotoLayers();
   bindControls();
   syncViewControls();
@@ -996,8 +1207,8 @@ async function init() {
   renderLensOptions();
   renderIconCatalog();
   updateIconSlotUi();
+  updateConditionalFields();
   updateColorAvailability();
-  document.getElementById("name-input").style.fontFamily = PRINT_FONTS[state.font].family;
 
   try {
     await Promise.all(Object.entries(VIEW_FILES).map(([key, file]) => loadSvg(key, file)));

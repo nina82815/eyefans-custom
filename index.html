@@ -118,6 +118,18 @@
         <p>點選尺寸、色票與圖案，左側會同步顯示效果。</p>
       </div>
 
+      <section class="control-section customization-mode-section" aria-labelledby="customization-mode-title">
+        <div class="section-heading">
+          <div><span>00</span><h3 id="customization-mode-title">客製方案</h3></div>
+          <output id="picked-customization-mode">UV 彩印</output>
+        </div>
+        <div class="customization-mode-options" id="customization-mode-options" role="group" aria-label="選擇客製方案">
+          <button type="button" data-customization-mode="color" aria-pressed="false"><b>框腳配色</b><small>自由選色</small></button>
+          <button type="button" data-customization-mode="engraving" aria-pressed="false"><b>配色＋雷雕</b><small>白色英文</small></button>
+          <button class="is-active" type="button" data-customization-mode="uv" aria-pressed="true"><b>配色＋UV 彩印</b><small>小圖與名字</small></button>
+        </div>
+      </section>
+
       <section class="control-section" aria-labelledby="size-title">
         <div class="section-heading">
           <div><span>01</span><h3 id="size-title">尺寸</h3></div>
@@ -156,13 +168,18 @@
         <div class="lens-options" id="lens-options"></div>
       </section>
 
-      <section class="control-section uv-section" aria-labelledby="uv-title">
+      <section class="control-section personalization-section" id="personalization-section" aria-labelledby="personalization-title">
         <div class="section-heading">
-          <div><span>05</span><h3 id="uv-title">UV 彩印客製</h3></div>
+          <div><span>05</span><h3 id="personalization-title">UV 彩印客製</h3></div>
           <output id="picked-print">圖案＋名字</output>
         </div>
 
-        <fieldset class="choice-field">
+        <p class="engraving-rule" id="engraving-rule" hidden>
+          <i aria-hidden="true"></i><strong>雷雕固定白色</strong>
+          <span>僅支援 A–Z／a–z，最多 10 個字母，不含中文、數字、空格與小圖。</span>
+        </p>
+
+        <fieldset class="choice-field" id="print-mode-field">
           <legend>印刷內容</legend>
           <div class="segmented" id="print-mode-options">
             <button type="button" class="is-active" data-mode="both" aria-pressed="true">圖案＋名字</button>
@@ -182,17 +199,18 @@
               <img src="assets/uv-icons/04.svg" alt="" id="icon2-preview"><b>圖案 2</b><span id="icon2-label">NO.04</span>
             </button>
           </div>
-          <legend class="sr-only">圖案目錄，共 33 款</legend>
-          <div class="icon-catalog" id="icon-catalog"></div>
+          <div class="sr-only" id="icon-catalog-label">圖案目錄，共 33 款</div>
+          <div class="icon-catalog" id="icon-catalog" role="group" aria-labelledby="icon-catalog-label"></div>
         </fieldset>
 
         <fieldset class="choice-field" id="name-field">
-          <legend>輸入名字 <small>英文 10 字／中文 4 字</small></legend>
+          <legend><span id="name-legend-label">輸入名字</span><small id="name-limit-label">英文 10 字／中文 4 字</small></legend>
           <div class="name-input-wrap">
-            <input id="name-input" type="text" value="PEIYU" maxlength="24" inputmode="text" autocomplete="off" enterkeyhint="done" aria-describedby="name-help">
+            <input id="name-input" type="text" value="PEIYU" maxlength="24" inputmode="text" autocomplete="off" enterkeyhint="done" aria-describedby="name-help name-validation">
             <span id="name-count">5/10</span>
           </div>
           <p class="field-help" id="name-help">支援中文、英文與數字；中文可使用注音、拼音等輸入法，完成選字後計算字數。</p>
+          <p class="field-validation" id="name-validation" role="status" aria-live="polite" hidden></p>
         </fieldset>
 
         <fieldset class="choice-field" id="text-color-field">
@@ -208,14 +226,14 @@
         <fieldset class="choice-field" id="font-field">
           <legend>字體選擇</legend>
           <div class="font-options" id="font-options">
-            <div class="font-group" role="group" aria-label="中文字體">
+            <div class="font-group" id="chinese-font-group" role="group" aria-label="中文字體">
               <span class="font-group-label">中文字體</span>
               <div class="font-group-buttons">
                 <button type="button" data-font="zhBold" aria-pressed="false"><span class="font-preview font-preview--zh-bold">眼睛</span><span class="font-option-copy"><b>中文粗體</b><small>tsuhsianti</small></span></button>
                 <button type="button" data-font="zhRounded" aria-pressed="false"><span class="font-preview font-preview--zh-rounded">眼睛</span><span class="font-option-copy"><b>中文圓體</b><small>GenSen Rounded</small></span></button>
               </div>
             </div>
-            <div class="font-group" role="group" aria-label="英文字體">
+            <div class="font-group" id="english-font-group" role="group" aria-label="英文字體">
               <span class="font-group-label">英文字體</span>
               <div class="font-group-buttons">
                 <button type="button" data-font="purpleSmile" aria-pressed="false"><span class="font-preview font-preview--purple-smile">eye</span><span class="font-option-copy"><b>Purple Smile</b><small>ENGLISH</small></span></button>
@@ -223,7 +241,7 @@
               </div>
             </div>
           </div>
-          <p class="field-help">英文類字體不含中文字形；輸入中文時會自動以中文圓體補足。</p>
+          <p class="field-help" id="font-help">英文類字體不含中文字形；輸入中文時會自動以中文圓體補足。</p>
         </fieldset>
 
         <fieldset class="choice-field" id="case-field">
@@ -243,7 +261,7 @@
           </div>
         </fieldset>
 
-        <p class="print-note">模擬位置為左外側鏡腳；實拍左側 45° 可確認整體效果，成品位置與色澤仍以正式打樣為準。</p>
+        <p class="print-note" id="print-note">模擬位置為左外側鏡腳；實拍左側 45° 可確認整體效果，成品位置與色澤仍以正式打樣為準。</p>
       </section>
     </aside>
   </main>
