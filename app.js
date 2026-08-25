@@ -94,12 +94,6 @@ const PHOTO_ASSETS = {
 };
 
 const DEFAULT_PHOTO_COLOR = "櫻花粉";
-const PHOTO_COVER_FILLS = {
-  "櫻花粉": "url(#photo-a45-cover-sakura)",
-  "霧面白": "url(#photo-a45-cover-white)",
-  "琥珀": "url(#photo-a45-cover-amber)"
-};
-
 const TEXT_COLOR_OPTIONS = {
   black: { label: "黑色", fill: "#171817", stroke: "none", outlineWidth: "0" },
   white: { label: "白色", fill: "#fffdf8", stroke: "#111111", outlineWidth: "0.5pt" },
@@ -196,7 +190,6 @@ let nameValidationMessage = "";
 const svgs = {};
 const printLayers = {};
 const photoLayers = {};
-let photoPrintLayer;
 let textMeasureContext;
 const deferredModelColors = { frame: null, temple: null };
 let deferredModelView = null;
@@ -204,7 +197,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const XLINK_NS = "http://www.w3.org/1999/xlink";
 const XML_NS = "http://www.w3.org/XML/1998/namespace";
 const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 30 };
-const MAX_PRINT_WIDTH = { side: 205, a45: 112, photoA45: 270 };
+const MAX_PRINT_WIDTH = { side: 205, a45: 112 };
 
 function svgElement(tag) {
   return document.createElementNS(SVG_NS, tag);
@@ -294,7 +287,8 @@ async function loadSvg(key, fileName) {
   mount.prepend(svg);
 
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-  svg.setAttribute("aria-label", `${key === "front" ? "正面" : key === "side" ? "側面" : "45 度"}眼鏡預覽`);
+  const viewLabel = key === "front" ? "正面" : key === "side" ? "右側面" : "右側 45 度";
+  svg.setAttribute("aria-label", `${viewLabel}眼鏡預覽`);
   svg.setAttribute("role", "img");
   ensureAmberPattern(svg, key);
   preparePrintLayer(svg, key);
@@ -309,21 +303,9 @@ function preparePhotoLayers() {
       svg,
       frame: svg.querySelector(".photo-frame-image"),
       temple: svg.querySelector(".photo-temple-image"),
-      lensTints: [...svg.querySelectorAll(".photo-lens-tints > *")],
-      logoPattern: svg.querySelector(".photo-logo-pattern-image"),
-      logoCoverBase: svg.querySelector(".photo-logo-cover-base")
+      lensTints: [...svg.querySelectorAll(".photo-lens-tints > *")]
     };
   });
-
-  const root = document.querySelector("#photo-a45 .photo-print-root");
-  if (!root) return;
-  photoPrintLayer = {
-    root,
-    iconA: root.querySelector(".photo-print-icon-a"),
-    iconB: root.querySelector(".photo-print-icon-b"),
-    text: root.querySelector(".photo-print-text"),
-    fontSize: 48
-  };
 }
 
 function paintGroup(svg, groupId, fill) {
@@ -363,10 +345,6 @@ function updatePhotoComposite() {
   Object.entries(photoLayers).forEach(([key, layer]) => {
     setSvgHref(layer.frame, frameAsset[key]);
     setSvgHref(layer.temple, templeAsset[key]);
-    if (layer.logoPattern) setSvgHref(layer.logoPattern, templeAsset[key]);
-    if (layer.logoCoverBase) {
-      layer.logoCoverBase.setAttribute("fill", PHOTO_COVER_FILLS[state.temple.name] || PHOTO_COVER_FILLS[DEFAULT_PHOTO_COLOR]);
-    }
     const lensFill = state.lens.photoFill;
     layer.lensTints.forEach(shape => {
       shape.style.fill = lensFill || "transparent";
@@ -379,6 +357,12 @@ function updatePhotoComposite() {
   document.getElementById("viewer").classList.toggle("is-photo-mode", photoMode);
   document.getElementById("view-tabs").classList.toggle("is-photo-mode", photoMode);
   document.getElementById("photo-mode-note").hidden = !photoMode;
+  const angleButton = document.querySelector('#view-tabs [data-view="a45"]');
+  angleButton.textContent = photoMode ? "左側 45°" : "右側 45°";
+  angleButton.setAttribute(
+    "aria-label",
+    photoMode ? "查看左側 45 度品牌 Logo" : "查看右側 45 度客製效果"
+  );
 }
 
 function customizationModeFromLocation() {
@@ -646,43 +630,6 @@ function updatePrint() {
     positionPrintSequence(layer, sequence, startX, iconSize, nameWidth, gap);
   });
 
-  updatePhotoPrint();
-}
-
-function updatePhotoPrint() {
-  const layer = photoPrintLayer;
-  if (!layer) return;
-
-  const printMode = effectivePrintMode();
-  const showIcons = printMode === "both" || printMode === "icon";
-  const showName = printMode === "both" || printMode === "name";
-  layer.root.style.display = state.renderMode === "photo" && printMode !== "none" ? "inline" : "none";
-
-  const selectedFont = PRINT_FONTS[state.font];
-  const baseIconSize = layer.fontSize * .88;
-  const baseGap = layer.fontSize * .22;
-  const baseNameWidth = printTextWidth(state.name || " ", layer.fontSize, selectedFont);
-  const sequence = visiblePrintSequence(showIcons, showName);
-  const baseTotalWidth = Math.max(1, printSequenceWidth(sequence, baseIconSize, baseNameWidth, baseGap));
-  const fitScale = Math.min(1, MAX_PRINT_WIDTH.photoA45 / baseTotalWidth);
-  const fontSize = layer.fontSize * fitScale;
-  const iconSize = baseIconSize * fitScale;
-  const gap = baseGap * fitScale;
-  const nameWidth = baseNameWidth * fitScale;
-  const totalWidth = baseTotalWidth * fitScale;
-  const startX = -(totalWidth / 2);
-  setSvgHref(layer.iconA, `assets/uv-icons/${state.icon1}.svg`);
-  setSvgHref(layer.iconB, `assets/uv-icons/${state.icon2}.svg`);
-  layer.text.setAttribute("font-family", selectedFont.family);
-  layer.text.setAttribute("font-weight", selectedFont.weight);
-  layer.text.setAttribute("font-size", String(fontSize));
-  layer.text.setAttribute("y", "0");
-  applyPrintTextColor(layer.text, state.name);
-  layer.iconA.style.display = showIcons ? "inline" : "none";
-  layer.iconB.style.display = showIcons ? "inline" : "none";
-  layer.text.style.display = showName ? "inline" : "none";
-
-  positionPrintSequence(layer, sequence, startX, iconSize, nameWidth, gap);
 }
 
 function setActiveButtons(container, matcher) {
@@ -841,8 +788,8 @@ function updatePrintViewHint() {
     return;
   }
   hint.textContent = state.customizationMode === "engraving"
-    ? "雷雕位於左外側鏡腳，請切換「側面」或「左側 45°」查看。"
-    : "UV 彩印位於左外側鏡腳，請切換「側面」或「左側 45°」查看。";
+    ? "雷雕位於右外側鏡腳，請切換「側面」或「右側 45°」查看。"
+    : "UV 彩印位於右外側鏡腳，請切換「側面」或「右側 45°」查看。";
   hint.hidden = state.view !== "front";
 }
 
@@ -986,8 +933,8 @@ function updateConditionalFields() {
     ? "雷雕僅提供圓潤手寫體與童趣積木體兩款英文字體。"
     : "英文類字體不含中文字形；輸入中文時會自動以中文圓體補足。";
   document.getElementById("print-note").textContent = isEngraving
-    ? "模擬位置為左外側鏡腳；白色僅為雷雕效果示意，實品深淺會依鏡腳材質與正式打樣呈現。"
-    : "模擬位置為左外側鏡腳；實拍左側 45° 可確認整體效果，成品位置與色澤仍以正式打樣為準。";
+    ? "模擬位置為右外側鏡腳；白色僅為雷雕效果示意，實品深淺會依鏡腳材質與正式打樣呈現。"
+    : "模擬位置為右外側鏡腳；2D 右側 45° 可確認客製排列，實拍左側 45° 保留 eYeFANS 品牌 Logo。";
 
   const validation = document.getElementById("name-validation");
   validation.textContent = nameValidationMessage;
@@ -1040,7 +987,10 @@ function announceAndNotifyParent() {
         ? "不加印刷"
         : `${MODE_NAMES[printMode]}${usesIcon ? `／圖案 ${state.icon1}+${state.icon2}` : ""}${usesName ? `／${state.name || "未輸入名字"}／文字${textColorLabel}` : ""}`;
   const previewMode = state.renderMode === "photo" ? "實拍效果" : "2D 自由配色";
-  const summary = `${previewMode}、${customizationConfig.label}、尺寸 ${state.size}、鏡框 ${state.frame.name}、鏡腳 ${state.temple.name}、鏡片 ${state.lens.name}、${personalization}`;
+  const customizationSideLabel = state.customizationMode !== "color" && printMode !== "none"
+    ? "右外側鏡腳"
+    : null;
+  const summary = `${previewMode}、${customizationConfig.label}、尺寸 ${state.size}、鏡框 ${state.frame.name}、鏡腳 ${state.temple.name}、鏡片 ${state.lens.name}、${personalization}${customizationSideLabel ? `、客製位置 ${customizationSideLabel}` : ""}`;
   document.getElementById("live-status").textContent = summary;
   window.parent?.postMessage({
     type: "eyefans-customizer-change",
@@ -1066,6 +1016,8 @@ function announceAndNotifyParent() {
       caseMode: usesName ? state.caseMode : null,
       order: printMode === "both" ? state.order : null,
       namePosition: printMode === "both" ? state.namePosition : null,
+      customizationSide: customizationSideLabel ? "right" : null,
+      customizationSideLabel,
       summary
     }
   }, "*");

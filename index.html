@@ -46,14 +46,14 @@
           <button type="button" data-render-mode="model" aria-pressed="false">2D 自由配色</button>
         </div>
       </div>
-      <p class="photo-mode-note" id="photo-mode-note"><b>實拍效果</b> 固定呈現左側 45°；目前支援櫻花粉、霧面白、琥珀。</p>
+      <p class="photo-mode-note" id="photo-mode-note"><b>實拍效果</b> 固定呈現左側 45° 品牌 Logo 面；右鏡腳客製效果請切換「2D 自由配色」。目前支援櫻花粉、霧面白、琥珀。</p>
 
       <div class="viewer is-photo-mode" id="viewer" aria-live="polite">
         <div class="loading" id="loading-state"><span></span>正在載入眼鏡模型</div>
         <div class="view" id="view-front" hidden></div>
         <div class="view" id="view-side" hidden></div>
         <div class="view" id="view-a45" data-photo-ready>
-          <svg class="photo-composite" id="photo-a45" viewBox="0 0 1643 686" preserveAspectRatio="xMidYMid meet" role="img" aria-label="左側 45 度實拍眼鏡預覽">
+          <svg class="photo-composite" id="photo-a45" viewBox="0 0 1643 686" preserveAspectRatio="xMidYMid meet" role="img" aria-label="左側 45 度實拍眼鏡預覽，顯示 eYeFANS 品牌 Logo">
             <defs>
               <mask id="photo-a45-silhouette" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" style="mask-type:alpha">
                 <image href="assets/photos/white-a45.png" x="0" y="0" width="1643" height="686" preserveAspectRatio="none"></image>
@@ -61,23 +61,6 @@
               <clipPath id="photo-a45-temple-clip" clipPathUnits="userSpaceOnUse">
                 <path d="M1115 0H1643V686H1115ZM986 398L1160 492L1165 543C1120 579 1060 552 980 488Z"></path>
               </clipPath>
-              <clipPath id="photo-a45-print-safe" clipPathUnits="userSpaceOnUse">
-                <path d="M1165 95L1492 183L1472 323L1148 238Z"></path>
-              </clipPath>
-              <pattern id="photo-a45-logo-pattern" patternUnits="userSpaceOnUse" width="1643" height="686">
-                <image class="photo-logo-pattern-image" href="assets/photos/sakura-a45.png" x="-830" y="0" width="3286" height="686" preserveAspectRatio="none"></image>
-              </pattern>
-              <linearGradient id="photo-a45-cover-sakura" gradientUnits="userSpaceOnUse" x1="1130" y1="82" x2="1455" y2="302">
-                <stop offset="0" stop-color="#edc4cf"></stop>
-                <stop offset="1" stop-color="#d796aa"></stop>
-              </linearGradient>
-              <linearGradient id="photo-a45-cover-white" gradientUnits="userSpaceOnUse" x1="1130" y1="82" x2="1455" y2="302">
-                <stop offset="0" stop-color="#f6f5f2"></stop>
-                <stop offset="1" stop-color="#cbc9c5"></stop>
-              </linearGradient>
-              <pattern id="photo-a45-cover-amber" patternUnits="userSpaceOnUse" width="360" height="360" patternTransform="rotate(9.5)">
-                <image href="amber.png" x="0" y="0" width="360" height="360" preserveAspectRatio="xMidYMid slice"></image>
-              </pattern>
             </defs>
             <g mask="url(#photo-a45-silhouette)">
               <image class="photo-frame-image" href="assets/photos/sakura-a45.png" x="0" y="0" width="1643" height="686" preserveAspectRatio="none"></image>
@@ -86,21 +69,10 @@
                 <path d="M130 112C226 98 280 170 278 290C278 435 230 568 169 583C96 599 57 516 45 389C31 251 52 127 130 112Z"></path>
                 <path d="M676 61C807 52 913 124 946 251C978 390 906 564 790 620C671 674 565 592 516 461C463 318 469 133 567 84C596 69 631 63 676 61Z"></path>
               </g>
-              <path class="photo-logo-cover-base" d="M1110 55C1248 57 1407 88 1507 139L1457 323C1337 280 1211 248 1095 229Z" fill="url(#photo-a45-cover-sakura)"></path>
-              <path class="photo-logo-cover" d="M1110 55C1248 57 1407 88 1507 139L1457 323C1337 280 1211 248 1095 229Z" fill="url(#photo-a45-logo-pattern)"></path>
-            </g>
-            <g clip-path="url(#photo-a45-print-safe)">
-              <g class="photo-print-root" transform="translate(1318 216) rotate(9.5)">
-                <g class="uv-print-content">
-                  <image class="photo-print-icon-a" preserveAspectRatio="xMidYMid meet"></image>
-                  <text class="photo-print-text" y="0" paint-order="stroke"></text>
-                  <image class="photo-print-icon-b" preserveAspectRatio="xMidYMid meet"></image>
-                </g>
-              </g>
             </g>
           </svg>
         </div>
-        <p class="print-view-hint" id="print-view-hint" hidden>UV 彩印位於左外側鏡腳，請切換「側面」或「左側 45°」查看。</p>
+        <p class="print-view-hint" id="print-view-hint" hidden>UV 彩印位於右外側鏡腳，請切換「側面」或「右側 45°」查看。</p>
       </div>
 
       <div class="selection-strip" aria-label="目前選擇">
@@ -236,8 +208,8 @@
             <div class="font-group" id="english-font-group" role="group" aria-label="英文字體">
               <span class="font-group-label">英文字體</span>
               <div class="font-group-buttons">
-                <button type="button" data-font="purpleSmile" aria-pressed="false"><span class="font-preview font-preview--purple-smile">eye</span><span class="font-option-copy"><b>圓潤手寫體</b><small>Purple Smile</small></span></button>
-                <button type="button" class="is-active" data-font="baksoSapi" aria-pressed="true"><span class="font-preview font-preview--bakso-sapi">eye</span><span class="font-option-copy"><b>童趣積木體</b><small>Bakso Sapi</small></span></button>
+                <button type="button" data-font="purpleSmile" aria-pressed="false"><span class="font-preview font-preview--purple-smile">eye</span><span class="font-option-copy"><b>圓潤手寫體</b></span></button>
+                <button type="button" class="is-active" data-font="baksoSapi" aria-pressed="true"><span class="font-preview font-preview--bakso-sapi">eye</span><span class="font-option-copy"><b>童趣積木體</b></span></button>
               </div>
             </div>
           </div>
@@ -265,7 +237,7 @@
           </div>
         </fieldset>
 
-        <p class="print-note" id="print-note">模擬位置為左外側鏡腳；實拍左側 45° 可確認整體效果，成品位置與色澤仍以正式打樣為準。</p>
+        <p class="print-note" id="print-note">模擬位置為右外側鏡腳；2D 右側 45° 可確認客製排列，實拍左側 45° 保留 eYeFANS 品牌 Logo。</p>
       </section>
     </aside>
   </main>
