@@ -182,7 +182,8 @@ const state = {
   textColor: "white",
   font: "baksoSapi",
   caseMode: "preserve",
-  order: "normal"
+  order: "normal",
+  namePosition: "center"
 };
 
 const customizationDrafts = {
@@ -576,6 +577,40 @@ function positionIcon(icon, x, size) {
   icon.setAttribute("height", String(size));
 }
 
+function visiblePrintSequence(showIcons, showName) {
+  const icons = state.order === "reverse" ? ["icon2", "icon1"] : ["icon1", "icon2"];
+  if (!showIcons) return showName ? ["name"] : [];
+  if (!showName) return icons;
+  if (state.namePosition === "before") return ["name", ...icons];
+  if (state.namePosition === "after") return [...icons, "name"];
+  return [icons[0], "name", icons[1]];
+}
+
+function printSequenceWidth(sequence, iconSize, nameWidth, gap) {
+  if (!sequence.length) return 0;
+  const contentWidth = sequence.reduce(
+    (total, item) => total + (item === "name" ? nameWidth : iconSize),
+    0
+  );
+  return contentWidth + (gap * (sequence.length - 1));
+}
+
+function positionPrintSequence(layer, sequence, startX, iconSize, nameWidth, gap) {
+  const icons = { icon1: layer.iconA, icon2: layer.iconB };
+  let cursorX = startX;
+
+  sequence.forEach((item, index) => {
+    if (item === "name") {
+      layer.text.setAttribute("x", String(cursorX));
+      cursorX += nameWidth;
+    } else {
+      positionIcon(icons[item], cursorX, iconSize);
+      cursorX += iconSize;
+    }
+    if (index < sequence.length - 1) cursorX += gap;
+  });
+}
+
 function updatePrint() {
   const printMode = effectivePrintMode();
   Object.entries(printLayers).forEach(([key, layer]) => {
@@ -587,13 +622,8 @@ function updatePrint() {
     const baseIconSize = layer.fontSize * .88;
     const baseGap = layer.fontSize * .22;
     const baseNameWidth = printTextWidth(state.name || " ", layer.fontSize, selectedFont);
-    const firstId = state.order === "normal" ? state.icon1 : state.icon2;
-    const secondId = state.order === "normal" ? state.icon2 : state.icon1;
-    const baseTotalWidth = showIcons && showName
-      ? (baseIconSize * 2) + (baseGap * 2) + baseNameWidth
-      : showIcons
-        ? (baseIconSize * 2) + baseGap
-        : baseNameWidth;
+    const sequence = visiblePrintSequence(showIcons, showName);
+    const baseTotalWidth = Math.max(1, printSequenceWidth(sequence, baseIconSize, baseNameWidth, baseGap));
     const fitScale = Math.min(1, (MAX_PRINT_WIDTH[key] || baseTotalWidth) / baseTotalWidth);
     const fontSize = layer.fontSize * fitScale;
     const iconSize = baseIconSize * fitScale;
@@ -602,8 +632,8 @@ function updatePrint() {
     const totalWidth = baseTotalWidth * fitScale;
     const startX = (PRINT_CENTER_OFFSET[key] || 0) - (totalWidth / 2);
 
-    setSvgHref(layer.iconA, `assets/uv-icons/${firstId}.svg`);
-    setSvgHref(layer.iconB, `assets/uv-icons/${secondId}.svg`);
+    setSvgHref(layer.iconA, `assets/uv-icons/${state.icon1}.svg`);
+    setSvgHref(layer.iconB, `assets/uv-icons/${state.icon2}.svg`);
     layer.text.setAttribute("font-family", selectedFont.family);
     layer.text.setAttribute("font-weight", selectedFont.weight);
     layer.text.setAttribute("font-size", String(fontSize));
@@ -613,16 +643,7 @@ function updatePrint() {
     layer.iconB.style.display = showIcons ? "inline" : "none";
     layer.text.style.display = showName ? "inline" : "none";
 
-    if (showIcons && showName) {
-      positionIcon(layer.iconA, startX, iconSize);
-      layer.text.setAttribute("x", String(startX + iconSize + gap));
-      positionIcon(layer.iconB, startX + iconSize + gap + nameWidth + gap, iconSize);
-    } else if (showIcons) {
-      positionIcon(layer.iconA, startX, iconSize);
-      positionIcon(layer.iconB, startX + iconSize + gap, iconSize);
-    } else {
-      layer.text.setAttribute("x", String(startX));
-    }
+    positionPrintSequence(layer, sequence, startX, iconSize, nameWidth, gap);
   });
 
   updatePhotoPrint();
@@ -641,13 +662,8 @@ function updatePhotoPrint() {
   const baseIconSize = layer.fontSize * .88;
   const baseGap = layer.fontSize * .22;
   const baseNameWidth = printTextWidth(state.name || " ", layer.fontSize, selectedFont);
-  const firstId = state.order === "normal" ? state.icon1 : state.icon2;
-  const secondId = state.order === "normal" ? state.icon2 : state.icon1;
-  const baseTotalWidth = showIcons && showName
-    ? (baseIconSize * 2) + (baseGap * 2) + baseNameWidth
-    : showIcons
-      ? (baseIconSize * 2) + baseGap
-      : baseNameWidth;
+  const sequence = visiblePrintSequence(showIcons, showName);
+  const baseTotalWidth = Math.max(1, printSequenceWidth(sequence, baseIconSize, baseNameWidth, baseGap));
   const fitScale = Math.min(1, MAX_PRINT_WIDTH.photoA45 / baseTotalWidth);
   const fontSize = layer.fontSize * fitScale;
   const iconSize = baseIconSize * fitScale;
@@ -655,8 +671,8 @@ function updatePhotoPrint() {
   const nameWidth = baseNameWidth * fitScale;
   const totalWidth = baseTotalWidth * fitScale;
   const startX = -(totalWidth / 2);
-  setSvgHref(layer.iconA, `assets/uv-icons/${firstId}.svg`);
-  setSvgHref(layer.iconB, `assets/uv-icons/${secondId}.svg`);
+  setSvgHref(layer.iconA, `assets/uv-icons/${state.icon1}.svg`);
+  setSvgHref(layer.iconB, `assets/uv-icons/${state.icon2}.svg`);
   layer.text.setAttribute("font-family", selectedFont.family);
   layer.text.setAttribute("font-weight", selectedFont.weight);
   layer.text.setAttribute("font-size", String(fontSize));
@@ -666,16 +682,7 @@ function updatePhotoPrint() {
   layer.iconB.style.display = showIcons ? "inline" : "none";
   layer.text.style.display = showName ? "inline" : "none";
 
-  if (showIcons && showName) {
-    positionIcon(layer.iconA, startX, iconSize);
-    layer.text.setAttribute("x", String(startX + iconSize + gap));
-    positionIcon(layer.iconB, startX + iconSize + gap + nameWidth + gap, iconSize);
-  } else if (showIcons) {
-    positionIcon(layer.iconA, startX, iconSize);
-    positionIcon(layer.iconB, startX + iconSize + gap, iconSize);
-  } else {
-    layer.text.setAttribute("x", String(startX));
-  }
+  positionPrintSequence(layer, sequence, startX, iconSize, nameWidth, gap);
 }
 
 function setActiveButtons(container, matcher) {
@@ -1058,6 +1065,7 @@ function announceAndNotifyParent() {
       font: usesName ? state.font : null,
       caseMode: usesName ? state.caseMode : null,
       order: printMode === "both" ? state.order : null,
+      namePosition: printMode === "both" ? state.namePosition : null,
       summary
     }
   }, "*");
@@ -1144,7 +1152,12 @@ function bindControls() {
     const button = event.target.closest("button[data-order]");
     if (!button) return;
     state.order = button.dataset.order;
-    setActiveButtons(document.getElementById("layout-options"), candidate => candidate === button);
+    state.namePosition = button.dataset.namePosition;
+    setActiveButtons(
+      document.getElementById("layout-options"),
+      candidate => candidate.dataset.order === state.order
+        && candidate.dataset.namePosition === state.namePosition
+    );
     updateAll();
   });
 

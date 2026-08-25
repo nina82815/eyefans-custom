@@ -256,8 +256,12 @@
         <fieldset class="choice-field" id="layout-field">
           <legend>排列方式</legend>
           <div class="layout-options" id="layout-options">
-            <button type="button" class="is-active" data-order="normal" aria-pressed="true"><span class="mini-icon">①</span><span>NAME</span><span class="mini-icon">②</span></button>
-            <button type="button" data-order="reverse" aria-pressed="false"><span class="mini-icon">②</span><span>NAME</span><span class="mini-icon">①</span></button>
+            <button type="button" class="is-active" data-order="normal" data-name-position="center" aria-pressed="true"><span class="mini-icon">①</span><span>NAME</span><span class="mini-icon">②</span></button>
+            <button type="button" data-order="reverse" data-name-position="center" aria-pressed="false"><span class="mini-icon">②</span><span>NAME</span><span class="mini-icon">①</span></button>
+            <button type="button" data-order="normal" data-name-position="after" aria-pressed="false"><span class="mini-icon">①</span><span class="mini-icon">②</span><span>NAME</span></button>
+            <button type="button" data-order="reverse" data-name-position="after" aria-pressed="false"><span class="mini-icon">②</span><span class="mini-icon">①</span><span>NAME</span></button>
+            <button type="button" data-order="normal" data-name-position="before" aria-pressed="false"><span>NAME</span><span class="mini-icon">①</span><span class="mini-icon">②</span></button>
+            <button type="button" data-order="reverse" data-name-position="before" aria-pressed="false"><span>NAME</span><span class="mini-icon">②</span><span class="mini-icon">①</span></button>
           </div>
         </fieldset>
 
