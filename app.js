@@ -62,9 +62,9 @@ const PHOTO_COVER_FILLS = {
 };
 
 const TEXT_COLOR_OPTIONS = {
-  black: { label: "黑色", fill: "#171817", stroke: "rgba(255,255,255,.52)" },
-  white: { label: "白色", fill: "#fffdf8", stroke: "rgba(0,0,0,.28)" },
-  rainbow: { label: "逐字彩色", fill: "#e66d3f", stroke: "rgba(255,255,255,.58)" }
+  black: { label: "黑色", fill: "#171817", stroke: "none", outlineWidth: "0" },
+  white: { label: "白色", fill: "#fffdf8", stroke: "#111111", outlineWidth: "0.5pt" },
+  rainbow: { label: "逐字彩色", fill: "#e66d3f", stroke: "#111111", outlineWidth: "0.5pt" }
 };
 
 const RAINBOW_PRINT_COLORS = ["#ef6a4b", "#efbd3f", "#63a56f", "#43a5bd", "#8b72c7", "#df6f99"];
@@ -359,8 +359,12 @@ function applyPrintTextColor(textElement, value) {
   const printableValue = value || " ";
   textElement.replaceChildren();
   textElement.setAttributeNS(XML_NS, "xml:space", "preserve");
-  textElement.setAttribute("fill", option.fill);
-  textElement.setAttribute("stroke", option.stroke);
+  textElement.style.fill = option.fill;
+  textElement.style.stroke = option.stroke;
+  textElement.style.strokeWidth = option.outlineWidth;
+  textElement.style.strokeLinejoin = "round";
+  textElement.style.paintOrder = "stroke fill";
+  textElement.style.vectorEffect = "non-scaling-stroke";
 
   if (state.textColor !== "rainbow") {
     textElement.textContent = printableValue;
@@ -375,6 +379,7 @@ function applyPrintTextColor(textElement, value) {
       tspan.setAttribute("fill", RAINBOW_PRINT_COLORS[colorIndex % RAINBOW_PRINT_COLORS.length]);
       colorIndex += 1;
     }
+    tspan.style.vectorEffect = "non-scaling-stroke";
     textElement.appendChild(tspan);
   });
 }
@@ -452,7 +457,6 @@ function updatePrint() {
     layer.text.setAttribute("font-family", selectedFont.family);
     layer.text.setAttribute("font-weight", selectedFont.weight);
     layer.text.setAttribute("font-size", String(fontSize));
-    layer.text.setAttribute("stroke-width", String(Math.max(.4, fontSize * .025)));
     layer.text.setAttribute("y", "0");
     applyPrintTextColor(layer.text, state.name);
     layer.iconA.style.display = showIcons ? "inline" : "none";
@@ -505,7 +509,6 @@ function updatePhotoPrint() {
   layer.text.setAttribute("font-family", selectedFont.family);
   layer.text.setAttribute("font-weight", selectedFont.weight);
   layer.text.setAttribute("font-size", String(fontSize));
-  layer.text.setAttribute("stroke-width", String(Math.max(.8, fontSize * .03)));
   layer.text.setAttribute("y", "0");
   applyPrintTextColor(layer.text, state.name);
   layer.iconA.style.display = showIcons ? "inline" : "none";

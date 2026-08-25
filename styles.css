@@ -133,7 +133,7 @@ button { color: inherit; }
 .viewer.is-photo-mode .view[data-photo-ready] > .photo-composite { display: block !important; width: 98%; height: 98%; filter: drop-shadow(0 17px 15px rgba(31,44,39,.14)); }
 .photo-lens-tints > * { fill: transparent; mix-blend-mode: screen; pointer-events: none; }
 .photo-print-root { pointer-events: none; }
-.photo-print-text { fill: #fffdf8; stroke: rgba(0,0,0,.2); stroke-linejoin: round; }
+.photo-print-text { stroke-linejoin: round; }
 
 .loading { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
 .loading span { width: 16px; height: 16px; border: 2px solid #d3cdc2; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
