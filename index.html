@@ -14,6 +14,9 @@
   <meta name="twitter:description" content="配色・UV 彩印・姓名預覽">
   <meta name="twitter:image" content="https://nina82815.github.io/eyefans-custom/og.png">
   <title>eYeFans 客製眼鏡模擬器</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&amp;family=LXGW+WenKai+TC&amp;family=Noto+Sans+TC:wght@600;700;800&amp;family=Noto+Serif+TC:wght@700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -120,10 +123,29 @@
         <fieldset class="choice-field" id="name-field">
           <legend>輸入名字 <small>英文 10 字／中文 4 字</small></legend>
           <div class="name-input-wrap">
-            <input id="name-input" type="text" value="PEIYU" maxlength="10" inputmode="text" autocomplete="off" aria-describedby="name-help">
+            <input id="name-input" type="text" value="PEIYU" maxlength="24" inputmode="text" autocomplete="off" enterkeyhint="done" aria-describedby="name-help">
             <span id="name-count">5/10</span>
           </div>
-          <p class="field-help" id="name-help">支援中文、英文與數字；英文字母會自動轉為大寫。</p>
+          <p class="field-help" id="name-help">支援中文、英文與數字；中文可使用注音、拼音等輸入法，完成選字後計算字數。</p>
+        </fieldset>
+
+        <fieldset class="choice-field" id="font-field">
+          <legend>字體選擇</legend>
+          <div class="font-options" id="font-options">
+            <button type="button" class="is-active" data-font="rounded" aria-pressed="true"><span class="font-preview font-preview--rounded">Aa 名</span><b>圓潤體</b></button>
+            <button type="button" data-font="bold" aria-pressed="false"><span class="font-preview font-preview--bold">Aa 名</span><b>粗黑體</b></button>
+            <button type="button" data-font="hand" aria-pressed="false"><span class="font-preview font-preview--hand">Aa 名</span><b>手寫體</b></button>
+            <button type="button" data-font="serif" aria-pressed="false"><span class="font-preview font-preview--serif">Aa 名</span><b>襯線體</b></button>
+          </div>
+        </fieldset>
+
+        <fieldset class="choice-field" id="case-field">
+          <legend>英文字母格式</legend>
+          <div class="case-options" id="case-options">
+            <button type="button" class="is-active" data-case="preserve" aria-pressed="true">照原輸入</button>
+            <button type="button" data-case="upper" aria-pressed="false">全大寫</button>
+            <button type="button" data-case="lower" aria-pressed="false">全小寫</button>
+          </div>
         </fieldset>
 
         <fieldset class="choice-field" id="layout-field">

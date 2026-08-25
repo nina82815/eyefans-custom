@@ -46,6 +46,33 @@ const MODE_NAMES = {
   none: "不加印刷"
 };
 
+const PRINT_FONTS = {
+  rounded: {
+    label: "圓潤體",
+    family: '"Baloo 2", "Noto Sans TC", "PingFang TC", sans-serif',
+    weight: "700",
+    widthFactor: .57
+  },
+  bold: {
+    label: "粗黑體",
+    family: '"Noto Sans TC", "PingFang TC", "Arial Black", sans-serif',
+    weight: "800",
+    widthFactor: .61
+  },
+  hand: {
+    label: "手寫體",
+    family: '"LXGW WenKai TC", "Klee One", cursive',
+    weight: "400",
+    widthFactor: .56
+  },
+  serif: {
+    label: "襯線體",
+    family: '"Noto Serif TC", "Songti TC", serif',
+    weight: "700",
+    widthFactor: .62
+  }
+};
+
 const state = {
   view: "front",
   frame: FRAME_COLORS[0],
@@ -55,7 +82,10 @@ const state = {
   icon1: "01",
   icon2: "04",
   activeIconSlot: "icon1",
+  nameSource: "PEIYU",
   name: "PEIYU",
+  font: "rounded",
+  caseMode: "preserve",
   order: "normal"
 };
 
@@ -64,6 +94,7 @@ const printLayers = {};
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XLINK_NS = "http://www.w3.org/1999/xlink";
 const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 30 };
+const MAX_PRINT_WIDTH = { side: 205, a45: 112 };
 
 function svgElement(tag) {
   return document.createElementNS(SVG_NS, tag);
@@ -183,15 +214,15 @@ function updateColors() {
   });
 }
 
-function estimatedTextWidth(name, fontSize) {
+function estimatedTextWidth(name, fontSize, widthFactor = .57) {
   const width = Array.from(name).reduce((total, character) => {
-    return total + (isCjk(character) ? fontSize : character === " " ? fontSize * .34 : fontSize * .57);
+    return total + (isCjk(character) ? fontSize : character === " " ? fontSize * .34 : fontSize * widthFactor);
   }, 0);
   return Math.max(fontSize * .65, width);
 }
 
 function isCjk(character) {
-  return /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/u.test(character);
+  return /\p{Script=Han}/u.test(character);
 }
 
 function printUnits(character) {
@@ -201,7 +232,7 @@ function printUnits(character) {
 }
 
 function normalizeName(value) {
-  const allowed = value.toUpperCase().replace(/[^A-Z0-9 \u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/gu, "");
+  const allowed = value.normalize("NFC").replace(/[^A-Za-z0-9 \p{Script=Han}]/gu, "");
   let result = "";
   let units = 0;
   for (const character of Array.from(allowed)) {
@@ -211,6 +242,12 @@ function normalizeName(value) {
     units += nextUnits;
   }
   return { value: result, units };
+}
+
+function applyCase(value, mode = state.caseMode) {
+  if (mode === "upper") return value.replace(/[A-Za-z]/g, character => character.toUpperCase());
+  if (mode === "lower") return value.replace(/[A-Za-z]/g, character => character.toLowerCase());
+  return value;
 }
 
 function nameCountLabel(name, units) {
@@ -233,27 +270,32 @@ function updatePrint() {
     const showName = state.printMode === "both" || state.printMode === "name";
     layer.root.style.display = state.printMode === "none" || key === "front" ? "none" : "inline";
 
-    const iconSize = layer.fontSize * .88;
-    const gap = layer.fontSize * .22;
-    const nameWidth = estimatedTextWidth(state.name || " ", layer.fontSize);
+    const selectedFont = PRINT_FONTS[state.font];
+    const baseIconSize = layer.fontSize * .88;
+    const baseGap = layer.fontSize * .22;
+    const baseNameWidth = estimatedTextWidth(state.name || " ", layer.fontSize, selectedFont.widthFactor);
     const firstId = state.order === "normal" ? state.icon1 : state.icon2;
     const secondId = state.order === "normal" ? state.icon2 : state.icon1;
-    const totalWidth = showIcons && showName
-      ? (iconSize * 2) + (gap * 2) + nameWidth
+    const baseTotalWidth = showIcons && showName
+      ? (baseIconSize * 2) + (baseGap * 2) + baseNameWidth
       : showIcons
-        ? (iconSize * 2) + gap
-        : nameWidth;
+        ? (baseIconSize * 2) + baseGap
+        : baseNameWidth;
+    const fitScale = Math.min(1, (MAX_PRINT_WIDTH[key] || baseTotalWidth) / baseTotalWidth);
+    const fontSize = layer.fontSize * fitScale;
+    const iconSize = baseIconSize * fitScale;
+    const gap = baseGap * fitScale;
+    const nameWidth = baseNameWidth * fitScale;
+    const totalWidth = baseTotalWidth * fitScale;
     const startX = (PRINT_CENTER_OFFSET[key] || 0) - (totalWidth / 2);
 
     setSvgHref(layer.iconA, `assets/uv-icons/${firstId}.svg`);
     setSvgHref(layer.iconB, `assets/uv-icons/${secondId}.svg`);
     layer.text.textContent = state.name || " ";
-    layer.text.setAttribute(
-      "font-family",
-      Array.from(state.name).some(isCjk)
-        ? '"PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif'
-        : layer.latinFontFamily
-    );
+    layer.text.setAttribute("font-family", selectedFont.family);
+    layer.text.setAttribute("font-weight", selectedFont.weight);
+    layer.text.setAttribute("font-size", String(fontSize));
+    layer.text.setAttribute("stroke-width", String(Math.max(.4, fontSize * .025)));
     layer.text.setAttribute("y", "0");
     layer.iconA.style.display = showIcons ? "inline" : "none";
     layer.iconB.style.display = showIcons ? "inline" : "none";
@@ -369,6 +411,8 @@ function updateConditionalFields() {
   const usesName = state.printMode === "both" || state.printMode === "name";
   document.getElementById("icon-field").hidden = !usesIcon;
   document.getElementById("name-field").hidden = !usesName;
+  document.getElementById("font-field").hidden = !usesName;
+  document.getElementById("case-field").hidden = !usesName;
   document.getElementById("layout-field").hidden = state.printMode !== "both";
   document.getElementById("picked-print").textContent = MODE_NAMES[state.printMode];
 }
@@ -406,6 +450,8 @@ function announceAndNotifyParent() {
       icon1: state.icon1,
       icon2: state.icon2,
       name: state.name,
+      font: state.font,
+      caseMode: state.caseMode,
       order: state.order,
       summary
     }
@@ -457,12 +503,49 @@ function bindControls() {
     updateAll();
   });
 
-  document.getElementById("name-input").addEventListener("input", event => {
-    const normalized = normalizeName(event.target.value);
-    event.target.value = normalized.value;
-    state.name = normalized.value;
+  document.getElementById("font-options").addEventListener("click", event => {
+    const button = event.target.closest("button[data-font]");
+    if (!button) return;
+    state.font = button.dataset.font;
+    setActiveButtons(document.getElementById("font-options"), candidate => candidate === button);
+    document.getElementById("name-input").style.fontFamily = PRINT_FONTS[state.font].family;
+    updateAll();
+  });
+
+  document.getElementById("case-options").addEventListener("click", event => {
+    const button = event.target.closest("button[data-case]");
+    if (!button) return;
+    state.caseMode = button.dataset.case;
+    state.name = applyCase(state.nameSource);
+    document.getElementById("name-input").value = state.name;
+    setActiveButtons(document.getElementById("case-options"), candidate => candidate === button);
+    updateAll();
+  });
+
+  const nameInput = document.getElementById("name-input");
+  let isNameComposing = false;
+
+  const commitNameInput = () => {
+    const normalized = normalizeName(nameInput.value);
+    state.nameSource = normalized.value;
+    state.name = applyCase(normalized.value);
+    nameInput.value = state.name;
     document.getElementById("name-count").textContent = nameCountLabel(normalized.value, normalized.units);
     updateAll();
+  };
+
+  nameInput.addEventListener("compositionstart", () => {
+    isNameComposing = true;
+  });
+
+  nameInput.addEventListener("compositionend", () => {
+    isNameComposing = false;
+    commitNameInput();
+  });
+
+  nameInput.addEventListener("input", event => {
+    if (isNameComposing || event.isComposing) return;
+    commitNameInput();
   });
 }
 
@@ -473,11 +556,13 @@ async function init() {
   renderLensOptions();
   renderIconCatalog();
   updateIconSlotUi();
+  document.getElementById("name-input").style.fontFamily = PRINT_FONTS[state.font].family;
 
   try {
     await Promise.all(Object.entries(VIEW_FILES).map(([key, file]) => loadSvg(key, file)));
     document.getElementById("loading-state").classList.add("is-hidden");
     updateAll();
+    document.fonts?.ready.then(updatePrint);
   } catch (error) {
     console.error(error);
     document.getElementById("loading-state").textContent = "模型載入失敗，請重新整理頁面。";
