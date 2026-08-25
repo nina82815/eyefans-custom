@@ -14,9 +14,6 @@
   <meta name="twitter:description" content="配色・UV 彩印・姓名預覽">
   <meta name="twitter:image" content="https://nina82815.github.io/eyefans-custom/og.png">
   <title>eYeFans 客製眼鏡模擬器</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&amp;family=LXGW+WenKai+TC&amp;family=Noto+Sans+TC:wght@600;700;800&amp;family=Noto+Serif+TC:wght@700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -132,11 +129,22 @@
         <fieldset class="choice-field" id="font-field">
           <legend>字體選擇</legend>
           <div class="font-options" id="font-options">
-            <button type="button" class="is-active" data-font="rounded" aria-pressed="true"><span class="font-preview font-preview--rounded">Aa 名</span><b>圓潤體</b></button>
-            <button type="button" data-font="bold" aria-pressed="false"><span class="font-preview font-preview--bold">Aa 名</span><b>粗黑體</b></button>
-            <button type="button" data-font="hand" aria-pressed="false"><span class="font-preview font-preview--hand">Aa 名</span><b>手寫體</b></button>
-            <button type="button" data-font="serif" aria-pressed="false"><span class="font-preview font-preview--serif">Aa 名</span><b>襯線體</b></button>
+            <div class="font-group" role="group" aria-label="中文字體">
+              <span class="font-group-label">中文字體</span>
+              <div class="font-group-buttons">
+                <button type="button" data-font="zhBold" aria-pressed="false"><span class="font-preview font-preview--zh-bold">佩瑜</span><span class="font-option-copy"><b>中文粗體</b><small>tsuhsianti</small></span></button>
+                <button type="button" data-font="zhRounded" aria-pressed="false"><span class="font-preview font-preview--zh-rounded">佩瑜</span><span class="font-option-copy"><b>中文圓體</b><small>GenSen Rounded</small></span></button>
+              </div>
+            </div>
+            <div class="font-group" role="group" aria-label="英文字體">
+              <span class="font-group-label">英文字體</span>
+              <div class="font-group-buttons">
+                <button type="button" data-font="purpleSmile" aria-pressed="false"><span class="font-preview font-preview--purple-smile">Peiyu</span><span class="font-option-copy"><b>Purple Smile</b><small>ENGLISH</small></span></button>
+                <button type="button" class="is-active" data-font="baksoSapi" aria-pressed="true"><span class="font-preview font-preview--bakso-sapi">Peiyu</span><span class="font-option-copy"><b>Bakso Sapi</b><small>ENGLISH</small></span></button>
+              </div>
+            </div>
           </div>
+          <p class="field-help">英文類字體不含中文字形；輸入中文時會自動以中文圓體補足。</p>
         </fieldset>
 
         <fieldset class="choice-field" id="case-field">

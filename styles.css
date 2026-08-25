@@ -1,3 +1,35 @@
+@font-face {
+  font-family: "eYeFans Tsuhsian";
+  src: url("assets/fonts/tsuhsianti-proportional.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "eYeFans GenSen Rounded";
+  src: url("assets/fonts/GenSenRounded2TW-B.otf") format("opentype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "eYeFans Purple Smile";
+  src: url("assets/fonts/Purple-Smile.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "eYeFans Bakso Sapi";
+  src: url("assets/fonts/BaksoSapi.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   --ink: #18382f;
   --ink-2: #2f5147;
@@ -168,15 +200,20 @@ button { color: inherit; }
 .name-input-wrap span { padding-right: 11px; color: var(--muted); font-size: 10px; white-space: nowrap; }
 .field-help, .print-note { margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
 
-.font-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.font-options button { min-width: 0; display: flex; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 11px; background: #fbf8f2; padding: 8px 10px; cursor: pointer; text-align: left; }
+.font-options { display: grid; gap: 12px; }
+.font-group { display: grid; gap: 7px; }
+.font-group-label { color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: .12em; }
+.font-group-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.font-options button { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 11px; background: #fbf8f2; padding: 9px 10px; cursor: pointer; text-align: left; }
 .font-options button.is-active { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); background: #f3efe7; }
-.font-options b { font-size: 10px; white-space: nowrap; }
-.font-preview { min-width: 46px; font-size: 18px; line-height: 1.2; color: var(--accent); white-space: nowrap; }
-.font-preview--rounded { font-family: "Baloo 2", "Noto Sans TC", sans-serif; font-weight: 700; }
-.font-preview--bold { font-family: "Noto Sans TC", "PingFang TC", sans-serif; font-weight: 800; }
-.font-preview--hand { font-family: "LXGW WenKai TC", "Klee One", cursive; font-weight: 400; }
-.font-preview--serif { font-family: "Noto Serif TC", "Songti TC", serif; font-weight: 700; }
+.font-option-copy { min-width: 0; display: grid; gap: 2px; }
+.font-options b { overflow: hidden; font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
+.font-options small { color: var(--muted); font-size: 7px; font-weight: 750; letter-spacing: .04em; white-space: nowrap; }
+.font-preview { min-width: 48px; font-size: 17px; line-height: 1.2; color: var(--accent); white-space: nowrap; }
+.font-preview--zh-bold { font-family: "eYeFans Tsuhsian", "PingFang TC", sans-serif; font-weight: 700; }
+.font-preview--zh-rounded { font-family: "eYeFans GenSen Rounded", "PingFang TC", sans-serif; font-weight: 700; }
+.font-preview--purple-smile { font-family: "eYeFans Purple Smile", "eYeFans GenSen Rounded", sans-serif; font-weight: 400; }
+.font-preview--bakso-sapi { font-family: "eYeFans Bakso Sapi", "eYeFans GenSen Rounded", sans-serif; font-weight: 400; }
 
 .case-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 

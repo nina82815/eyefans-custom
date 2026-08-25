@@ -47,29 +47,37 @@ const MODE_NAMES = {
 };
 
 const PRINT_FONTS = {
-  rounded: {
-    label: "圓潤體",
-    family: '"Baloo 2", "Noto Sans TC", "PingFang TC", sans-serif',
+  zhBold: {
+    label: "中文粗體",
+    family: '"eYeFans Tsuhsian", "eYeFans GenSen Rounded", "PingFang TC", sans-serif',
     weight: "700",
-    widthFactor: .57
+    uppercaseWidth: .496,
+    lowercaseWidth: .430,
+    hanWidth: .708
   },
-  bold: {
-    label: "粗黑體",
-    family: '"Noto Sans TC", "PingFang TC", "Arial Black", sans-serif',
-    weight: "800",
-    widthFactor: .61
+  zhRounded: {
+    label: "中文圓體",
+    family: '"eYeFans GenSen Rounded", "PingFang TC", sans-serif',
+    weight: "700",
+    uppercaseWidth: .668,
+    lowercaseWidth: .566,
+    hanWidth: 1
   },
-  hand: {
-    label: "手寫體",
-    family: '"LXGW WenKai TC", "Klee One", cursive',
+  purpleSmile: {
+    label: "Purple Smile",
+    family: '"eYeFans Purple Smile", "eYeFans GenSen Rounded", "PingFang TC", sans-serif',
     weight: "400",
-    widthFactor: .56
+    uppercaseWidth: .655,
+    lowercaseWidth: .585,
+    hanWidth: 1
   },
-  serif: {
-    label: "襯線體",
-    family: '"Noto Serif TC", "Songti TC", serif',
-    weight: "700",
-    widthFactor: .62
+  baksoSapi: {
+    label: "Bakso Sapi",
+    family: '"eYeFans Bakso Sapi", "eYeFans GenSen Rounded", "PingFang TC", sans-serif',
+    weight: "400",
+    uppercaseWidth: .647,
+    lowercaseWidth: .637,
+    hanWidth: 1
   }
 };
 
@@ -84,7 +92,7 @@ const state = {
   activeIconSlot: "icon1",
   nameSource: "PEIYU",
   name: "PEIYU",
-  font: "rounded",
+  font: "baksoSapi",
   caseMode: "preserve",
   order: "normal"
 };
@@ -214,9 +222,12 @@ function updateColors() {
   });
 }
 
-function estimatedTextWidth(name, fontSize, widthFactor = .57) {
+function estimatedTextWidth(name, fontSize, fontMetrics = PRINT_FONTS.baksoSapi) {
   const width = Array.from(name).reduce((total, character) => {
-    return total + (isCjk(character) ? fontSize : character === " " ? fontSize * .34 : fontSize * widthFactor);
+    if (isCjk(character)) return total + (fontSize * fontMetrics.hanWidth);
+    if (character === " ") return total + (fontSize * .34);
+    if (/[a-z]/.test(character)) return total + (fontSize * fontMetrics.lowercaseWidth);
+    return total + (fontSize * fontMetrics.uppercaseWidth);
   }, 0);
   return Math.max(fontSize * .65, width);
 }
@@ -273,7 +284,7 @@ function updatePrint() {
     const selectedFont = PRINT_FONTS[state.font];
     const baseIconSize = layer.fontSize * .88;
     const baseGap = layer.fontSize * .22;
-    const baseNameWidth = estimatedTextWidth(state.name || " ", layer.fontSize, selectedFont.widthFactor);
+    const baseNameWidth = estimatedTextWidth(state.name || " ", layer.fontSize, selectedFont);
     const firstId = state.order === "normal" ? state.icon1 : state.icon2;
     const secondId = state.order === "normal" ? state.icon2 : state.icon1;
     const baseTotalWidth = showIcons && showName
