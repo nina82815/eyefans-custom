@@ -11,7 +11,6 @@ const FRAME_COLORS = [
   { name: "單寧藍", value: "#4984b7" },
   { name: "梅子", value: "#bd838f" },
   { name: "奶茶", value: "#dcad9b" },
-  { name: "橙黃", value: "#eaa419" },
   { name: "青釉綠", value: "#465d55" },
   { name: "天藍", value: "#09afe9" },
   { name: "玫瑰", value: "#a84258" },
@@ -20,13 +19,40 @@ const FRAME_COLORS = [
   { name: "霧面黑", value: "#0f0f10" },
   { name: "灰色", value: "#898989" },
   { name: "咖啡紅茶", value: "#8a382c" },
-  { name: "茶色", value: "#a16238" },
-  { name: "狼棕", value: "#b0905f" },
   { name: "霧面白", value: "#ffffff" },
   { name: "琥珀", type: "pattern", value: "amber", thumb: "amber.png" }
 ];
 
 const TEMPLE_COLORS = FRAME_COLORS.map(color => ({ ...color }));
+
+const SIZE_OPTIONS = [
+  { name: "XS", headCircumference: "41–44 cm" },
+  { name: "S", headCircumference: "46–49 cm" },
+  { name: "M", headCircumference: "50–53 cm" },
+  { name: "L", headCircumference: "54–56 cm" }
+];
+
+const ALL_COLOR_NAMES = FRAME_COLORS.map(color => color.name);
+const SIZE_COLOR_AVAILABILITY = {
+  XS: new Set(ALL_COLOR_NAMES),
+  S: new Set(ALL_COLOR_NAMES),
+  M: new Set(ALL_COLOR_NAMES),
+  L: new Set([
+    "櫻花粉",
+    "粉紫",
+    "芋頭紫",
+    "奶油黃",
+    "奶茶",
+    "青釉綠",
+    "玫瑰",
+    "咖啡牛奶",
+    "霧面黑",
+    "灰色",
+    "咖啡紅茶",
+    "霧面白",
+    "琥珀"
+  ])
+};
 
 const LENS_COLORS = [
   { name: "三號灰片", value: "rgba(25,25,28,.78)", swatch: "rgba(25,25,28,.78)" },
@@ -112,6 +138,7 @@ const PRINT_FONTS = {
 };
 
 const state = {
+  size: "M",
   view: "a45",
   renderMode: "photo",
   frame: FRAME_COLORS[0],
@@ -561,6 +588,30 @@ function photoColorAvailable(colorName) {
   return Boolean(PHOTO_ASSETS[colorName]);
 }
 
+function sizeColorAvailable(size, colorName) {
+  return Boolean(SIZE_COLOR_AVAILABILITY[size]?.has(colorName));
+}
+
+function colorOptionsFor(stateKey) {
+  return stateKey === "frame" ? FRAME_COLORS : TEMPLE_COLORS;
+}
+
+function firstAvailableColor(stateKey, { photoOnly = false } = {}) {
+  return colorOptionsFor(stateKey).find(color => (
+    sizeColorAvailable(state.size, color.name)
+    && (!photoOnly || photoColorAvailable(color.name))
+  ));
+}
+
+function syncSizeControls() {
+  const selectedSize = SIZE_OPTIONS.find(size => size.name === state.size) || SIZE_OPTIONS[2];
+  setActiveButtons(
+    document.getElementById("size-options"),
+    button => button.dataset.size === state.size
+  );
+  document.getElementById("picked-size").textContent = `${selectedSize.name} · ${selectedSize.headCircumference}`;
+}
+
 function syncColorControls() {
   [
     ["frame-swatches", "frame", "picked-frame"],
@@ -572,27 +623,65 @@ function syncColorControls() {
   });
 }
 
-function updatePhotoAvailability() {
+function updateColorAvailability() {
   const photoMode = state.renderMode === "photo";
   ["frame-swatches", "temple-swatches"].forEach(mountId => {
     document.getElementById(mountId).querySelectorAll("button[data-color]").forEach(button => {
-      const unavailable = photoMode && !photoColorAvailable(button.dataset.color);
+      const colorName = button.dataset.color;
+      const sizeUnavailable = !sizeColorAvailable(state.size, colorName);
+      const photoUnavailable = photoMode && !photoColorAvailable(colorName);
+      const unavailable = sizeUnavailable || photoUnavailable;
+      const reasons = [];
+      if (sizeUnavailable) reasons.push(`${state.size} 尺寸無此色`);
+      if (photoUnavailable) reasons.push("尚未加入實拍效果，可切換 2D 自由配色使用");
+
       button.disabled = unavailable;
-      button.classList.toggle("is-photo-unavailable", unavailable);
-      button.title = unavailable
-        ? `${button.dataset.color}尚未加入實拍效果；可切換 2D 自由配色使用`
-        : button.dataset.color;
+      button.classList.toggle("is-size-unavailable", sizeUnavailable);
+      button.classList.toggle("is-photo-unavailable", photoUnavailable);
+      button.classList.toggle("is-unavailable", unavailable);
+      button.title = reasons.length ? `${colorName}：${reasons.join("；")}` : colorName;
+      button.setAttribute("aria-label", reasons.length ? `${colorName}，${reasons.join("；")}` : colorName);
     });
   });
 }
 
-function enterPhotoModeSelections() {
-  const fallback = FRAME_COLORS.find(color => color.name === DEFAULT_PHOTO_COLOR);
+function reconcileColorSelectionsForSize() {
+  const photoOnly = state.renderMode === "photo";
+
   ["frame", "temple"].forEach(stateKey => {
+    const current = state[stateKey];
+    const currentAvailable = sizeColorAvailable(state.size, current.name)
+      && (!photoOnly || photoColorAvailable(current.name));
+
+    if (!currentAvailable) {
+      const fallback = firstAvailableColor(stateKey, { photoOnly });
+      if (fallback) state[stateKey] = { ...fallback };
+    }
+
+    const deferred = deferredModelColors[stateKey];
+    if (!deferred) return;
+    if (sizeColorAvailable(state.size, deferred.color.name)) {
+      deferred.size = state.size;
+    } else {
+      deferredModelColors[stateKey] = null;
+    }
+  });
+}
+
+function enterPhotoModeSelections() {
+  ["frame", "temple"].forEach(stateKey => {
+    const current = state[stateKey];
+    const sizeAvailable = sizeColorAvailable(state.size, current.name);
     deferredModelColors[stateKey] = null;
-    if (!photoColorAvailable(state[stateKey].name)) {
-      deferredModelColors[stateKey] = { ...state[stateKey] };
-      state[stateKey] = { ...fallback };
+    if (!photoColorAvailable(current.name) || !sizeAvailable) {
+      if (sizeAvailable) {
+        deferredModelColors[stateKey] = {
+          size: state.size,
+          color: { ...current }
+        };
+      }
+      const fallback = firstAvailableColor(stateKey, { photoOnly: true });
+      if (fallback) state[stateKey] = { ...fallback };
     }
   });
   syncColorControls();
@@ -600,7 +689,14 @@ function enterPhotoModeSelections() {
 
 function leavePhotoModeSelections() {
   ["frame", "temple"].forEach(stateKey => {
-    if (deferredModelColors[stateKey]) state[stateKey] = deferredModelColors[stateKey];
+    const deferred = deferredModelColors[stateKey];
+    if (
+      deferred
+      && deferred.size === state.size
+      && sizeColorAvailable(state.size, deferred.color.name)
+    ) {
+      state[stateKey] = deferred.color;
+    }
     deferredModelColors[stateKey] = null;
   });
   syncColorControls();
@@ -722,6 +818,8 @@ function setChip(id, item) {
 }
 
 function updateSummary() {
+  document.getElementById("size-summary").textContent = state.size;
+  document.getElementById("size-chip").textContent = state.size;
   document.getElementById("frame-summary").textContent = state.frame.name;
   document.getElementById("temple-summary").textContent = state.temple.name;
   document.getElementById("lens-summary").textContent = state.lens.name;
@@ -736,11 +834,12 @@ function announceAndNotifyParent() {
     ? "不加印刷"
     : `${MODE_NAMES[state.printMode]}${state.printMode !== "name" ? `／圖案 ${state.icon1}+${state.icon2}` : ""}${state.printMode !== "icon" ? `／${state.name || "未輸入名字"}／文字${textColorLabel}` : ""}`;
   const previewMode = state.renderMode === "photo" ? "實拍效果" : "2D 自由配色";
-  const summary = `${previewMode}、鏡框 ${state.frame.name}、鏡腳 ${state.temple.name}、鏡片 ${state.lens.name}、${print}`;
+  const summary = `${previewMode}、尺寸 ${state.size}、鏡框 ${state.frame.name}、鏡腳 ${state.temple.name}、鏡片 ${state.lens.name}、${print}`;
   document.getElementById("live-status").textContent = summary;
   window.parent?.postMessage({
     type: "eyefans-customizer-change",
     selection: {
+      size: state.size,
       view: state.view,
       renderMode: state.renderMode,
       frame: state.frame.name,
@@ -760,17 +859,27 @@ function announceAndNotifyParent() {
 }
 
 function updateAll() {
+  syncSizeControls();
   updateColors();
   updatePhotoComposite();
   updatePrint();
   updateConditionalFields();
   updateSummary();
-  updatePhotoAvailability();
+  updateColorAvailability();
   updatePrintViewHint();
   announceAndNotifyParent();
 }
 
 function bindControls() {
+  document.getElementById("size-options").addEventListener("click", event => {
+    const button = event.target.closest("button[data-size]");
+    if (!button || button.dataset.size === state.size) return;
+    state.size = button.dataset.size;
+    reconcileColorSelectionsForSize();
+    syncColorControls();
+    updateAll();
+  });
+
   document.getElementById("view-tabs").addEventListener("click", event => {
     const button = event.target.closest("button[data-view]");
     if (!button) return;
@@ -881,12 +990,13 @@ async function init() {
   preparePhotoLayers();
   bindControls();
   syncViewControls();
+  syncSizeControls();
   renderSwatches("frame-swatches", FRAME_COLORS, "frame", "picked-frame");
   renderSwatches("temple-swatches", TEMPLE_COLORS, "temple", "picked-temple");
   renderLensOptions();
   renderIconCatalog();
   updateIconSlotUi();
-  updatePhotoAvailability();
+  updateColorAvailability();
   document.getElementById("name-input").style.fontFamily = PRINT_FONTS[state.font].family;
 
   try {

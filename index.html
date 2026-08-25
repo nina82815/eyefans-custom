@@ -104,6 +104,7 @@
       </div>
 
       <div class="selection-strip" aria-label="目前選擇">
+        <span><i class="size-chip" id="size-chip" aria-hidden="true">M</i><b>尺寸</b><em id="size-summary">M</em></span>
         <span><i id="frame-chip"></i><b>鏡框</b><em id="frame-summary">櫻花粉</em></span>
         <span><i id="temple-chip"></i><b>鏡腳</b><em id="temple-summary">櫻花粉</em></span>
         <span><i id="lens-chip"></i><b>鏡片</b><em id="lens-summary">三號灰片</em></span>
@@ -114,12 +115,26 @@
       <div class="controls-intro">
         <span class="eyebrow">MAKE IT YOURS</span>
         <h2>選擇你的搭配</h2>
-        <p>點選色票與圖案，左側會同步顯示效果。</p>
+        <p>點選尺寸、色票與圖案，左側會同步顯示效果。</p>
       </div>
+
+      <section class="control-section" aria-labelledby="size-title">
+        <div class="section-heading">
+          <div><span>01</span><h3 id="size-title">尺寸</h3></div>
+          <output id="picked-size">M · 50–53 cm</output>
+        </div>
+        <div class="size-options" id="size-options" role="group" aria-label="選擇眼鏡尺寸">
+          <button type="button" data-size="XS" aria-label="XS，頭圍 41 至 44 公分" aria-pressed="false"><b>XS</b><small>41–44 cm</small></button>
+          <button type="button" data-size="S" aria-label="S，頭圍 46 至 49 公分" aria-pressed="false"><b>S</b><small>46–49 cm</small></button>
+          <button class="is-active" type="button" data-size="M" aria-label="M，頭圍 50 至 53 公分" aria-pressed="true"><b>M</b><small>50–53 cm</small></button>
+          <button type="button" data-size="L" aria-label="L，頭圍 54 至 56 公分，大人可戴" aria-pressed="false"><b>L</b><small>54–56 cm</small></button>
+        </div>
+        <p class="field-help">頭圍僅供參考；L 尺寸為大人可戴，未提供的色票會變淡且無法選取。</p>
+      </section>
 
       <section class="control-section" aria-labelledby="frame-title">
         <div class="section-heading">
-          <div><span>01</span><h3 id="frame-title">鏡框顏色</h3></div>
+          <div><span>02</span><h3 id="frame-title">鏡框顏色</h3></div>
           <output id="picked-frame">櫻花粉</output>
         </div>
         <div class="swatches" id="frame-swatches"></div>
@@ -127,7 +142,7 @@
 
       <section class="control-section" aria-labelledby="temple-title">
         <div class="section-heading">
-          <div><span>02</span><h3 id="temple-title">鏡腳顏色</h3></div>
+          <div><span>03</span><h3 id="temple-title">鏡腳顏色</h3></div>
           <output id="picked-temple">櫻花粉</output>
         </div>
         <div class="swatches" id="temple-swatches"></div>
@@ -135,7 +150,7 @@
 
       <section class="control-section" aria-labelledby="lens-title">
         <div class="section-heading">
-          <div><span>03</span><h3 id="lens-title">鏡片顏色</h3></div>
+          <div><span>04</span><h3 id="lens-title">鏡片顏色</h3></div>
           <output id="picked-lens">三號灰片</output>
         </div>
         <div class="lens-options" id="lens-options"></div>
@@ -143,7 +158,7 @@
 
       <section class="control-section uv-section" aria-labelledby="uv-title">
         <div class="section-heading">
-          <div><span>04</span><h3 id="uv-title">UV 彩印客製</h3></div>
+          <div><span>05</span><h3 id="uv-title">UV 彩印客製</h3></div>
           <output id="picked-print">圖案＋名字</output>
         </div>
 
