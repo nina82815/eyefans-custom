@@ -61,6 +61,14 @@ const PHOTO_COVER_FILLS = {
   "琥珀": "url(#photo-a45-cover-amber)"
 };
 
+const TEXT_COLOR_OPTIONS = {
+  black: { label: "黑色", fill: "#171817", stroke: "rgba(255,255,255,.52)" },
+  white: { label: "白色", fill: "#fffdf8", stroke: "rgba(0,0,0,.28)" },
+  rainbow: { label: "逐字彩色", fill: "#e66d3f", stroke: "rgba(255,255,255,.58)" }
+};
+
+const RAINBOW_PRINT_COLORS = ["#ef6a4b", "#efbd3f", "#63a56f", "#43a5bd", "#8b72c7", "#df6f99"];
+
 const MODE_NAMES = {
   both: "2 圖＋名字",
   icon: "只要 2 圖",
@@ -104,7 +112,7 @@ const PRINT_FONTS = {
 };
 
 const state = {
-  view: "front",
+  view: "a45",
   renderMode: "photo",
   frame: FRAME_COLORS[0],
   temple: TEMPLE_COLORS[0],
@@ -115,6 +123,7 @@ const state = {
   activeIconSlot: "icon1",
   nameSource: "PEIYU",
   name: "PEIYU",
+  textColor: "white",
   font: "baksoSapi",
   caseMode: "preserve",
   order: "normal"
@@ -126,8 +135,10 @@ const photoLayers = {};
 let photoPrintLayer;
 let textMeasureContext;
 const deferredModelColors = { frame: null, temple: null };
+let deferredModelView = null;
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XLINK_NS = "http://www.w3.org/1999/xlink";
+const XML_NS = "http://www.w3.org/XML/1998/namespace";
 const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 30 };
 const MAX_PRINT_WIDTH = { side: 205, a45: 112, photoA45: 270 };
 
@@ -227,7 +238,7 @@ async function loadSvg(key, fileName) {
 }
 
 function preparePhotoLayers() {
-  ["front", "a45"].forEach(key => {
+  ["a45"].forEach(key => {
     const svg = document.getElementById(`photo-${key}`);
     if (!svg) return;
     photoLayers[key] = {
@@ -300,6 +311,7 @@ function updatePhotoComposite() {
 
   const photoMode = state.renderMode === "photo";
   document.getElementById("viewer").classList.toggle("is-photo-mode", photoMode);
+  document.getElementById("view-tabs").classList.toggle("is-photo-mode", photoMode);
   document.getElementById("photo-mode-note").hidden = !photoMode;
 }
 
@@ -323,6 +335,48 @@ function measuredTextWidth(name, fontSize, fontMetrics = PRINT_FONTS.baksoSapi) 
   return Number.isFinite(measured) && measured > 0
     ? Math.max(fontSize * .65, measured)
     : estimatedTextWidth(name, fontSize, fontMetrics);
+}
+
+function printTextWidth(name, fontSize, fontMetrics = PRINT_FONTS.baksoSapi) {
+  if (state.textColor !== "rainbow" || typeof document === "undefined") {
+    return measuredTextWidth(name, fontSize, fontMetrics);
+  }
+  if (!textMeasureContext) textMeasureContext = document.createElement("canvas").getContext("2d");
+  if (!textMeasureContext) return estimatedTextWidth(name, fontSize, fontMetrics);
+
+  textMeasureContext.font = `${fontMetrics.weight} ${fontSize}px ${fontMetrics.family}`;
+  const width = Array.from(name || " ").reduce(
+    (total, character) => total + textMeasureContext.measureText(character).width,
+    0
+  );
+  return Number.isFinite(width) && width > 0
+    ? Math.max(fontSize * .65, width)
+    : estimatedTextWidth(name, fontSize, fontMetrics);
+}
+
+function applyPrintTextColor(textElement, value) {
+  const option = TEXT_COLOR_OPTIONS[state.textColor] || TEXT_COLOR_OPTIONS.white;
+  const printableValue = value || " ";
+  textElement.replaceChildren();
+  textElement.setAttributeNS(XML_NS, "xml:space", "preserve");
+  textElement.setAttribute("fill", option.fill);
+  textElement.setAttribute("stroke", option.stroke);
+
+  if (state.textColor !== "rainbow") {
+    textElement.textContent = printableValue;
+    return;
+  }
+
+  let colorIndex = 0;
+  Array.from(printableValue).forEach(character => {
+    const tspan = svgElement("tspan");
+    tspan.textContent = character;
+    if (character !== " ") {
+      tspan.setAttribute("fill", RAINBOW_PRINT_COLORS[colorIndex % RAINBOW_PRINT_COLORS.length]);
+      colorIndex += 1;
+    }
+    textElement.appendChild(tspan);
+  });
 }
 
 function isCjk(character) {
@@ -377,7 +431,7 @@ function updatePrint() {
     const selectedFont = PRINT_FONTS[state.font];
     const baseIconSize = layer.fontSize * .88;
     const baseGap = layer.fontSize * .22;
-    const baseNameWidth = measuredTextWidth(state.name || " ", layer.fontSize, selectedFont);
+    const baseNameWidth = printTextWidth(state.name || " ", layer.fontSize, selectedFont);
     const firstId = state.order === "normal" ? state.icon1 : state.icon2;
     const secondId = state.order === "normal" ? state.icon2 : state.icon1;
     const baseTotalWidth = showIcons && showName
@@ -395,12 +449,12 @@ function updatePrint() {
 
     setSvgHref(layer.iconA, `assets/uv-icons/${firstId}.svg`);
     setSvgHref(layer.iconB, `assets/uv-icons/${secondId}.svg`);
-    layer.text.textContent = state.name || " ";
     layer.text.setAttribute("font-family", selectedFont.family);
     layer.text.setAttribute("font-weight", selectedFont.weight);
     layer.text.setAttribute("font-size", String(fontSize));
     layer.text.setAttribute("stroke-width", String(Math.max(.4, fontSize * .025)));
     layer.text.setAttribute("y", "0");
+    applyPrintTextColor(layer.text, state.name);
     layer.iconA.style.display = showIcons ? "inline" : "none";
     layer.iconB.style.display = showIcons ? "inline" : "none";
     layer.text.style.display = showName ? "inline" : "none";
@@ -431,7 +485,7 @@ function updatePhotoPrint() {
   const selectedFont = PRINT_FONTS[state.font];
   const baseIconSize = layer.fontSize * .88;
   const baseGap = layer.fontSize * .22;
-  const baseNameWidth = measuredTextWidth(state.name || " ", layer.fontSize, selectedFont);
+  const baseNameWidth = printTextWidth(state.name || " ", layer.fontSize, selectedFont);
   const firstId = state.order === "normal" ? state.icon1 : state.icon2;
   const secondId = state.order === "normal" ? state.icon2 : state.icon1;
   const baseTotalWidth = showIcons && showName
@@ -446,18 +500,14 @@ function updatePhotoPrint() {
   const nameWidth = baseNameWidth * fitScale;
   const totalWidth = baseTotalWidth * fitScale;
   const startX = -(totalWidth / 2);
-  const darkPrint = state.temple.name === "霧面白";
-
   setSvgHref(layer.iconA, `assets/uv-icons/${firstId}.svg`);
   setSvgHref(layer.iconB, `assets/uv-icons/${secondId}.svg`);
-  layer.text.textContent = state.name || " ";
   layer.text.setAttribute("font-family", selectedFont.family);
   layer.text.setAttribute("font-weight", selectedFont.weight);
   layer.text.setAttribute("font-size", String(fontSize));
-  layer.text.setAttribute("fill", darkPrint ? "#26352f" : "#fffdf8");
-  layer.text.setAttribute("stroke", darkPrint ? "rgba(255,255,255,.5)" : "rgba(0,0,0,.25)");
   layer.text.setAttribute("stroke-width", String(Math.max(.8, fontSize * .03)));
   layer.text.setAttribute("y", "0");
+  applyPrintTextColor(layer.text, state.name);
   layer.iconA.style.display = showIcons ? "inline" : "none";
   layer.iconB.style.display = showIcons ? "inline" : "none";
   layer.text.style.display = showName ? "inline" : "none";
@@ -480,6 +530,28 @@ function setActiveButtons(container, matcher) {
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+}
+
+function syncViewControls() {
+  Object.keys(VIEW_FILES).forEach(key => {
+    document.getElementById(`view-${key}`).hidden = key !== state.view;
+  });
+  setActiveButtons(
+    document.getElementById("view-tabs"),
+    button => button.dataset.view === state.view
+  );
+}
+
+function enterPhotoView() {
+  deferredModelView = state.view === "a45" ? null : state.view;
+  state.view = "a45";
+  syncViewControls();
+}
+
+function leavePhotoView() {
+  if (deferredModelView) state.view = deferredModelView;
+  deferredModelView = null;
+  syncViewControls();
 }
 
 function photoColorAvailable(colorName) {
@@ -505,7 +577,7 @@ function updatePhotoAvailability() {
       button.disabled = unavailable;
       button.classList.toggle("is-photo-unavailable", unavailable);
       button.title = unavailable
-        ? `${button.dataset.color}尚未加入實拍測試；可切換配色模型使用`
+        ? `${button.dataset.color}尚未加入實拍效果；可切換 2D 自由配色使用`
         : button.dataset.color;
     });
   });
@@ -533,12 +605,11 @@ function leavePhotoModeSelections() {
 
 function updatePrintViewHint() {
   const hint = document.getElementById("print-view-hint");
-  if (state.renderMode === "photo" && state.view === "side") {
-    hint.textContent = "實拍素材目前沒有 90° 側面，此角度沿用配色模型。";
-    hint.hidden = false;
+  if (state.renderMode === "photo") {
+    hint.hidden = true;
     return;
   }
-  hint.textContent = "UV 彩印位於右外側鏡腳，請切換「側面」或「45°」查看。";
+  hint.textContent = "UV 彩印位於左外側鏡腳，請切換「側面」或「左側 45°」查看。";
   hint.hidden = state.view !== "front" || state.printMode === "none";
 }
 
@@ -633,6 +704,7 @@ function updateConditionalFields() {
   const usesName = state.printMode === "both" || state.printMode === "name";
   document.getElementById("icon-field").hidden = !usesIcon;
   document.getElementById("name-field").hidden = !usesName;
+  document.getElementById("text-color-field").hidden = !usesName;
   document.getElementById("font-field").hidden = !usesName;
   document.getElementById("case-field").hidden = !usesName;
   document.getElementById("layout-field").hidden = state.printMode !== "both";
@@ -656,10 +728,11 @@ function updateSummary() {
 }
 
 function announceAndNotifyParent() {
+  const textColorLabel = TEXT_COLOR_OPTIONS[state.textColor]?.label || TEXT_COLOR_OPTIONS.white.label;
   const print = state.printMode === "none"
     ? "不加印刷"
-    : `${MODE_NAMES[state.printMode]}${state.printMode !== "name" ? `／圖案 ${state.icon1}+${state.icon2}` : ""}${state.printMode !== "icon" ? `／${state.name || "未輸入名字"}` : ""}`;
-  const previewMode = state.renderMode === "photo" ? "實拍測試" : "配色模型";
+    : `${MODE_NAMES[state.printMode]}${state.printMode !== "name" ? `／圖案 ${state.icon1}+${state.icon2}` : ""}${state.printMode !== "icon" ? `／${state.name || "未輸入名字"}／文字${textColorLabel}` : ""}`;
+  const previewMode = state.renderMode === "photo" ? "實拍效果" : "2D 自由配色";
   const summary = `${previewMode}、鏡框 ${state.frame.name}、鏡腳 ${state.temple.name}、鏡片 ${state.lens.name}、${print}`;
   document.getElementById("live-status").textContent = summary;
   window.parent?.postMessage({
@@ -674,6 +747,7 @@ function announceAndNotifyParent() {
       icon1: state.icon1,
       icon2: state.icon2,
       name: state.name,
+      textColor: state.textColor,
       font: state.font,
       caseMode: state.caseMode,
       order: state.order,
@@ -697,11 +771,9 @@ function bindControls() {
   document.getElementById("view-tabs").addEventListener("click", event => {
     const button = event.target.closest("button[data-view]");
     if (!button) return;
+    if (state.renderMode === "photo" && button.dataset.view !== "a45") return;
     state.view = button.dataset.view;
-    Object.keys(VIEW_FILES).forEach(key => {
-      document.getElementById(`view-${key}`).hidden = key !== state.view;
-    });
-    setActiveButtons(document.getElementById("view-tabs"), candidate => candidate === button);
+    syncViewControls();
     updatePrintViewHint();
     announceAndNotifyParent();
   });
@@ -711,8 +783,14 @@ function bindControls() {
     if (!button) return;
     const nextMode = button.dataset.renderMode;
     if (nextMode === state.renderMode) return;
-    if (nextMode === "photo") enterPhotoModeSelections();
-    if (state.renderMode === "photo" && nextMode === "model") leavePhotoModeSelections();
+    if (nextMode === "photo") {
+      enterPhotoModeSelections();
+      enterPhotoView();
+    }
+    if (state.renderMode === "photo" && nextMode === "model") {
+      leavePhotoModeSelections();
+      leavePhotoView();
+    }
     state.renderMode = nextMode;
     setActiveButtons(document.getElementById("render-mode-options"), candidate => candidate === button);
     updateAll();
@@ -748,6 +826,14 @@ function bindControls() {
     state.font = button.dataset.font;
     setActiveButtons(document.getElementById("font-options"), candidate => candidate === button);
     document.getElementById("name-input").style.fontFamily = PRINT_FONTS[state.font].family;
+    updateAll();
+  });
+
+  document.getElementById("text-color-options").addEventListener("click", event => {
+    const button = event.target.closest("button[data-text-color]");
+    if (!button) return;
+    state.textColor = button.dataset.textColor;
+    setActiveButtons(document.getElementById("text-color-options"), candidate => candidate === button);
     updateAll();
   });
 
@@ -791,6 +877,7 @@ function bindControls() {
 async function init() {
   preparePhotoLayers();
   bindControls();
+  syncViewControls();
   renderSwatches("frame-swatches", FRAME_COLORS, "frame", "picked-frame");
   renderSwatches("temple-swatches", TEMPLE_COLORS, "temple", "picked-temple");
   renderLensOptions();

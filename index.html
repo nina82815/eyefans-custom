@@ -36,43 +36,24 @@
       </div>
 
       <div class="preview-toolbar">
-        <div class="view-tabs" id="view-tabs" aria-label="選擇預覽角度">
-          <button class="view-tab is-active" type="button" data-view="front" aria-pressed="true">正面</button>
+        <div class="view-tabs is-photo-mode" id="view-tabs" aria-label="選擇預覽角度">
+          <button class="view-tab" type="button" data-view="front" aria-pressed="false">正面</button>
           <button class="view-tab" type="button" data-view="side" aria-pressed="false">側面</button>
-          <button class="view-tab" type="button" data-view="a45" aria-pressed="false">45°</button>
+          <button class="view-tab is-active" type="button" data-view="a45" aria-pressed="true">左側 45°</button>
         </div>
         <div class="render-mode-options" id="render-mode-options" aria-label="選擇預覽模式">
-          <button class="is-active" type="button" data-render-mode="photo" aria-pressed="true">實拍測試</button>
-          <button type="button" data-render-mode="model" aria-pressed="false">配色模型</button>
+          <button class="is-active" type="button" data-render-mode="photo" aria-pressed="true">實拍效果</button>
+          <button type="button" data-render-mode="model" aria-pressed="false">2D 自由配色</button>
         </div>
       </div>
-      <p class="photo-mode-note" id="photo-mode-note"><b>實拍測試</b> 目前支援櫻花粉、霧面白、琥珀；90° 側面沿用配色模型。</p>
+      <p class="photo-mode-note" id="photo-mode-note"><b>實拍效果</b> 固定呈現左側 45°；目前支援櫻花粉、霧面白、琥珀。</p>
 
       <div class="viewer is-photo-mode" id="viewer" aria-live="polite">
         <div class="loading" id="loading-state"><span></span>正在載入眼鏡模型</div>
-        <div class="view" id="view-front" data-photo-ready>
-          <svg class="photo-composite" id="photo-front" viewBox="0 0 591 235" preserveAspectRatio="xMidYMid meet" role="img" aria-label="正面實拍眼鏡預覽">
-            <defs>
-              <mask id="photo-front-silhouette" x="0" y="0" width="591" height="235" maskUnits="userSpaceOnUse" style="mask-type:alpha">
-                <image href="assets/photos/white-front.png" x="0" y="0" width="591" height="235" preserveAspectRatio="none"></image>
-              </mask>
-              <clipPath id="photo-front-temple-clip" clipPathUnits="userSpaceOnUse">
-                <path d="M0 146C13 142 32 148 51 163C38 174 18 181 1 177ZM591 146C578 142 559 148 540 163C553 174 573 181 590 177Z"></path>
-              </clipPath>
-            </defs>
-            <g mask="url(#photo-front-silhouette)">
-              <image class="photo-frame-image" href="assets/photos/sakura-front.png" x="0" y="0" width="591" height="235" preserveAspectRatio="none"></image>
-              <image class="photo-temple-image" href="assets/photos/sakura-front.png" x="0" y="0" width="591" height="235" preserveAspectRatio="none" clip-path="url(#photo-front-temple-clip)"></image>
-              <g class="photo-lens-tints">
-                <ellipse cx="153" cy="124" rx="108" ry="94"></ellipse>
-                <ellipse cx="438" cy="124" rx="108" ry="94"></ellipse>
-              </g>
-            </g>
-          </svg>
-        </div>
+        <div class="view" id="view-front" hidden></div>
         <div class="view" id="view-side" hidden></div>
-        <div class="view" id="view-a45" data-photo-ready hidden>
-          <svg class="photo-composite" id="photo-a45" viewBox="0 0 1643 686" preserveAspectRatio="xMidYMid meet" role="img" aria-label="45 度實拍眼鏡預覽">
+        <div class="view" id="view-a45" data-photo-ready>
+          <svg class="photo-composite" id="photo-a45" viewBox="0 0 1643 686" preserveAspectRatio="xMidYMid meet" role="img" aria-label="左側 45 度實拍眼鏡預覽">
             <defs>
               <mask id="photo-a45-silhouette" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" style="mask-type:alpha">
                 <image href="assets/photos/white-a45.png" x="0" y="0" width="1643" height="686" preserveAspectRatio="none"></image>
@@ -119,7 +100,7 @@
             </g>
           </svg>
         </div>
-        <p class="print-view-hint" id="print-view-hint">UV 彩印位於右外側鏡腳，請切換「側面」或「45°」查看。</p>
+        <p class="print-view-hint" id="print-view-hint" hidden>UV 彩印位於左外側鏡腳，請切換「側面」或「左側 45°」查看。</p>
       </div>
 
       <div class="selection-strip" aria-label="目前選擇">
@@ -199,6 +180,16 @@
           <p class="field-help" id="name-help">支援中文、英文與數字；中文可使用注音、拼音等輸入法，完成選字後計算字數。</p>
         </fieldset>
 
+        <fieldset class="choice-field" id="text-color-field">
+          <legend>文字顏色 <small>彩色為每字一色</small></legend>
+          <div class="text-color-options" id="text-color-options">
+            <button type="button" data-text-color="black" aria-pressed="false"><i class="text-color-dot text-color-dot--black"></i><span>黑色</span></button>
+            <button type="button" class="is-active" data-text-color="white" aria-pressed="true"><i class="text-color-dot text-color-dot--white"></i><span>白色</span></button>
+            <button type="button" data-text-color="rainbow" aria-pressed="false"><i class="text-color-dot text-color-dot--rainbow"></i><span>逐字彩色</span></button>
+          </div>
+          <p class="field-help">逐字彩色會依序替每個中文字、英文字母或數字套用不同顏色。</p>
+        </fieldset>
+
         <fieldset class="choice-field" id="font-field">
           <legend>字體選擇</legend>
           <div class="font-options" id="font-options">
@@ -237,7 +228,7 @@
           </div>
         </fieldset>
 
-        <p class="print-note">模擬位置為右外側鏡腳；實拍 45° 可確認整體效果，成品位置與色澤仍以正式打樣為準。</p>
+        <p class="print-note">模擬位置為左外側鏡腳；實拍左側 45° 可確認整體效果，成品位置與色澤仍以正式打樣為準。</p>
       </section>
     </aside>
   </main>
