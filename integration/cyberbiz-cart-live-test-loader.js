@@ -21,14 +21,15 @@
   const CUSTOMIZER_PATHS = new Set(["/eyefans-custom/", "/eyefans-custom/index.html"]);
   const CUSTOMIZER_IFRAME_SELECTOR = ".eyefans-custom-wrap iframe";
   const CART_ADD_PATH = "/cart/add";
+  const CART_JSON_PATH = "/cart.json";
   const CART_URL = "/cart";
   const SUBMIT_TYPE = "eyefans-customizer-submit";
   const RESULT_TYPE = "eyefans-customizer-cart-result";
   const SCHEMA_VERSION = 1;
   const LOADER_FLAG = "__eyefansCartLiveTestLoaderActive";
-  // V2 intentionally ignores pending V1 records created by the unreliable
-  // preflight cart check used in the first live test.
-  const STORAGE_KEY = "eyefansCustomCartDesignsV2";
+  // V3 intentionally ignores V2 records that may have been marked active from
+  // an HTTP 2xx response without a verified CYBERBIZ cart receipt.
+  const STORAGE_KEY = "eyefansCustomCartDesignsV3";
   const FIND_TIMEOUT_MS = 20000;
   // The iframe gives the parent 18 seconds to reply.
   const REQUEST_TIMEOUT_MS = 15000;
@@ -41,16 +42,19 @@
 
   const PRODUCT_CONFIG_BY_HANDLE = Object.freeze({
     "cls-cus-mix-sun-rd": Object.freeze({
+      productId: "71536660",
       mode: "color",
       label: "框腳配色",
       variants: Object.freeze({ XS: "87452738", S: "87452739", M: "87452740", L: "87452741" })
     }),
     "cls-cus-mix-laser-sun-rd": Object.freeze({
+      productId: "71536670",
       mode: "engraving",
       label: "框腳配色＋雷雕",
       variants: Object.freeze({ XS: "87452764", S: "87452765", M: "87452766", L: "87452767" })
     }),
     "cls-cus-mix-uv-sun-rd": Object.freeze({
+      productId: "71536673",
       mode: "uv",
       label: "框腳配色＋UV 彩印",
       variants: Object.freeze({ XS: "87452776", S: "87452777", M: "87452778", L: "87452779" })
@@ -454,7 +458,14 @@
       INVALID_SIZE: "尺寸資料不正確，請重新選擇。",
       UNAVAILABLE_L_COLOR: "L 尺寸沒有此配色，請重新選擇。",
       VARIANT_NOT_CONFIGURED: "此尺寸尚未設定購買款式。",
-      CART_RESPONSE_NOT_JSON: "購物車回應格式已變更，請聯絡客服。",
+      EMBEDDED_PREVIEW_CONTEXT: "目前商品頁開在後台預覽框中，瀏覽器可能無法保存購物車。請將未發布主題預覽以新分頁開啟後再試。",
+      CART_RESPONSE_NOT_JSON: "CYBERBIZ 沒有回傳可驗證的購物車資料。請先查看購物車，避免重複加入。",
+      CART_RESPONSE_REDIRECTED: "加入購物車請求被重新導向，結果無法確認。請先查看購物車，避免重複加入。",
+      CART_RECEIPT_MISMATCH: "CYBERBIZ 回傳的商品款式或數量不一致。請先查看購物車，避免重複加入。",
+      PRODUCT_PREFLIGHT_FAILED: "目前無法確認商品款式與庫存，因此尚未送出商品。請確認網路後再試。",
+      PRODUCT_VARIANT_MISMATCH: "CYBERBIZ 商品款式設定與模擬器不一致，因此尚未送出商品。請聯絡網站管理員。",
+      VARIANT_UNAVAILABLE: "此尺寸目前沒有可用庫存，因此尚未送出商品。請選擇其他尺寸或稍後再試。",
+      CART_PREFLIGHT_FAILED: "目前無法讀取 CYBERBIZ 購物車，因此尚未送出商品。請確認網路後再試。",
       CART_REQUEST_TIMEOUT: "購物車連線逾時，請先查看購物車，避免重複加入。",
       CART_RATE_LIMITED: "操作速度過快，請稍候幾秒再試。",
       CART_ADD_REJECTED: "此尺寸目前無法加入購物車，請確認測試商品庫存。",
@@ -464,23 +475,47 @@
     return messages[error?.message] || "客製資料不完整或目前無法加入購物車，請重新確認。";
   }
 
-  async function parseCartResponse(response) {
+  async function parseCartResponse(response, requestedVariantId) {
     if (response.status === 429) throw new Error("CART_RATE_LIMITED");
-    if (!response.ok) throw new Error("CART_ADD_REJECTED");
+    if (!response.ok) {
+      const definiteClientRejection = response.status >= 400
+        && response.status < 500
+        && response.status !== 408
+        && response.status !== 425;
+      throw new Error(definiteClientRejection ? "CART_ADD_REJECTED" : "CART_VERIFY_FAILED");
+    }
+    if (response.redirected !== false) throw new Error("CART_RESPONSE_REDIRECTED");
+    const contentType = response.headers?.get?.("content-type") || "";
+    if (!/^application\/json(?:\s*;|$)/i.test(contentType)) {
+      throw new Error("CART_RESPONSE_NOT_JSON");
+    }
     const responseText = await response.text();
-    if (!responseText) return { acceptedByHttp: true };
+    if (!responseText) throw new Error("CART_RESPONSE_NOT_JSON");
     let payload;
     try {
       payload = JSON.parse(responseText);
     } catch (error) {
-      // CYBERBIZ has already returned HTTP 2xx. Keep the single POST as
-      // accepted and let the cart page perform the final quantity check.
-      return { acceptedByHttp: true, responseFormat: "non-json" };
+      throw new Error("CART_RESPONSE_NOT_JSON");
     }
-    if (payload?.success === false || payload?.error || payload?.err_msg) {
+    if (!isPlainObject(payload)) throw new Error("CART_RESPONSE_NOT_JSON");
+    if (payload.success === false || payload.error || payload.err_msg) {
       throw new Error("CART_ADD_REJECTED");
     }
-    return payload ?? { acceptedByHttp: true };
+
+    const expectedVariantId = String(requestedVariantId);
+    const returnedVariantId = String(payload.variant_id_int ?? "");
+    const returnedQuantity = Number(payload.quantity);
+    const expectedCartItemId = `${expectedVariantId}_normal_`;
+    if (
+      returnedVariantId !== expectedVariantId
+      || !Number.isInteger(returnedQuantity)
+      || returnedQuantity < 1
+      || payload.cart_item_id !== expectedCartItemId
+    ) {
+      throw new Error("CART_RECEIPT_MISMATCH");
+    }
+
+    return payload;
   }
 
   function parseLineItemsSource(source) {
@@ -495,7 +530,111 @@
     }
   }
 
-  async function addVariantToCart(variantId) {
+  async function verifyCurrentProductVariant(context, variantId, size, signal) {
+    const expectedPath = `/products/${encodeURIComponent(context.handle)}`;
+    const endpoint = new URL(expectedPath, window.location.origin);
+    if (endpoint.origin !== STOREFRONT_ORIGIN || endpoint.pathname !== expectedPath) {
+      throw new Error("PRODUCT_VARIANT_MISMATCH");
+    }
+    const response = await window.fetch(endpoint.href, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal
+    });
+    const contentType = response.headers?.get?.("content-type") || "";
+    if (!response.ok || response.redirected !== false || !/^application\/json(?:\s*;|$)/i.test(contentType)) {
+      throw new Error("PRODUCT_PREFLIGHT_FAILED");
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(await response.text());
+    } catch (error) {
+      throw new Error("PRODUCT_PREFLIGHT_FAILED");
+    }
+    if (
+      !isPlainObject(payload)
+      || String(payload.id ?? "") !== context.config.productId
+      || payload.handle !== context.handle
+      || payload.url !== expectedPath
+      || !Array.isArray(payload.variants)
+    ) {
+      throw new Error("PRODUCT_VARIANT_MISMATCH");
+    }
+
+    const sizeVariants = payload.variants.filter(variant => (
+      isPlainObject(variant) && variant.option1 === size
+    ));
+    if (sizeVariants.length !== 1) throw new Error("PRODUCT_VARIANT_MISMATCH");
+    const variant = sizeVariants[0];
+    if (
+      String(variant.id ?? "") !== String(variantId)
+      || String(variant.product_id ?? "") !== context.config.productId
+    ) {
+      throw new Error("PRODUCT_VARIANT_MISMATCH");
+    }
+
+    const inventoryQuantity = variant.inventory_quantity;
+    const inventoryAllowed = variant.inventory_policy === "continue"
+      || inventoryQuantity === null
+      || (Number.isInteger(Number(inventoryQuantity)) && Number(inventoryQuantity) > 0);
+    return {
+      available: payload.available === true && variant.available === true && inventoryAllowed,
+      inventoryPolicy: variant.inventory_policy,
+      inventoryQuantity: inventoryQuantity === null ? null : Number(inventoryQuantity)
+    };
+  }
+
+  async function cartJsonVariantQuantity(variantId, signal) {
+    const endpoint = new URL(CART_JSON_PATH, window.location.origin);
+    if (endpoint.origin !== STOREFRONT_ORIGIN || endpoint.pathname !== CART_JSON_PATH) {
+      throw new Error("CART_PREFLIGHT_FAILED");
+    }
+    const response = await window.fetch(endpoint.href, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal
+    });
+    const contentType = response.headers?.get?.("content-type") || "";
+    if (!response.ok || response.redirected !== false || !/^application\/json(?:\s*;|$)/i.test(contentType)) {
+      throw new Error("CART_PREFLIGHT_FAILED");
+    }
+    let payload;
+    try {
+      payload = JSON.parse(await response.text());
+    } catch (error) {
+      throw new Error("CART_PREFLIGHT_FAILED");
+    }
+    if (
+      !isPlainObject(payload)
+      || !Array.isArray(payload.items)
+      || !Number.isInteger(Number(payload.item_count))
+      || Number(payload.item_count) < 0
+    ) {
+      throw new Error("CART_PREFLIGHT_FAILED");
+    }
+    let totalItemCount = 0;
+    const variantQuantity = payload.items.reduce((total, item) => {
+      if (!isPlainObject(item)) throw new Error("CART_PREFLIGHT_FAILED");
+      const itemVariantId = String(item.variant_id_int ?? "");
+      const quantity = Number(item.quantity);
+      if (!itemVariantId || !Number.isInteger(quantity) || quantity < 0) {
+        throw new Error("CART_PREFLIGHT_FAILED");
+      }
+      totalItemCount += quantity;
+      return itemVariantId === String(variantId) ? total + quantity : total;
+    }, 0);
+    if (totalItemCount !== Number(payload.item_count)) throw new Error("CART_PREFLIGHT_FAILED");
+    return variantQuantity;
+  }
+
+  async function addVariantToCart(context, variantId, size, options = {}) {
     const endpoint = new URL(CART_ADD_PATH, window.location.origin);
     if (endpoint.origin !== STOREFRONT_ORIGIN || endpoint.pathname !== CART_ADD_PATH) {
       throw new Error("INVALID_CART_ENDPOINT");
@@ -507,27 +646,93 @@
     body.set("id", variantId);
     body.set("quantity", "1");
     try {
-      // CYBERBIZ's ordinary product flow posts directly to /cart/add. A
-      // preliminary GET /cart proved unreliable on the live storefront, so
-      // this staging bridge trusts a valid add response and preserves the
-      // pending design on every ambiguous response for cart-page recovery.
-      const response = await window.fetch(endpoint.href, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          "X-Requested-With": "XMLHttpRequest"
-        },
-        body: body.toString(),
-        signal: controller.signal
-      });
-      return await parseCartResponse(response);
+      // `/cart.json` is CYBERBIZ's own navigation-cart data source. Read it
+      // before the single POST so the cart delta can independently verify the
+      // add without relying on a permissive or malformed `/cart/add` receipt.
+      const preflightResults = await Promise.allSettled([
+        verifyCurrentProductVariant(context, variantId, size, controller.signal),
+        cartJsonVariantQuantity(variantId, controller.signal)
+      ]);
+      if (controller.signal.aborted) throw new Error("CART_REQUEST_TIMEOUT");
+      const [productResult, cartResult] = preflightResults;
+      if (productResult.status === "rejected") {
+        const productError = productResult.reason;
+        if (["PRODUCT_VARIANT_MISMATCH", "VARIANT_UNAVAILABLE"].includes(productError?.message)) {
+          throw productError;
+        }
+        throw new Error("PRODUCT_PREFLIGHT_FAILED");
+      }
+      if (cartResult.status === "rejected") throw new Error("CART_PREFLIGHT_FAILED");
+      const beforeQuantity = cartResult.value;
+      const productState = productResult.value;
+      const exceedsInventory = productState.inventoryPolicy !== "continue"
+        && productState.inventoryQuantity !== null
+        && beforeQuantity + 1 > productState.inventoryQuantity;
+      const canPost = productState.available === true && !exceedsInventory;
+
+      const preflightResult = options.onPreflight?.(beforeQuantity, { canPost });
+      if (preflightResult?.skipPost) {
+        return { skippedPost: true, beforeQuantity, record: preflightResult.record };
+      }
+      if (!canPost) throw new Error("VARIANT_UNAVAILABLE");
+
+      let receipt = null;
+      let receiptError = null;
+      try {
+        const response = await window.fetch(endpoint.href, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "X-Requested-With": "XMLHttpRequest"
+          },
+          body: body.toString(),
+          redirect: "error",
+          signal: controller.signal
+        });
+        receipt = await parseCartResponse(response, variantId);
+      } catch (error) {
+        if (error?.name === "AbortError" || controller.signal.aborted) {
+          throw new Error("CART_REQUEST_TIMEOUT");
+        }
+        receiptError = error instanceof Error ? error : new Error("CART_VERIFY_FAILED");
+      }
+
+      if (["CART_RATE_LIMITED", "CART_ADD_REJECTED"].includes(receiptError?.message)) {
+        throw receiptError;
+      }
+
+      let afterQuantity;
+      try {
+        afterQuantity = await cartJsonVariantQuantity(variantId, controller.signal);
+      } catch (error) {
+        if (error?.name === "AbortError" || controller.signal.aborted) {
+          throw new Error("CART_REQUEST_TIMEOUT");
+        }
+        throw new Error("CART_VERIFY_FAILED");
+      }
+
+      if (afterQuantity !== beforeQuantity + 1) {
+        throw receiptError || new Error("CART_VERIFY_FAILED");
+      }
+
+      return {
+        receipt,
+        verifiedByCartDelta: true,
+        beforeQuantity,
+        afterQuantity
+      };
     } catch (error) {
       if (error?.name === "AbortError" || controller.signal.aborted) {
         throw new Error("CART_REQUEST_TIMEOUT");
       }
-      if (["CART_RATE_LIMITED", "CART_ADD_REJECTED"].includes(error?.message)) throw error;
+      if ([
+        "CART_RATE_LIMITED", "CART_ADD_REJECTED", "CART_RESPONSE_NOT_JSON",
+        "CART_RESPONSE_REDIRECTED", "CART_RECEIPT_MISMATCH", "CART_PREFLIGHT_FAILED",
+        "CART_VERIFY_FAILED", "CART_REQUEST_TIMEOUT", "STORAGE_UNAVAILABLE",
+        "PRODUCT_PREFLIGHT_FAILED", "PRODUCT_VARIANT_MISMATCH", "VARIANT_UNAVAILABLE"
+      ].includes(error?.message)) throw error;
       throw new Error("CART_VERIFY_FAILED");
     } finally {
       window.clearTimeout(timeout);
@@ -567,6 +772,8 @@
     const pendingRequests = new Map();
 
     async function processRequest(request, targetWindow) {
+      if (window.top !== window.self) throw new Error("EMBEDDED_PREVIEW_CONTEXT");
+
       const variantId = context.config.variants[request.selection.size];
       if (!/^\d+$/.test(variantId || "")) throw new Error("VARIANT_NOT_CONFIGURED");
 
@@ -575,21 +782,6 @@
       const pendingRecord = matchingRecords.find(record => record.status === "pending");
       if (pendingRecord) throw new Error("CART_REQUEST_TIMEOUT");
 
-      const recentRecord = matchingRecords.find(record => (
-        record.fingerprint === fingerprint
-        && record.status === "active"
-        && Date.now() - record.createdAt <= RETRY_GUARD_MS
-      ));
-
-      if (recentRecord?.status === "active") {
-        return {
-          ok: true,
-          message: `此設計已加入購物車（設計編號 ${recentRecord.designId}）。`,
-          cartUrl: new URL(CART_URL, STOREFRONT_ORIGIN).href,
-          designId: recentRecord.designId,
-          liveTest: true
-        };
-      }
       const record = {
         designId: designIdFor(request.requestId, fingerprint),
         requestId: request.requestId,
@@ -603,24 +795,98 @@
         createdAt: Date.now()
       };
 
+      let addResult;
       try {
-        writeRecords([...readRecords(), record]);
-      } catch (error) {
-        throw new Error("STORAGE_UNAVAILABLE");
-      }
+        addResult = await addVariantToCart(context, variantId, request.selection.size, {
+          onPreflight(beforeQuantity, { canPost }) {
+            const currentRecords = readRecords();
+            const currentPending = currentRecords.find(item => (
+              item.fingerprint === fingerprint && item.status === "pending"
+            ));
+            if (currentPending) throw new Error("CART_REQUEST_TIMEOUT");
 
-      try {
-        await addVariantToCart(variantId);
+            const currentRecent = [...currentRecords].reverse().find(item => (
+              item.fingerprint === fingerprint
+              && item.status === "active"
+              && Date.now() - item.createdAt <= RETRY_GUARD_MS
+            ));
+            if (currentRecent) {
+              const activeDesignCount = currentRecords.filter(item => (
+                item.status === "active" && item.variantId === variantId
+              )).length;
+              const recordedAfterQuantity = Number(currentRecent.receipt?.cartQuantityAfter) || 0;
+              const requiredCartQuantity = Math.max(activeDesignCount, recordedAfterQuantity);
+              if (beforeQuantity >= requiredCartQuantity) {
+                return { skipPost: true, record: currentRecent };
+              }
+            }
+
+            // An existing verified design may be returned from the cart even
+            // after it consumed the final unit. A new design, however, must
+            // never create a pending record or POST while unavailable.
+            if (!canPost) return { skipPost: false };
+
+            // A recent active record that is no longer represented by the
+            // authoritative cart quantity is stale. Replace only that design
+            // with the new pending request immediately before the one POST.
+            const recordsWithoutStale = currentRecent
+              ? currentRecords.filter(item => item.requestId !== currentRecent.requestId)
+              : currentRecords;
+            try {
+              writeRecords([...recordsWithoutStale, record]);
+            } catch (error) {
+              throw new Error("STORAGE_UNAVAILABLE");
+            }
+            return { skipPost: false };
+          }
+        });
       } catch (error) {
-        // These failures are ambiguous: CYBERBIZ may already have added the
-        // item. Keep the pending design so the cart page can reconcile it.
-        if (!["CART_REQUEST_TIMEOUT", "CART_VERIFY_FAILED", "CART_RESPONSE_NOT_JSON"].includes(error?.message)) {
+        // Only an explicit HTTP rejection proves the add did not happen. Keep
+        // every other result pending so the same design cannot be posted twice.
+        if (["CART_RATE_LIMITED", "CART_ADD_REJECTED"].includes(error?.message)) {
           removeRecord(request.requestId);
         }
         throw error;
       }
 
-      updateRecord(request.requestId, { status: "active" });
+      if (addResult.skippedPost) {
+        return {
+          ok: true,
+          message: `此設計已加入購物車（設計編號 ${addResult.record.designId}）。`,
+          cartUrl: new URL(CART_URL, STOREFRONT_ORIGIN).href,
+          designId: addResult.record.designId,
+          liveTest: true
+        };
+      }
+
+      const receipt = addResult.receipt;
+      const storedQuantity = Number(receipt?.quantity) >= 1 ? Number(receipt.quantity) : 1;
+      const storedCartItemId = receipt?.cart_item_id || `${variantId}_normal_`;
+
+      try {
+        const activatedRecord = updateRecord(request.requestId, {
+          status: "active",
+          receipt: {
+            variantId: String(variantId),
+            cartItemId: storedCartItemId,
+            quantity: storedQuantity,
+            cartQuantityBefore: addResult.beforeQuantity,
+            cartQuantityAfter: addResult.afterQuantity,
+            verifiedByCartDelta: addResult.verifiedByCartDelta === true,
+            verifiedAt: Date.now()
+          }
+        });
+        if (!activatedRecord) throw new Error("STORAGE_UNAVAILABLE");
+      } catch (error) {
+        throw new Error("STORAGE_UNAVAILABLE");
+      }
+      try {
+        const refreshResult = typeof window.pullNavCart === "function" ? window.pullNavCart() : null;
+        refreshResult?.catch?.(() => {});
+      } catch (error) {
+        // Navigation-cart refresh is visual only; the verified receipt above is
+        // the sole proof used to report success.
+      }
       return {
         ok: true,
         message: `已加入購物車，設計編號 ${record.designId}。請前往購物車確認製作資料。`,
@@ -827,7 +1093,11 @@
 
         records = records
           .filter(record => quantities.has(record.variantId))
-          .map(record => ({ ...record, cartToken: activeCartToken, status: "active" }));
+          // A cart-page quantity match is enough to preserve the design and
+          // write its note, but it cannot reconstruct the product-page
+          // before/after delta. Keep ambiguous records pending so a later
+          // product-page retry remains blocked instead of risking a new POST.
+          .map(record => ({ ...record, cartToken: activeCartToken }));
         writeRecords(records);
 
         const mismatches = [];

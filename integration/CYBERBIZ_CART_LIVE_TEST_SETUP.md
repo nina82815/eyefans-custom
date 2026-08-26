@@ -15,9 +15,17 @@
 4. 保留目前的 no-write loader，但同一個測試網址不要同時加入
    `eyefans_cart_test=1` 與 `eyefans_cart_live_test=1`；真實測試 loader 遇到兩者並存會拒絕啟用。
 5. 測試期間只開一個客製商品分頁，且不要同時使用商品頁原本的加入購物車按鈕。
+6. 必須把未發布主題的「店面預覽」另開成最上層的新分頁。若商品頁仍包在
+   CYBERBIZ 後台的預覽框內，loader 會在送出前停止並提示另開新分頁，不會呼叫購物車。
 
-2026-08-26 檢查時，三個客製商品的 12 個尺寸款式庫存皆為 0；開始測試前，請只把
-本次要驗證的一個尺寸暫時設為至少 1 件。
+庫存請以 CYBERBIZ 後台當下顯示為準；開始測試前，只把本次要驗證的一個尺寸暫時設為
+至少 1 件即可。
+
+每次送出時，loader 會同步預檢目前商品 JSON 的商品 ID、尺寸款式 ID、可售狀態與庫存，
+並讀取同網域 `/cart.json` 的款式數量；兩項都通過後只送出一次 `/cart/add`，再讀取一次
+`/cart.json`。只有指定款式確實比送出前增加 1 件，才會顯示成功並保存製作資料。商品、
+庫存或購物車預檢無法通過時完全不送出；無法確認的 POST 結果會保留為待確認，避免自動
+重複加入。
 
 ## 未發布主題引用方式
 
@@ -27,7 +35,7 @@
 <script
   defer
   src="https://nina82815.github.io/eyefans-custom/integration/cyberbiz-cart-live-test-loader.js"
-  integrity="sha384-dGp8UnXtM6KqYDg2WZe3ZFqiq1GtOIbLNBnPON4w7h0Cy6Lw2jzFScp2aQJVPWaQ"
+  integrity="sha384-2TY3mvvjAoz/8U1mUrHGZddDPTQ17CzrNDoT3Zj5EBWXDUScYWmvmDatELm4X8FJ"
   crossorigin="anonymous"
 ></script>
 ```
@@ -51,12 +59,16 @@ https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd?eyefans_cart_live_test
 ## 驗收項目
 
 1. 模擬器按鈕顯示「確認設計並加入購物車」。
-2. 送出後顯示一組 `EF-...` 設計編號。
+2. 送出後，只有購物車款式數量確認增加 1 時才顯示一組 `EF-...` 設計編號。
 3. 購物車商品數量增加 1。
 4. 進入購物車後，在「備註」上方看到完整製作資料。
 5. `備註` 欄包含尺寸、鏡框、鏡腳、鏡片，以及該模式需要的文字、字體、顏色、圖案與排列。
 6. 手動把客製商品數量加減，頁面必須顯示資料不一致並暫停結帳。
 7. 移除 `eyefans_cart_live_test=1` 後，商品頁不顯示模擬器購物車按鈕。
+8. 把欲測尺寸庫存改為 0 後，送出應顯示「此尺寸目前沒有可用庫存」，且購物車不得增加。
+
+若畫面顯示「目前商品頁開在後台預覽框中」，請複製實際店面預覽網址到新分頁，再把
+`eyefans_cart_live_test=1` 放在 `#desc_section_1` 之前；不要在後台內嵌預覽框直接測試。
 
 完成上列測試仍不代表可直接正式上線；最後還要確認客製資料確實出現在 CYBERBIZ
 後台訂單、訂單匯出與製作單。這個測試版依賴同一瀏覽器的 `localStorage` 與訂單備註，

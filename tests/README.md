@@ -69,8 +69,8 @@ node tests/cyberbiz-cart-bridge.test.js
 ```
 
 真實購物車限定 loader 的自動測試仍使用假的網路回應，不會連線到 CYBERBIZ；它會
-驗證網址閘門、三種客製模式、重複送出保護、訂單備註產生，以及購物車數量不一致時
-暫停結帳：
+驗證網址與最上層分頁閘門、三種客製模式、商品款式與庫存預檢、`/cart.json` 前後
+數量差、單次 POST、重複送出保護、訂單備註產生，以及購物車數量不一致時暫停結帳：
 
 ```text
 node tests/cyberbiz-cart-live-test-loader.test.js
