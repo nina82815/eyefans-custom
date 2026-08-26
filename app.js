@@ -78,41 +78,42 @@ const VIEW_FILES = {
   a45: "a45.svg"
 };
 
-function rightPhoto(file, width, height, alignment) {
+function rightPhoto(file, width, height, alignment, nearLens, farLens) {
   return {
     a45: `assets/photos/right-a45/${file}`,
     canvas: { width, height },
-    alignment
+    alignment,
+    lenses: { near: nearLens, far: farLens }
   };
 }
 
 // Right 45-degree product photos. The files remain untouched. Alignment uses
-// [near-frame X, near top Y, near bottom Y, far-frame X, far-frame Y] landmarks
-// so the two lens centers and the near frame height stay registered even though
-// the supplied transparent canvases use different sizes and crop positions.
+// [near-frame X, near top Y, near bottom Y, far-frame X, far-frame Y] landmarks.
+// Each final pair is the fitted canonical [cx, cy, rx, ry, rotation] lens edge;
+// anti-blue-light mode insets it slightly so the original pressure ring remains.
 const PHOTO_ASSETS = {
-  "櫻花粉": rightPhoto("IMG_3594.png", 1448, 1086, [783, 323, 760, 1147, 533.5]),
-  "粉紫": rightPhoto("IMG_3591.png", 1086, 1448, [619, 524, 906, 925, 706]),
-  "暖黃": rightPhoto("IMG_3626.png", 1086, 1448, [627, 702, 1074, 892, 881.5]),
-  "豆綠": rightPhoto("IMG_3603.png", 1086, 1448, [622, 563, 931, 915, 745.5]),
-  "深藍": rightPhoto("IMG_3593.png", 1086, 1448, [571, 573, 875, 824, 719.5]),
-  "復刻粉": rightPhoto("IMG_3604.png", 1086, 1448, [627, 533, 897, 920, 706]),
-  "芋頭紫": rightPhoto("IMG_3612.png", 1536, 1024, [869, 287, 801, 1316, 540.5]),
-  "奶油黃": rightPhoto("IMG_3596.png", 1086, 1448, [585, 582, 906, 861, 738]),
-  "薄荷綠": rightPhoto("IMG_3620.png", 1448, 1086, [812, 343, 800, 1182, 570]),
-  "丹寧藍": rightPhoto("IMG_3610.png", 1086, 1448, [610, 735, 1111, 940, 936]),
-  "梅子": rightPhoto("IMG_3605.png", 1086, 1448, [579, 759, 1096, 856, 918.5]),
-  "奶茶": rightPhoto("IMG_3616.png", 1086, 1448, [628, 592, 965, 927, 770]),
-  "青釉綠": rightPhoto("IMG_3629.png", 1086, 1448, [609, 596, 937, 888, 761]),
-  "天藍": rightPhoto("IMG_3617.png", 1086, 1448, [590, 568, 941, 917, 749.5]),
-  "玫瑰": rightPhoto("IMG_3606.png", 1086, 1448, [630, 611, 983, 922, 791]),
-  "咖啡牛奶": rightPhoto("IMG_3614.png", 1086, 1448, [601, 649, 989, 868, 816]),
-  "枯黃": rightPhoto("IMG_3601.png", 1672, 941, [945, 276, 752, 1331, 507]),
-  "霧面黑": rightPhoto("IMG_3589.png", 1086, 1448, [632, 551, 920, 933, 728.5]),
-  "灰色": rightPhoto("IMG_3595.png", 1448, 1086, [823, 315, 833, 1232, 563]),
-  "咖啡紅茶": rightPhoto("IMG_3627.png", 1086, 1448, [611, 628, 982, 897, 798.5]),
-  "霧面白": rightPhoto("IMG_3621.png", 1448, 1086, [806, 359, 721, 1102, 537.5]),
-  "琥珀": rightPhoto("IMG_3630.png", 1448, 1086, [799, 319, 811, 1225, 557.5])
+  "櫻花粉": rightPhoto("IMG_3594.png", 1448, 1086, [783, 323, 760, 1147, 533.5], [913, 343, 181, 232, 4.9], [1349.6, 328.6, 104, 206.6, .8]),
+  "粉紫": rightPhoto("IMG_3591.png", 1086, 1448, [619, 524, 906, 925, 706], [921.6, 342, 174.6, 229.4, 4.1], [1353, 323.4, 108.4, 209, -2.2]),
+  "暖黃": rightPhoto("IMG_3626.png", 1086, 1448, [627, 702, 1074, 892, 881.5], [909.6, 342.6, 196, 232.6, 8.1], [1361.4, 328, 100, 199, 0]),
+  "豆綠": rightPhoto("IMG_3603.png", 1086, 1448, [622, 563, 931, 915, 745.5], [909, 345.4, 179, 232, -3.4], [1356.6, 328, 113.6, 204, -.2]),
+  "深藍": rightPhoto("IMG_3593.png", 1086, 1448, [571, 573, 875, 824, 719.5], [920, 341, 178, 229, 7.1], [1342.8, 327.2, 108, 201.4, .9]),
+  "復刻粉": rightPhoto("IMG_3604.png", 1086, 1448, [627, 533, 897, 920, 706], [911.4, 342.6, 182, 232.4, 4.3], [1362.4, 329.4, 120, 206, -2.6]),
+  "芋頭紫": rightPhoto("IMG_3612.png", 1536, 1024, [869, 287, 801, 1316, 540.5], [904, 338.4, 179.4, 240.6, 5], [1352, 328.4, 116, 211.4, .5]),
+  "奶油黃": rightPhoto("IMG_3596.png", 1086, 1448, [585, 582, 906, 861, 738], [922, 342, 179, 231, .2], [1355.6, 320, 113, 195, 1.4]),
+  "薄荷綠": rightPhoto("IMG_3620.png", 1448, 1086, [812, 343, 800, 1182, 570], [910.4, 337.6, 182, 234.4, -.4], [1360, 328, 112, 207, .3]),
+  "丹寧藍": rightPhoto("IMG_3610.png", 1086, 1448, [610, 735, 1111, 940, 936], [915.6, 342, 178, 229, -1.6], [1344.4, 329, 106.4, 209, .8]),
+  "梅子": rightPhoto("IMG_3605.png", 1086, 1448, [579, 759, 1096, 856, 918.5], [909, 342, 179.4, 231.4, 1.1], [1343, 329, 105, 207, .2]),
+  "奶茶": rightPhoto("IMG_3616.png", 1086, 1448, [628, 592, 965, 927, 770], [907, 342.4, 184, 231, .3], [1357, 327.6, 114, 206.4, -2.2]),
+  "青釉綠": rightPhoto("IMG_3629.png", 1086, 1448, [609, 596, 937, 888, 761], [915.2, 343, 178, 234, -.3], [1355.6, 323.4, 100, 204.4, .3]),
+  "天藍": rightPhoto("IMG_3617.png", 1086, 1448, [590, 568, 941, 917, 749.5], [923, 343, 173.4, 239, 7.9], [1357, 322, 109, 207, 1.4]),
+  "玫瑰": rightPhoto("IMG_3606.png", 1086, 1448, [630, 611, 983, 922, 791], [902, 346.6, 177, 235.4, -.1], [1351, 323.4, 105, 203, -1.5]),
+  "咖啡牛奶": rightPhoto("IMG_3614.png", 1086, 1448, [601, 649, 989, 868, 816], [895.6, 341, 191.6, 233, 8.1], [1354.4, 331, 104, 206.4, -1]),
+  "枯黃": rightPhoto("IMG_3601.png", 1672, 941, [945, 276, 752, 1331, 507], [905.6, 343.4, 182.4, 230.6, -1.2], [1355, 328.4, 114, 205.6, -2]),
+  "霧面黑": rightPhoto("IMG_3589.png", 1086, 1448, [632, 551, 920, 933, 728.5], [903.4, 343.4, 166.6, 227, 2.9], [1347, 329, 103.4, 202, -.5]),
+  "灰色": rightPhoto("IMG_3595.png", 1448, 1086, [823, 315, 833, 1232, 563], [910.2, 338.4, 184.8, 233.6, 4.1], [1362.4, 329, 120, 206, -1.9]),
+  "咖啡紅茶": rightPhoto("IMG_3627.png", 1086, 1448, [611, 628, 982, 897, 798.5], [916, 345, 179, 229, -1.2], [1348, 326, 101, 205.4, -1.8]),
+  "霧面白": rightPhoto("IMG_3621.png", 1448, 1086, [806, 359, 721, 1102, 537.5], [901, 336.8, 179.4, 238.2, .5], [1348, 328.6, 114.6, 206, -1.7]),
+  "琥珀": rightPhoto("IMG_3630.png", 1448, 1086, [799, 319, 811, 1225, 557.5], [905.4, 345.4, 167.2, 229, -1.2], [1361, 336, 96.8, 210.6, 2.8])
 };
 
 const PHOTO_ALIGNMENT_TARGET = Object.freeze({
@@ -123,16 +124,17 @@ const PHOTO_ALIGNMENT_TARGET = Object.freeze({
   farY: 330
 });
 
-// These four supplied photos all show the same anti-blue-light lens on
-// different frame colors. They calibrate the coating colors and reflection
-// band; a low-opacity screen treatment preserves each selected photo's lens
-// detail instead of importing another reference photo's removal background.
+// These four supplied photos show the real anti-blue-light coating. Their
+// reflections calibrate the neutral SVG treatment; the original files are not
+// composited directly because they also contain a baked-in frame and temple.
 const BLUE_LIGHT_REFERENCE_FILES = Object.freeze([
   "IMG_3631.png",
   "IMG_3632.png",
   "IMG_3634.png",
   "IMG_3635.png"
 ]);
+
+const BLUE_LIGHT_LENS_INSET = Object.freeze({ horizontal: 2.5, vertical: 3.5 });
 const TEXT_COLOR_OPTIONS = {
   black: { label: "黑色", fill: "#171817", stroke: "none", outlineWidth: "0" },
   white: { label: "白色", fill: "#fffdf8", stroke: "#111111", outlineWidth: "0.5pt" },
@@ -273,9 +275,10 @@ function ensureAmberPattern(svg, key) {
   }
 
   pattern.setAttribute("id", patternId);
-  pattern.setAttribute("patternUnits", "objectBoundingBox");
-  pattern.setAttribute("width", "1");
-  pattern.setAttribute("height", "1");
+  pattern.setAttribute("patternUnits", "userSpaceOnUse");
+  pattern.setAttribute("patternContentUnits", "userSpaceOnUse");
+  pattern.setAttribute("width", "400");
+  pattern.setAttribute("height", "400");
 
   let image = pattern.querySelector("image");
   if (!image) {
@@ -283,8 +286,10 @@ function ensureAmberPattern(svg, key) {
     pattern.replaceChildren(image);
   }
   setSvgHref(image, "amber.png");
-  image.setAttribute("width", "1");
-  image.setAttribute("height", "1");
+  image.setAttribute("x", "0");
+  image.setAttribute("y", "0");
+  image.setAttribute("width", "400");
+  image.setAttribute("height", "400");
   image.setAttribute("preserveAspectRatio", "xMidYMid slice");
   return patternId;
 }
@@ -348,12 +353,17 @@ function preparePhotoLayers() {
   ["a45"].forEach(key => {
     const svg = document.getElementById(`photo-${key}`);
     if (!svg) return;
+    ensureAmberPattern(svg, "photo");
     preparePrintLayer(svg, "photo", "#photo-engravetext");
     photoLayers[key] = {
       svg,
+      frameLayer: svg.querySelector(".photo-frame-layer"),
       frame: svg.querySelector(".photo-frame-image"),
       temple: svg.querySelector(".photo-temple-image"),
-      blueLightEffect: svg.querySelector(".photo-blue-light-effect")
+      blueLightEffect: svg.querySelector(".photo-blue-light-effect"),
+      blueLightNearGeometry: [...svg.querySelectorAll(".photo-blue-light-near-mask, .photo-blue-light-near-clip")],
+      blueLightFarGeometry: [...svg.querySelectorAll(".photo-blue-light-far-mask, .photo-blue-light-far-clip")],
+      rearTemple: svg.querySelector("#photo-a45-rear-temple")
     };
   });
 }
@@ -414,6 +424,39 @@ function applyPhotoPlacement(image, asset) {
   setSvgHref(image, asset.a45);
 }
 
+function applyLensGeometry(elements, geometry) {
+  if (!geometry) return;
+  const [cx, cy, rx, ry, rotation] = geometry;
+  const safeRx = Math.max(1, rx - BLUE_LIGHT_LENS_INSET.horizontal);
+  const safeRy = Math.max(1, ry - BLUE_LIGHT_LENS_INSET.vertical);
+  elements.forEach(element => {
+    element.setAttribute("cx", String(cx));
+    element.setAttribute("cy", String(cy));
+    element.setAttribute("rx", String(safeRx));
+    element.setAttribute("ry", String(safeRy));
+    element.setAttribute("transform", `rotate(${rotation} ${cx} ${cy})`);
+  });
+}
+
+function updateBlueLightPhotoEffect(layer, frameAsset, showBlueLight) {
+  layer.frameLayer.setAttribute(
+    "mask",
+    showBlueLight ? "url(#photo-a45-frame-clear-mask)" : "url(#photo-a45-frame-mask)"
+  );
+  layer.blueLightEffect.toggleAttribute("hidden", !showBlueLight);
+  layer.blueLightEffect.style.display = showBlueLight ? "inline" : "none";
+  if (!showBlueLight) return;
+
+  applyLensGeometry(layer.blueLightNearGeometry, frameAsset.lenses.near);
+  applyLensGeometry(layer.blueLightFarGeometry, frameAsset.lenses.far);
+  const templeFill = state.temple.type === "pattern"
+    ? `url(#${ensureAmberPattern(layer.svg, "photo")})`
+    : state.temple.value;
+  layer.rearTemple.querySelectorAll("path").forEach(path => {
+    path.setAttribute("fill", templeFill);
+  });
+}
+
 function updatePhotoComposite() {
   const frameAsset = photoAssetFor(state.frame);
   const templeAsset = photoAssetFor(state.temple);
@@ -423,8 +466,7 @@ function updatePhotoComposite() {
     applyPhotoPlacement(layer.temple, templeAsset);
     applyPhotoPlacement(layer.frame, frameAsset);
     const showBlueLight = state.lens.id === "blue-tea";
-    layer.blueLightEffect.toggleAttribute("hidden", !showBlueLight);
-    layer.blueLightEffect.style.display = showBlueLight ? "inline" : "none";
+    updateBlueLightPhotoEffect(layer, frameAsset, showBlueLight);
   });
 
   const photoMode = state.renderMode === "photo";

@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eYeFANS 客製化配色模擬器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #153f35;
+      --accent: #f06c45;
+      --paper: #fbf8f1;
+      --panel: #ffffff;
+      --line: #ded7ca;
+      --muted: #756f66;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 22px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif;
+    }
+    button { font: inherit; }
+    .legacy-shell { max-width: 1120px; margin: 0 auto; }
+    .legacy-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .legacy-brand { margin: 0; font-size: clamp(25px, 4vw, 38px); letter-spacing: -.04em; }
+    .legacy-brand small {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--accent);
+      font-size: 11px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+    .legacy-header p { margin: 0; color: var(--muted); font-size: 13px; }
+    .legacy-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(310px, .65fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .legacy-card {
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 10px 30px rgba(31, 45, 39, .06);
+    }
+    .legacy-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .legacy-tabs button {
+      min-width: 74px;
+      padding: 9px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .legacy-tabs button.is-active { border-color: var(--ink); background: var(--ink); color: #fff; }
+    .legacy-viewer {
+      display: grid;
+      place-items: center;
+      min-height: 470px;
+      overflow: hidden;
+      border: 1px solid #e8e2d7;
+      border-radius: 16px;
+      background: radial-gradient(circle at 50% 45%, #fff 0, #fbf8f1 72%);
+    }
+    .legacy-view { display: none; width: 100%; height: 100%; place-items: center; }
+    .legacy-view.is-active { display: grid; }
+    .legacy-view svg { display: block; width: 94%; height: 94%; max-height: 520px; }
+    .legacy-section + .legacy-section { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+    .legacy-section-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+    .legacy-section-title output { color: var(--muted); font-size: 13px; font-weight: 500; }
+    .legacy-swatches { display: flex; flex-wrap: wrap; gap: 9px; }
+    .legacy-swatch {
+      position: relative;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 2px solid transparent;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+    }
+    .legacy-swatch::before {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border: 1px solid rgba(0, 0, 0, .12);
+      border-radius: inherit;
+      background: var(--swatch, #000);
+    }
+    .legacy-swatch[data-pattern="true"]::before {
+      background: url("../amber.png") center / cover no-repeat;
+    }
+    .legacy-swatch.is-active { border-color: var(--ink); }
+    .legacy-swatch:focus-visible { outline: 3px solid rgba(240, 108, 69, .35); outline-offset: 2px; }
+    .legacy-note { margin: 15px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    @media (max-width: 800px) {
+      body { padding: 12px; }
+      .legacy-header { align-items: start; flex-direction: column; }
+      .legacy-layout { grid-template-columns: 1fr; }
+      .legacy-viewer { min-height: 340px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="legacy-shell">
+    <header class="legacy-header">
+      <h1 class="legacy-brand"><small>classic color customizer</small>eYeFANS 客製化配色模擬器</h1>
+      <p>舊版商品專用｜框色、鏡腳與鏡片配色預覽</p>
+    </header>
+
+    <div class="legacy-layout">
+      <section class="legacy-card" aria-label="眼鏡配色預覽">
+        <nav class="legacy-tabs" id="legacy-view-tabs" aria-label="選擇視角">
+          <button class="is-active" type="button" data-view="front" aria-pressed="true">正面</button>
+          <button type="button" data-view="side" aria-pressed="false">側面</button>
+          <button type="button" data-view="a45" aria-pressed="false">45°</button>
+        </nav>
+        <div class="legacy-viewer" id="legacy-viewer" aria-live="polite">
+          <div class="legacy-view is-active" id="legacy-view-front"></div>
+          <div class="legacy-view" id="legacy-view-side"></div>
+          <div class="legacy-view" id="legacy-view-a45"></div>
+        </div>
+      </section>
+
+      <aside class="legacy-card" aria-label="配色選項">
+        <section class="legacy-section">
+          <h2 class="legacy-section-title"><span>鏡框顏色</span><output id="legacy-frame-name">櫻花粉</output></h2>
+          <div class="legacy-swatches" id="legacy-frame-swatches"></div>
+        </section>
+        <section class="legacy-section">
+          <h2 class="legacy-section-title"><span>鏡腳顏色</span><output id="legacy-temple-name">櫻花粉</output></h2>
+          <div class="legacy-swatches" id="legacy-temple-swatches"></div>
+        </section>
+        <section class="legacy-section">
+          <h2 class="legacy-section-title"><span>鏡片顏色</span><output id="legacy-lens-name">三號灰片</output></h2>
+          <div class="legacy-swatches" id="legacy-lens-swatches"></div>
+        </section>
+        <p class="legacy-note">此頁僅供舊版自由配色商品模擬；實際色澤仍可能因螢幕與光線略有差異。</p>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    const COLORS = [
+      { name: "櫻花粉", value: "#e8b4bf" },
+      { name: "粉紫", value: "#c3b3c8" },
+      { name: "暖黃", value: "#d5c452" },
+      { name: "豆綠", value: "#919871" },
+      { name: "深藍", value: "#2b4261" },
+      { name: "復刻粉", value: "#c87da9" },
+      { name: "芋頭紫", value: "#b48bbe" },
+      { name: "奶油黃", value: "#ddaa5b" },
+      { name: "薄荷綠", value: "#658987" },
+      { name: "丹寧藍", value: "#506799" },
+      { name: "梅子", value: "#a77c90" },
+      { name: "奶茶", value: "#ddb89d" },
+      { name: "青釉綠", value: "#485b50" },
+      { name: "天藍", value: "#2285ac" },
+      { name: "玫瑰", value: "#9c5354" },
+      { name: "咖啡牛奶", value: "#8f8079" },
+      { name: "枯黃", value: "#9c8d6c" },
+      { name: "霧面黑", value: "#0f0f10" },
+      { name: "灰色", value: "#717171" },
+      { name: "咖啡紅茶", value: "#834c4c" },
+      { name: "霧面白", value: "#ffffff" },
+      { name: "琥珀", type: "pattern", value: "amber" }
+    ];
+    const LENSES = [
+      { name: "三號灰片", value: "rgba(25,25,28,.72)", swatch: "#55565a" },
+      { name: "抗藍光鏡片", value: "rgba(181,174,204,.34)", swatch: "#c3bbd7" }
+    ];
+    const state = { view: "front", frame: COLORS[0], temple: COLORS[0], lens: LENSES[0] };
+    const svgs = {};
+
+    function ensureAmberPattern(svg, key) {
+      const id = `legacy-amber-${key}`;
+      if (svg.querySelector(`#${id}`)) return id;
+      let defs = svg.querySelector("defs");
+      if (!defs) {
+        defs = document.createElementNS(SVG_NS, "defs");
+        svg.prepend(defs);
+      }
+      const pattern = document.createElementNS(SVG_NS, "pattern");
+      pattern.setAttribute("id", id);
+      pattern.setAttribute("patternUnits", "userSpaceOnUse");
+      pattern.setAttribute("patternContentUnits", "userSpaceOnUse");
+      pattern.setAttribute("width", "400");
+      pattern.setAttribute("height", "400");
+      const image = document.createElementNS(SVG_NS, "image");
+      image.setAttribute("href", "../amber.png");
+      image.setAttribute("x", "0");
+      image.setAttribute("y", "0");
+      image.setAttribute("width", "400");
+      image.setAttribute("height", "400");
+      image.setAttribute("preserveAspectRatio", "xMidYMid slice");
+      pattern.append(image);
+      defs.append(pattern);
+      return id;
+    }
+
+    function fillFor(item, svg, key) {
+      return item.type === "pattern" ? `url(#${ensureAmberPattern(svg, key)})` : item.value;
+    }
+
+    function paint(svg, id, fill) {
+      const group = svg.querySelector(`#${id}`);
+      if (!group) return;
+      const shapes = group.matches("path, polygon, rect, circle, ellipse, polyline")
+        ? [group]
+        : [...group.querySelectorAll("path, polygon, rect, circle, ellipse, polyline")];
+      shapes.forEach(shape => shape.setAttribute("fill", fill));
+    }
+
+    function updatePreview() {
+      Object.entries(svgs).forEach(([key, svg]) => {
+        paint(svg, "frame", fillFor(state.frame, svg, key));
+        paint(svg, "temple", fillFor(state.temple, svg, key));
+        paint(svg, "lens", state.lens.value);
+      });
+      document.getElementById("legacy-frame-name").textContent = state.frame.name;
+      document.getElementById("legacy-temple-name").textContent = state.temple.name;
+      document.getElementById("legacy-lens-name").textContent = state.lens.name;
+    }
+
+    function showView(view) {
+      state.view = view;
+      document.querySelectorAll(".legacy-view").forEach(element => {
+        element.classList.toggle("is-active", element.id === `legacy-view-${view}`);
+      });
+      document.querySelectorAll("#legacy-view-tabs button").forEach(button => {
+        const active = button.dataset.view === view;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+    }
+
+    function renderSwatches(id, items, current, onPick) {
+      const mount = document.getElementById(id);
+      items.forEach(item => {
+        const button = document.createElement("button");
+        button.className = "legacy-swatch";
+        button.type = "button";
+        button.title = item.name;
+        button.setAttribute("aria-label", item.name);
+        button.dataset.pattern = String(item.type === "pattern");
+        button.style.setProperty("--swatch", item.swatch || item.value);
+        button.classList.toggle("is-active", item === current());
+        button.addEventListener("click", () => {
+          onPick(item);
+          [...mount.children].forEach(child => child.classList.remove("is-active"));
+          button.classList.add("is-active");
+          updatePreview();
+        });
+        mount.append(button);
+      });
+    }
+
+    async function loadView(key) {
+      const response = await fetch(`../${key}.svg`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`${key}.svg 載入失敗`);
+      const mount = document.getElementById(`legacy-view-${key}`);
+      mount.innerHTML = await response.text();
+      const svg = mount.querySelector("svg");
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", `${key === "front" ? "正面" : key === "side" ? "側面" : "45 度"}眼鏡配色預覽`);
+      svg.querySelectorAll("image").forEach(image => {
+        const href = image.getAttribute("href") || image.getAttribute("xlink:href");
+        if (href === "amber.png") {
+          image.setAttribute("href", "../amber.png");
+          image.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", "../amber.png");
+        }
+      });
+      svg.querySelector("#engravetext")?.setAttribute("display", "none");
+      svgs[key] = svg;
+    }
+
+    document.getElementById("legacy-view-tabs").addEventListener("click", event => {
+      const button = event.target.closest("button[data-view]");
+      if (button) showView(button.dataset.view);
+    });
+
+    Promise.all([loadView("front"), loadView("side"), loadView("a45")]).then(() => {
+      renderSwatches("legacy-frame-swatches", COLORS, () => state.frame, item => { state.frame = item; });
+      renderSwatches("legacy-temple-swatches", COLORS, () => state.temple, item => { state.temple = item; });
+      renderSwatches("legacy-lens-swatches", LENSES, () => state.lens, item => { state.lens = item; });
+      updatePreview();
+    }).catch(error => {
+      document.getElementById("legacy-viewer").textContent = `模擬器載入失敗：${error.message}`;
+    });
+  </script>
+</body>
+</html>
