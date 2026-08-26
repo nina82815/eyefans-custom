@@ -66,9 +66,9 @@ const LENS_COLORS = [
   {
     id: "blue-tea",
     name: "抗藍光鏡片",
-    value: "rgba(180,150,90,.38)",
-    swatch: "rgba(180,150,90,.55)",
-    photoFill: "rgba(222,181,92,.38)"
+    value: "rgba(170,160,196,.24)",
+    swatch: "rgba(183,174,204,.58)",
+    photoFill: "rgba(157,139,207,.14)"
   }
 ];
 
@@ -78,22 +78,62 @@ const VIEW_FILES = {
   a45: "a45.svg"
 };
 
+function rightPhoto(file, width, height, alignment) {
+  return {
+    a45: `assets/photos/right-a45/${file}`,
+    canvas: { width, height },
+    alignment
+  };
+}
+
+// Right 45-degree product photos. The files remain untouched. Alignment uses
+// [near-frame X, near top Y, near bottom Y, far-frame X, far-frame Y] landmarks
+// so the two lens centers and the near frame height stay registered even though
+// the supplied transparent canvases use different sizes and crop positions.
 const PHOTO_ASSETS = {
-  "櫻花粉": {
-    front: "assets/photos/sakura-front.png",
-    a45: "assets/photos/sakura-a45.png"
-  },
-  "霧面白": {
-    front: "assets/photos/white-front.png",
-    a45: "assets/photos/white-a45.png"
-  },
-  "琥珀": {
-    front: "assets/photos/amber-front-original.png",
-    a45: "assets/photos/amber-a45-original.png"
-  }
+  "櫻花粉": rightPhoto("IMG_3594.png", 1448, 1086, [783, 323, 760, 1147, 533.5]),
+  "粉紫": rightPhoto("IMG_3591.png", 1086, 1448, [619, 524, 906, 925, 706]),
+  "暖黃": rightPhoto("IMG_3626.png", 1086, 1448, [627, 702, 1074, 892, 881.5]),
+  "豆綠": rightPhoto("IMG_3603.png", 1086, 1448, [622, 563, 931, 915, 745.5]),
+  "深藍": rightPhoto("IMG_3593.png", 1086, 1448, [571, 573, 875, 824, 719.5]),
+  "復刻粉": rightPhoto("IMG_3604.png", 1086, 1448, [627, 533, 897, 920, 706]),
+  "芋頭紫": rightPhoto("IMG_3612.png", 1536, 1024, [869, 287, 801, 1316, 540.5]),
+  "奶油黃": rightPhoto("IMG_3596.png", 1086, 1448, [585, 582, 906, 861, 738]),
+  "薄荷綠": rightPhoto("IMG_3620.png", 1448, 1086, [812, 343, 800, 1182, 570]),
+  "丹寧藍": rightPhoto("IMG_3610.png", 1086, 1448, [610, 735, 1111, 940, 936]),
+  "梅子": rightPhoto("IMG_3605.png", 1086, 1448, [579, 759, 1096, 856, 918.5]),
+  "奶茶": rightPhoto("IMG_3616.png", 1086, 1448, [628, 592, 965, 927, 770]),
+  "青釉綠": rightPhoto("IMG_3629.png", 1086, 1448, [609, 596, 937, 888, 761]),
+  "天藍": rightPhoto("IMG_3617.png", 1086, 1448, [590, 568, 941, 917, 749.5]),
+  "玫瑰": rightPhoto("IMG_3606.png", 1086, 1448, [630, 611, 983, 922, 791]),
+  "咖啡牛奶": rightPhoto("IMG_3614.png", 1086, 1448, [601, 649, 989, 868, 816]),
+  "枯黃": rightPhoto("IMG_3601.png", 1672, 941, [945, 276, 752, 1331, 507]),
+  "霧面黑": rightPhoto("IMG_3589.png", 1086, 1448, [632, 551, 920, 933, 728.5]),
+  "灰色": rightPhoto("IMG_3595.png", 1448, 1086, [823, 315, 833, 1232, 563]),
+  "咖啡紅茶": rightPhoto("IMG_3627.png", 1086, 1448, [611, 628, 982, 897, 798.5]),
+  "霧面白": rightPhoto("IMG_3621.png", 1448, 1086, [806, 359, 721, 1102, 537.5]),
+  "琥珀": rightPhoto("IMG_3630.png", 1448, 1086, [799, 319, 811, 1225, 557.5])
 };
 
-const DEFAULT_PHOTO_COLOR = "櫻花粉";
+const PHOTO_ALIGNMENT_TARGET = Object.freeze({
+  nearX: 900,
+  nearTop: 65,
+  nearBottom: 625,
+  farX: 1352,
+  farY: 330
+});
+
+// These four supplied photos all show the same anti-blue-light lens on
+// different frame colors. They are retained as visual calibration references,
+// not rendered as replacement frame photos: the clear lenses contain traces
+// of their original removal backgrounds that would otherwise contaminate the
+// customer's chosen frame color.
+const BLUE_LIGHT_REFERENCE_FILES = Object.freeze([
+  "IMG_3631.png",
+  "IMG_3632.png",
+  "IMG_3634.png",
+  "IMG_3635.png"
+]);
 const TEXT_COLOR_OPTIONS = {
   black: { label: "黑色", fill: "#171817", stroke: "none", outlineWidth: "0" },
   white: { label: "白色", fill: "#fffdf8", stroke: "#111111", outlineWidth: "0.5pt" },
@@ -206,8 +246,8 @@ let deferredModelView = null;
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XLINK_NS = "http://www.w3.org/1999/xlink";
 const XML_NS = "http://www.w3.org/XML/1998/namespace";
-const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 30 };
-const MAX_PRINT_WIDTH = { side: 205, a45: 112 };
+const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 30, photo: 0 };
+const MAX_PRINT_WIDTH = { side: 205, a45: 112, photo: 360 };
 
 function svgElement(tag) {
   return document.createElementNS(SVG_NS, tag);
@@ -250,8 +290,8 @@ function ensureAmberPattern(svg, key) {
   return patternId;
 }
 
-function preparePrintLayer(svg, key) {
-  const root = svg.querySelector("#engravetext");
+function preparePrintLayer(svg, key, rootSelector = "#engravetext") {
+  const root = svg.querySelector(rootSelector);
   if (!root) return;
 
   const sourceText = root.querySelector("text");
@@ -309,11 +349,12 @@ function preparePhotoLayers() {
   ["a45"].forEach(key => {
     const svg = document.getElementById(`photo-${key}`);
     if (!svg) return;
+    preparePrintLayer(svg, "photo", "#photo-engravetext");
     photoLayers[key] = {
       svg,
       frame: svg.querySelector(".photo-frame-image"),
       temple: svg.querySelector(".photo-temple-image"),
-      lensTints: [...svg.querySelectorAll(".photo-lens-tints > *")]
+      blueLightEffect: svg.querySelector(".photo-blue-light-effect")
     };
   });
 }
@@ -345,22 +386,46 @@ function updateColors() {
 }
 
 function photoAssetFor(color) {
-  return PHOTO_ASSETS[color.name] || PHOTO_ASSETS[DEFAULT_PHOTO_COLOR];
+  return PHOTO_ASSETS[color.name] || null;
+}
+
+function photoAlignmentMatrix(alignment) {
+  const [nearX, nearTop, nearBottom, farX, farY] = alignment;
+  const sourceNearCenterY = (nearTop + nearBottom) / 2;
+  const sourceFrameDistance = farX - nearX;
+  const a = (PHOTO_ALIGNMENT_TARGET.farX - PHOTO_ALIGNMENT_TARGET.nearX) / sourceFrameDistance;
+  const d = (PHOTO_ALIGNMENT_TARGET.nearBottom - PHOTO_ALIGNMENT_TARGET.nearTop) / (nearBottom - nearTop);
+  const targetFrameRise = PHOTO_ALIGNMENT_TARGET.farY
+    - ((PHOTO_ALIGNMENT_TARGET.nearTop + PHOTO_ALIGNMENT_TARGET.nearBottom) / 2);
+  const b = (targetFrameRise - (d * (farY - sourceNearCenterY))) / sourceFrameDistance;
+  const e = PHOTO_ALIGNMENT_TARGET.nearX - (a * nearX);
+  const f = PHOTO_ALIGNMENT_TARGET.nearTop - (b * nearX) - (d * nearTop);
+  return [a, b, 0, d, e, f];
+}
+
+function applyPhotoPlacement(image, asset) {
+  if (!image || !asset) return;
+  const matrix = photoAlignmentMatrix(asset.alignment);
+  image.setAttribute("x", "0");
+  image.setAttribute("y", "0");
+  image.setAttribute("width", String(asset.canvas.width));
+  image.setAttribute("height", String(asset.canvas.height));
+  image.setAttribute("preserveAspectRatio", "none");
+  image.setAttribute("transform", `matrix(${matrix.join(" ")})`);
+  setSvgHref(image, asset.a45);
 }
 
 function updatePhotoComposite() {
   const frameAsset = photoAssetFor(state.frame);
   const templeAsset = photoAssetFor(state.temple);
+  if (!frameAsset || !templeAsset) return;
 
   Object.entries(photoLayers).forEach(([key, layer]) => {
-    setSvgHref(layer.frame, frameAsset[key]);
-    setSvgHref(layer.temple, templeAsset[key]);
-    const lensFill = state.lens.photoFill;
-    layer.lensTints.forEach(shape => {
-      shape.style.fill = lensFill || "transparent";
-      shape.style.opacity = String(state.lens.photoOpacity ?? 1);
-      shape.style.mixBlendMode = state.lens.photoBlendMode || "screen";
-    });
+    applyPhotoPlacement(layer.temple, templeAsset);
+    applyPhotoPlacement(layer.frame, frameAsset);
+    const showBlueLight = state.lens.id === "blue-tea";
+    layer.blueLightEffect.toggleAttribute("hidden", !showBlueLight);
+    layer.blueLightEffect.style.display = showBlueLight ? "inline" : "none";
   });
 
   const photoMode = state.renderMode === "photo";
@@ -368,10 +433,10 @@ function updatePhotoComposite() {
   document.getElementById("view-tabs").classList.toggle("is-photo-mode", photoMode);
   document.getElementById("photo-mode-note").hidden = !photoMode;
   const angleButton = document.querySelector('#view-tabs [data-view="a45"]');
-  angleButton.textContent = photoMode ? "左側 45°" : "右側 45°";
+  angleButton.textContent = "右側 45°";
   angleButton.setAttribute(
     "aria-label",
-    photoMode ? "查看左側 45 度品牌 Logo" : "查看右側 45 度客製效果"
+    "查看右側 45 度客製效果"
   );
 }
 
@@ -990,7 +1055,7 @@ function updateConditionalFields() {
     : "英文類字體不含中文字形；輸入中文時會自動以中文圓體補足。";
   document.getElementById("print-note").textContent = isEngraving
     ? "模擬位置為右外側鏡腳；白色僅為雷雕效果示意，實品深淺會依鏡腳材質與正式打樣呈現。"
-    : "模擬位置為右外側鏡腳；2D 右側 45° 可確認客製排列，實拍左側 45° 保留 eYeFANS 品牌 Logo。";
+    : "模擬位置為右外側鏡腳；實拍與 2D 右側 45° 均可確認客製排列，另一側固定保留 eYeFANS 品牌 Logo。";
 
   const validation = document.getElementById("name-validation");
   validation.textContent = nameValidationMessage;

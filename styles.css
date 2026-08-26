@@ -139,7 +139,10 @@ button { color: inherit; }
 .photo-composite { display: none !important; }
 .viewer.is-photo-mode .view[data-photo-ready] > svg:not(.photo-composite) { display: none; }
 .viewer.is-photo-mode .view[data-photo-ready] > .photo-composite { display: block !important; width: 98%; height: 98%; filter: drop-shadow(0 17px 15px rgba(31,44,39,.14)); }
-.photo-lens-tints > * { fill: transparent; mix-blend-mode: screen; pointer-events: none; }
+.photo-composite image, .photo-print-layer, .photo-blue-light-effect { pointer-events: none; }
+.photo-blue-light-effect rect:last-child { mix-blend-mode: screen; }
+.photo-print-layer { filter: drop-shadow(0 1px 1px rgba(255,255,255,.12)); }
+.photo-print-layer .uv-print-content { transform-box: fill-box; transform-origin: center; }
 .loading { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
 .loading span { width: 16px; height: 16px; border: 2px solid #d3cdc2; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 .loading.is-hidden { display: none; }

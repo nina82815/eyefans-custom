@@ -93,3 +93,11 @@ node tests/cyberbiz-cart-production-loader.test.js
 node tests/customizer-cart-ui.contract.test.js
 node tests/cyberbiz-production-setup.contract.test.js
 ```
+
+右側 45° 實拍素材合約會確認 22 種在售框色均有正確透明 PNG、四張額外照片只被標記為
+抗藍光鏡片參考、前框與鏡腳使用互補遮罩，以及抗藍光效果不會用整張參考照片覆蓋客人
+選擇的框色：
+
+```text
+node tests/right-photo-assets.contract.test.js
+```
