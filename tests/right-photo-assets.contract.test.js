@@ -101,6 +101,11 @@ assert.doesNotMatch(appSource, /PHOTO_TARGET_BOUNDS|asset\.bbox/, "whole-image b
 assert.match(appSource, /BLUE_LIGHT_REFERENCE_FILES/, "anti-blue-light reference photos must be retained");
 assert.match(htmlSource, /右側 45° 客製面/);
 assert.match(htmlSource, /id="photo-engravetext"/, "photo mode must render UV and engraving content");
+assert.match(
+  htmlSource,
+  /<g id="photo-engravetext" class="photo-print-layer" transform="translate\(390 260\) rotate\(-17\)">/,
+  "photo print position and angle must remain calibrated to the outer temple"
+);
 assert.match(htmlSource, /<g mask="url\(#photo-a45-temple-mask\)">\s*<image class="photo-temple-image"/);
 assert.match(htmlSource, /<g mask="url\(#photo-a45-frame-mask\)">\s*<image class="photo-frame-image"/);
 assert.match(
