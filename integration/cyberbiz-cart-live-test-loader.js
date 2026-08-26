@@ -1,0 +1,985 @@
+/*
+ * eYeFANS CYBERBIZ integration — unpublished-theme live cart test.
+ *
+ * This file DOES call the storefront cart endpoint, but only when the current
+ * product URL contains `eyefans_cart_live_test=1`. It is intentionally kept
+ * separate from the no-write test loader.
+ *
+ * The standard CYBERBIZ `/cart/add` request only accepts a variant id and
+ * quantity. During this staging test, the complete manufacturing spec is kept
+ * in the same browser and copied into `order[note]` on the checkout page.
+ * This is a staging fallback, not a replacement for native line-item custom
+ * fields or a server-side design-record service.
+ */
+(function eyefansCyberbizCartLiveTestLoader() {
+  "use strict";
+
+  const LIVE_QUERY_KEY = "eyefans_cart_live_test";
+  const LIVE_QUERY_VALUE = "1";
+  const STOREFRONT_ORIGIN = "https://www.eyefans.com.tw";
+  const CUSTOMIZER_ORIGIN = "https://nina82815.github.io";
+  const CUSTOMIZER_PATHS = new Set(["/eyefans-custom/", "/eyefans-custom/index.html"]);
+  const CUSTOMIZER_IFRAME_SELECTOR = ".eyefans-custom-wrap iframe";
+  const CART_ADD_PATH = "/cart/add";
+  const CART_URL = "/cart";
+  const SUBMIT_TYPE = "eyefans-customizer-submit";
+  const RESULT_TYPE = "eyefans-customizer-cart-result";
+  const SCHEMA_VERSION = 1;
+  const LOADER_FLAG = "__eyefansCartLiveTestLoaderActive";
+  const STORAGE_KEY = "eyefansCustomCartDesignsV1";
+  const FIND_TIMEOUT_MS = 20000;
+  // The iframe gives the parent 18 seconds to reply. Keep the entire
+  // preflight + add + verification sequence comfortably inside that window.
+  const REQUEST_TIMEOUT_MS = 12000;
+  const RETRY_GUARD_MS = 5 * 60 * 1000;
+  const RECORD_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+  const MAX_RECORDS = 20;
+  const MAX_NOTE_LENGTH = 3000;
+  const NOTE_START = "【eYeFANS 客製設計資料】";
+  const NOTE_END = "【客製設計資料結束】";
+
+  const PRODUCT_CONFIG_BY_HANDLE = Object.freeze({
+    "cls-cus-mix-sun-rd": Object.freeze({
+      mode: "color",
+      label: "框腳配色",
+      variants: Object.freeze({ XS: "87452738", S: "87452739", M: "87452740", L: "87452741" })
+    }),
+    "cls-cus-mix-laser-sun-rd": Object.freeze({
+      mode: "engraving",
+      label: "框腳配色＋雷雕",
+      variants: Object.freeze({ XS: "87452764", S: "87452765", M: "87452766", L: "87452767" })
+    }),
+    "cls-cus-mix-uv-sun-rd": Object.freeze({
+      mode: "uv",
+      label: "框腳配色＋UV 彩印",
+      variants: Object.freeze({ XS: "87452776", S: "87452777", M: "87452778", L: "87452779" })
+    })
+  });
+
+  const FRAME_COLORS = new Set([
+    "櫻花粉", "粉紫", "暖黃", "豆綠", "深藍", "復刻粉", "芋頭紫", "奶油黃",
+    "薄荷綠", "丹寧藍", "梅子", "奶茶", "青釉綠", "天藍", "玫瑰", "咖啡牛奶",
+    "枯黃", "霧面黑", "灰色", "咖啡紅茶", "霧面白", "琥珀"
+  ]);
+  const L_SIZE_COLORS = new Set([
+    "櫻花粉", "粉紫", "芋頭紫", "奶油黃", "奶茶", "青釉綠", "玫瑰",
+    "咖啡牛奶", "霧面黑", "灰色", "咖啡紅茶", "霧面白", "琥珀"
+  ]);
+  const LENSES = Object.freeze({ gray: "三號灰片", "blue-tea": "抗藍光鏡片" });
+  const PRINT_MODE_LABELS = Object.freeze({
+    both: "2 圖＋名字",
+    icon: "只要 2 圖",
+    name: "只要名字",
+    none: "不加印刷"
+  });
+  const FONT_LABELS = Object.freeze({
+    zhBold: "中文粗體",
+    zhRounded: "中文圓體",
+    purpleSmile: "圓潤手寫體",
+    baksoSapi: "童趣積木體"
+  });
+  const CASE_LABELS = Object.freeze({ preserve: "照原輸入", upper: "全大寫", lower: "全小寫" });
+  const TEXT_COLOR_LABELS = Object.freeze({ black: "黑色", white: "白色", rainbow: "逐字彩色" });
+  const ALLOWED_SIZES = new Set(["XS", "S", "M", "L"]);
+  const ALLOWED_RENDER_MODES = new Set(["photo", "model"]);
+  const ALLOWED_VIEWS = new Set(["front", "side", "a45"]);
+  const ALLOWED_PRINT_MODES = new Set(Object.keys(PRINT_MODE_LABELS));
+  const ALLOWED_FONTS = new Set(Object.keys(FONT_LABELS));
+  const ENGLISH_FONTS = new Set(["purpleSmile", "baksoSapi"]);
+  const ALLOWED_CASES = new Set(Object.keys(CASE_LABELS));
+  const ALLOWED_TEXT_COLORS = new Set(Object.keys(TEXT_COLOR_LABELS));
+  const ALLOWED_ORDERS = new Set(["normal", "reverse"]);
+  const ALLOWED_NAME_POSITIONS = new Set(["center", "before", "after"]);
+  const ALLOWED_MESSAGE_KEYS = new Set(["type", "schemaVersion", "requestId", "selection"]);
+  const ALLOWED_SELECTION_KEYS = new Set([
+    "customizationMode", "customizationModeLabel", "customizationModeLocked", "size", "view",
+    "renderMode", "frame", "temple", "lens", "lensId", "printMode", "uvPrintMode",
+    "icon1", "icon2", "name", "textColor", "font", "caseMode", "order", "namePosition",
+    "customizationSide", "customizationSideLabel", "summary"
+  ]);
+  const ALL_CUSTOM_VARIANT_IDS = new Set(
+    Object.values(PRODUCT_CONFIG_BY_HANDLE).flatMap(config => Object.values(config.variants))
+  );
+
+  const pageUrl = new URL(window.location.href);
+  if (pageUrl.origin !== STOREFRONT_ORIGIN) return;
+  if (window[LOADER_FLAG]) return;
+  // Never let the no-write and live-cart test handlers answer the same request.
+  if (pageUrl.searchParams.get("eyefans_cart_test") === "1") return;
+
+  const productContext = currentProductContext();
+  const cartToken = currentCartToken();
+  const liveProductTest = Boolean(
+    productContext && pageUrl.searchParams.get(LIVE_QUERY_KEY) === LIVE_QUERY_VALUE
+  );
+
+  if (!liveProductTest && !cartToken) return;
+  window[LOADER_FLAG] = true;
+
+  if (liveProductTest) {
+    startProductBridge(productContext);
+  } else {
+    startCartNoteSync(cartToken);
+  }
+
+  function isPlainObject(value) {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+  }
+
+  function currentProductContext() {
+    const match = pageUrl.pathname.match(/(?:^|\/)products\/([^/?#]+)\/?$/i);
+    if (!match) return null;
+    const handle = match[1].toLowerCase();
+    const config = PRODUCT_CONFIG_BY_HANDLE[handle];
+    return config ? { handle, config } : null;
+  }
+
+  function currentCartToken() {
+    const match = pageUrl.pathname.match(/(?:^|\/)carts\/([A-Za-z0-9_-]+)\/?$/i);
+    return match ? match[1] : null;
+  }
+
+  function readRecords() {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]");
+      if (!Array.isArray(parsed)) return [];
+      const cutoff = Date.now() - RECORD_MAX_AGE_MS;
+      return parsed.filter(record => (
+        isPlainObject(record)
+        && typeof record.designId === "string"
+        && typeof record.requestId === "string"
+        && typeof record.fingerprint === "string"
+        && Object.prototype.hasOwnProperty.call(PRODUCT_CONFIG_BY_HANDLE, record.handle)
+        && record.mode === PRODUCT_CONFIG_BY_HANDLE[record.handle].mode
+        && ALL_CUSTOM_VARIANT_IDS.has(String(record.variantId))
+        && isPlainObject(record.selection)
+        && validStoredSelection(record.selection, record.mode)
+        && String(record.variantId) === PRODUCT_CONFIG_BY_HANDLE[record.handle].variants[record.selection.size]
+        && Number.isFinite(record.createdAt)
+        && record.createdAt >= cutoff
+        && (record.status === "pending" || record.status === "active")
+      )).slice(-MAX_RECORDS);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function writeRecords(records) {
+    const normalized = records.slice(-MAX_RECORDS);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    return normalized;
+  }
+
+  function removeRecord(requestId) {
+    writeRecords(readRecords().filter(record => record.requestId !== requestId));
+  }
+
+  function updateRecord(requestId, fields) {
+    const records = readRecords();
+    const index = records.findIndex(record => record.requestId === requestId);
+    if (index < 0) return null;
+    records[index] = { ...records[index], ...fields };
+    writeRecords(records);
+    return records[index];
+  }
+
+  function uvNameUnits(value) {
+    return Array.from(value).reduce((total, character) => {
+      if (/\p{Script=Han}/u.test(character)) return total + 2.5;
+      if (character === " ") return total + 0.5;
+      return total + 1;
+    }, 0);
+  }
+
+  function assertNullableString(value, key, maxLength = 120) {
+    if (value === null) return;
+    if (typeof value !== "string" || value.length > maxLength) throw new Error(`INVALID_${key}`);
+  }
+
+  function validateCommonSelection(selection, expectedMode) {
+    if (!isPlainObject(selection)) throw new Error("INVALID_SELECTION");
+    if (Object.keys(selection).some(key => !ALLOWED_SELECTION_KEYS.has(key))) {
+      throw new Error("UNEXPECTED_SELECTION_FIELD");
+    }
+    if (selection.customizationMode !== expectedMode) throw new Error("MODE_HANDLE_MISMATCH");
+    if (selection.customizationModeLocked !== true) throw new Error("CUSTOMIZER_NOT_LOCKED");
+    if (!ALLOWED_SIZES.has(selection.size)) throw new Error("INVALID_SIZE");
+    if (!FRAME_COLORS.has(selection.frame)) throw new Error("INVALID_FRAME");
+    if (!FRAME_COLORS.has(selection.temple)) throw new Error("INVALID_TEMPLE");
+    if (selection.size === "L" && (!L_SIZE_COLORS.has(selection.frame) || !L_SIZE_COLORS.has(selection.temple))) {
+      throw new Error("UNAVAILABLE_L_COLOR");
+    }
+    if (!Object.prototype.hasOwnProperty.call(LENSES, selection.lensId)) throw new Error("INVALID_LENS_ID");
+    if (selection.lens !== LENSES[selection.lensId]) throw new Error("LENS_MISMATCH");
+    if (!ALLOWED_VIEWS.has(selection.view)) throw new Error("INVALID_VIEW");
+    if (!ALLOWED_RENDER_MODES.has(selection.renderMode)) throw new Error("INVALID_RENDER_MODE");
+    if (!ALLOWED_PRINT_MODES.has(selection.printMode)) throw new Error("INVALID_PRINT_MODE");
+    if (typeof selection.summary !== "string" || !selection.summary.trim() || selection.summary.length > 1200) {
+      throw new Error("INVALID_SUMMARY");
+    }
+    for (const key of [
+      "customizationModeLabel", "uvPrintMode", "icon1", "icon2", "name", "textColor", "font",
+      "caseMode", "order", "namePosition", "customizationSide", "customizationSideLabel"
+    ]) {
+      assertNullableString(selection[key], key);
+    }
+  }
+
+  function validateModeSelection(selection, expectedMode) {
+    if (expectedMode === "color") {
+      if (selection.printMode !== "none" || selection.uvPrintMode !== null) throw new Error("INVALID_COLOR_MODE");
+      if (selection.icon1 !== null || selection.icon2 !== null || selection.name !== "") {
+        throw new Error("INVALID_COLOR_PERSONALIZATION");
+      }
+      if ([selection.textColor, selection.font, selection.caseMode, selection.order, selection.namePosition,
+        selection.customizationSide, selection.customizationSideLabel].some(value => value !== null)) {
+        throw new Error("INVALID_COLOR_FIELDS");
+      }
+      return;
+    }
+
+    if (expectedMode === "engraving") {
+      if (selection.printMode !== "name" || selection.uvPrintMode !== null) throw new Error("INVALID_ENGRAVING_MODE");
+      if (selection.icon1 !== null || selection.icon2 !== null) throw new Error("INVALID_ENGRAVING_ICONS");
+      if (typeof selection.name !== "string" || !/^[A-Za-z]{1,10}$/.test(selection.name)) {
+        throw new Error("INVALID_ENGRAVING_NAME");
+      }
+      if (selection.textColor !== "white" || !ENGLISH_FONTS.has(selection.font)) {
+        throw new Error("INVALID_ENGRAVING_STYLE");
+      }
+      if (!ALLOWED_CASES.has(selection.caseMode)) throw new Error("INVALID_CASE_MODE");
+      if (selection.order !== null || selection.namePosition !== null) throw new Error("INVALID_ENGRAVING_ORDER");
+      if (selection.customizationSide !== "right" || !selection.customizationSideLabel) {
+        throw new Error("INVALID_CUSTOMIZATION_SIDE");
+      }
+      return;
+    }
+
+    if (selection.uvPrintMode !== selection.printMode) throw new Error("UV_MODE_MISMATCH");
+    const usesIcons = selection.printMode === "both" || selection.printMode === "icon";
+    const usesName = selection.printMode === "both" || selection.printMode === "name";
+
+    if (usesIcons) {
+      if (!/^\d{2}$/.test(selection.icon1 || "") || !/^\d{2}$/.test(selection.icon2 || "")) {
+        throw new Error("INVALID_UV_ICONS");
+      }
+      const iconNumbers = [Number(selection.icon1), Number(selection.icon2)];
+      if (iconNumbers.some(number => number < 1 || number > 33)) throw new Error("INVALID_UV_ICONS");
+      if (!ALLOWED_ORDERS.has(selection.order)) throw new Error("INVALID_UV_ORDER");
+    } else if (selection.icon1 !== null || selection.icon2 !== null || selection.order !== null) {
+      throw new Error("UNEXPECTED_UV_ICONS");
+    }
+
+    if (usesName) {
+      if (
+        typeof selection.name !== "string"
+        || !selection.name.trim()
+        || !/^[A-Za-z0-9 \p{Script=Han}]+$/u.test(selection.name)
+        || uvNameUnits(selection.name) > 10
+      ) throw new Error("INVALID_UV_NAME");
+      if (!ALLOWED_TEXT_COLORS.has(selection.textColor)) throw new Error("INVALID_TEXT_COLOR");
+      if (!ALLOWED_FONTS.has(selection.font)) throw new Error("INVALID_FONT");
+      if (!ALLOWED_CASES.has(selection.caseMode)) throw new Error("INVALID_CASE_MODE");
+    } else if (
+      selection.name !== ""
+      || selection.textColor !== null
+      || selection.font !== null
+      || selection.caseMode !== null
+    ) {
+      throw new Error("UNEXPECTED_UV_NAME");
+    }
+
+    if (selection.printMode === "both") {
+      if (!ALLOWED_NAME_POSITIONS.has(selection.namePosition)) throw new Error("INVALID_NAME_POSITION");
+    } else if (selection.namePosition !== null) {
+      throw new Error("UNEXPECTED_NAME_POSITION");
+    }
+
+    if (selection.printMode === "none") {
+      if (selection.customizationSide !== null || selection.customizationSideLabel !== null) {
+        throw new Error("UNEXPECTED_CUSTOMIZATION_SIDE");
+      }
+    } else if (selection.customizationSide !== "right" || !selection.customizationSideLabel) {
+      throw new Error("INVALID_CUSTOMIZATION_SIDE");
+    }
+  }
+
+  function validateRequest(data, expectedMode) {
+    if (!isPlainObject(data)) throw new Error("INVALID_MESSAGE");
+    if (Object.keys(data).some(key => !ALLOWED_MESSAGE_KEYS.has(key))) {
+      throw new Error("UNEXPECTED_MESSAGE_FIELD");
+    }
+    if (data.type !== SUBMIT_TYPE) throw new Error("INVALID_MESSAGE_TYPE");
+    if (data.schemaVersion !== SCHEMA_VERSION) throw new Error("UNSUPPORTED_SCHEMA_VERSION");
+    if (typeof data.requestId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(data.requestId)) {
+      throw new Error("INVALID_REQUEST_ID");
+    }
+    validateCommonSelection(data.selection, expectedMode);
+    validateModeSelection(data.selection, expectedMode);
+    return { requestId: data.requestId, selection: data.selection };
+  }
+
+  function validStoredSelection(selection, expectedMode) {
+    try {
+      if (!isPlainObject(selection)) return false;
+      if (selection.customizationMode !== expectedMode) return false;
+      if (!ALLOWED_SIZES.has(selection.size)) return false;
+      if (!FRAME_COLORS.has(selection.frame) || !FRAME_COLORS.has(selection.temple)) return false;
+      if (selection.size === "L" && (!L_SIZE_COLORS.has(selection.frame) || !L_SIZE_COLORS.has(selection.temple))) {
+        return false;
+      }
+      if (!Object.prototype.hasOwnProperty.call(LENSES, selection.lensId)) return false;
+      if (!ALLOWED_PRINT_MODES.has(selection.printMode)) return false;
+      validateModeSelection(selection, expectedMode);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function canonicalSelection(selection) {
+    return {
+      customizationMode: selection.customizationMode,
+      size: selection.size,
+      frame: selection.frame,
+      temple: selection.temple,
+      lensId: selection.lensId,
+      printMode: selection.printMode,
+      uvPrintMode: selection.uvPrintMode,
+      icon1: selection.icon1,
+      icon2: selection.icon2,
+      name: selection.name,
+      textColor: selection.textColor,
+      font: selection.font,
+      caseMode: selection.caseMode,
+      order: selection.order,
+      namePosition: selection.namePosition,
+      customizationSide: selection.customizationSide,
+      customizationSideLabel: selection.customizationSideLabel
+    };
+  }
+
+  function fingerprintFor(handle, selection) {
+    const source = `${handle}|${JSON.stringify(canonicalSelection(selection))}`;
+    let hash = 2166136261;
+    for (let index = 0; index < source.length; index += 1) {
+      hash ^= source.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36).toUpperCase();
+  }
+
+  function designIdFor(requestId, fingerprint) {
+    let hash = 0;
+    const source = `${requestId}|${fingerprint}`;
+    for (let index = 0; index < source.length; index += 1) {
+      hash = Math.imul(31, hash) + source.charCodeAt(index) | 0;
+    }
+    return `EF-${Date.now().toString(36).toUpperCase()}-${(hash >>> 0).toString(36).toUpperCase().padStart(6, "0").slice(-6)}`;
+  }
+
+  function arrangementLabel(selection) {
+    if (!(selection.printMode === "both" || selection.printMode === "icon")) return null;
+    const icons = selection.order === "reverse" ? ["2", "1"] : ["1", "2"];
+    if (selection.printMode === "icon") return icons.join(" ");
+    if (selection.namePosition === "before") return `NAME ${icons.join(" ")}`;
+    if (selection.namePosition === "after") return `${icons.join(" ")} NAME`;
+    return `${icons[0]} NAME ${icons[1]}`;
+  }
+
+  function buildManufacturingLines(record, index) {
+    const selection = record.selection;
+    const config = PRODUCT_CONFIG_BY_HANDLE[record.handle];
+    const lines = [
+      `${index + 1}. 設計編號：${record.designId}`,
+      `方案：${config?.label || selection.customizationModeLabel}`,
+      `尺寸：${selection.size}`,
+      `鏡框：${selection.frame}`,
+      `鏡腳：${selection.temple}`,
+      `鏡片：${LENSES[selection.lensId]}`
+    ];
+
+    if (selection.customizationMode === "engraving") {
+      lines.push(
+        "加工：單色雷雕（畫面以白色示意）",
+        `文字：${selection.name}`,
+        `字體：${FONT_LABELS[selection.font]}`,
+        `英文格式：${CASE_LABELS[selection.caseMode]}`,
+        "位置：右外側鏡腳"
+      );
+    }
+
+    if (selection.customizationMode === "uv" && selection.printMode !== "none") {
+      lines.push(`彩印內容：${PRINT_MODE_LABELS[selection.printMode]}`);
+      if (selection.icon1) lines.push(`圖案：${selection.icon1}／${selection.icon2}`);
+      if (selection.name) {
+        lines.push(
+          `文字：${selection.name}`,
+          `字體：${FONT_LABELS[selection.font]}`,
+          `文字顏色：${TEXT_COLOR_LABELS[selection.textColor]}`,
+          `英文格式：${CASE_LABELS[selection.caseMode]}`
+        );
+      }
+      const arrangement = arrangementLabel(selection);
+      if (arrangement) lines.push(`排列：${arrangement}`);
+      lines.push("位置：右外側鏡腳");
+    }
+
+    return lines.join("\n");
+  }
+
+  function buildNoteBlock(records) {
+    return [
+      NOTE_START,
+      ...records.map((record, index) => buildManufacturingLines(record, index)),
+      NOTE_END
+    ].join("\n");
+  }
+
+  function stripExistingNoteBlock(note) {
+    const start = note.indexOf(NOTE_START);
+    if (start < 0) return note.trim();
+    const end = note.indexOf(NOTE_END, start);
+    if (end < 0) return note.slice(0, start).trim();
+    return `${note.slice(0, start)}${note.slice(end + NOTE_END.length)}`.trim();
+  }
+
+  function publicErrorMessage(error) {
+    const messages = {
+      MODE_HANDLE_MISMATCH: "客製方案與目前商品不一致，請重新整理後再試。",
+      CUSTOMIZER_NOT_LOCKED: "商品客製方案未鎖定，請重新整理後再試。",
+      INVALID_SIZE: "尺寸資料不正確，請重新選擇。",
+      UNAVAILABLE_L_COLOR: "L 尺寸沒有此配色，請重新選擇。",
+      VARIANT_NOT_CONFIGURED: "此尺寸尚未設定購買款式。",
+      CART_RESPONSE_NOT_JSON: "購物車回應格式已變更，請聯絡客服。",
+      CART_REQUEST_TIMEOUT: "購物車連線逾時，請先查看購物車，避免重複加入。",
+      CART_RATE_LIMITED: "操作速度過快，請稍候幾秒再試。",
+      CART_ADD_REJECTED: "此尺寸目前無法加入購物車，請確認測試商品庫存。",
+      CART_VERIFY_FAILED: "商品可能已加入，但系統無法確認購物車數量。請先查看購物車，避免重複加入。",
+      STORAGE_UNAVAILABLE: "瀏覽器無法保存客製資料，為避免資料遺失，請更換瀏覽器後再試。"
+    };
+    return messages[error?.message] || "客製資料不完整或目前無法加入購物車，請重新確認。";
+  }
+
+  async function parseCartResponse(response) {
+    const responseText = await response.text();
+    let payload;
+    if (response.status === 429) throw new Error("CART_RATE_LIMITED");
+    if (!response.ok) throw new Error("CART_ADD_REJECTED");
+    try {
+      payload = responseText ? JSON.parse(responseText) : null;
+    } catch (error) {
+      throw new Error("CART_RESPONSE_NOT_JSON");
+    }
+    if (payload === null || payload?.success === false || payload?.error || payload?.err_msg) {
+      throw new Error("CART_ADD_REJECTED");
+    }
+    return payload;
+  }
+
+  function parseLineItemsSource(source) {
+    if (typeof source !== "string") return null;
+    const match = source.match(/window\.lineItems\s*=\s*(\[[\s\S]*?\]);/);
+    if (!match) return null;
+    try {
+      const parsed = JSON.parse(match[1]);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function cartVariantQuantity(variantId, signal) {
+    const endpoint = new URL(CART_URL, window.location.origin);
+    const response = await window.fetch(endpoint.href, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { Accept: "text/html" },
+      cache: "no-store",
+      signal
+    });
+    if (!response.ok) throw new Error("CART_VERIFY_FAILED");
+    const html = await response.text();
+    const lineItems = parseLineItemsSource(html);
+    if (!lineItems) return 0;
+    return lineItems.reduce((total, item) => (
+      String(item?.variant_id || "") === String(variantId)
+        ? total + (Number.isInteger(Number(item.quantity)) ? Number(item.quantity) : 0)
+        : total
+    ), 0);
+  }
+
+  async function addVariantToCart(variantId) {
+    const endpoint = new URL(CART_ADD_PATH, window.location.origin);
+    if (endpoint.origin !== STOREFRONT_ORIGIN || endpoint.pathname !== CART_ADD_PATH) {
+      throw new Error("INVALID_CART_ENDPOINT");
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const body = new URLSearchParams();
+    body.set("id", variantId);
+    body.set("quantity", "1");
+    let payload = null;
+    let postError = null;
+
+    try {
+      const beforeQuantity = await cartVariantQuantity(variantId, controller.signal);
+      try {
+        const response = await window.fetch(endpoint.href, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "X-Requested-With": "XMLHttpRequest"
+          },
+          body: body.toString(),
+          signal: controller.signal
+        });
+        payload = await parseCartResponse(response);
+      } catch (error) {
+        postError = error?.name === "AbortError"
+          ? new Error("CART_REQUEST_TIMEOUT")
+          : error instanceof Error
+            ? error
+            : new Error("CART_VERIFY_FAILED");
+      }
+
+      // The cart itself is authoritative. CYBERBIZ may successfully add the
+      // item even if its AJAX response is empty, malformed, or interrupted.
+      const afterQuantity = await cartVariantQuantity(variantId, controller.signal);
+      if (afterQuantity === beforeQuantity + 1) return payload || { verifiedByCart: true };
+      if (postError) throw postError;
+      throw new Error("CART_VERIFY_FAILED");
+    } catch (error) {
+      if (error?.name === "AbortError" || controller.signal.aborted) {
+        throw new Error("CART_REQUEST_TIMEOUT");
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
+  function sendResult(targetWindow, requestId, fields) {
+    targetWindow.postMessage({
+      type: RESULT_TYPE,
+      schemaVersion: SCHEMA_VERSION,
+      requestId,
+      ...fields
+    }, CUSTOMIZER_ORIGIN);
+  }
+
+  function trustedCustomizerFrame(sourceWindow, expectedMode, requireCartGate) {
+    const frames = Array.from(document.querySelectorAll(CUSTOMIZER_IFRAME_SELECTOR));
+    return frames.find(frame => {
+      if (sourceWindow && frame.contentWindow !== sourceWindow) return false;
+      try {
+        const iframeUrl = new URL(frame.src, pageUrl.href);
+        const lock = iframeUrl.searchParams.get("locked") || iframeUrl.searchParams.get("lock");
+        return iframeUrl.origin === CUSTOMIZER_ORIGIN
+          && CUSTOMIZER_PATHS.has(iframeUrl.pathname)
+          && iframeUrl.searchParams.get("mode") === expectedMode
+          && (lock === "1" || lock?.toLowerCase() === "true")
+          && (!requireCartGate || iframeUrl.searchParams.get("cart") === "1");
+      } catch (error) {
+        return false;
+      }
+    }) || null;
+  }
+
+  function startProductBridge(context) {
+    let activeFrame = null;
+    const completedResults = new Map();
+    const pendingRequests = new Map();
+
+    async function processRequest(request, targetWindow) {
+      const variantId = context.config.variants[request.selection.size];
+      if (!/^\d+$/.test(variantId || "")) throw new Error("VARIANT_NOT_CONFIGURED");
+
+      const fingerprint = fingerprintFor(context.handle, request.selection);
+      const recentRecord = readRecords().find(record => (
+        record.fingerprint === fingerprint
+        && Date.now() - record.createdAt <= RETRY_GUARD_MS
+      ));
+
+      if (recentRecord?.status === "active") {
+        return {
+          ok: true,
+          message: `此設計已加入購物車（設計編號 ${recentRecord.designId}）。`,
+          cartUrl: new URL(CART_URL, STOREFRONT_ORIGIN).href,
+          designId: recentRecord.designId,
+          liveTest: true
+        };
+      }
+      if (recentRecord?.status === "pending") {
+        throw new Error("CART_REQUEST_TIMEOUT");
+      }
+
+      const record = {
+        designId: designIdFor(request.requestId, fingerprint),
+        requestId: request.requestId,
+        fingerprint,
+        handle: context.handle,
+        mode: context.config.mode,
+        variantId,
+        selection: canonicalSelection(request.selection),
+        status: "pending",
+        cartToken: null,
+        createdAt: Date.now()
+      };
+
+      try {
+        writeRecords([...readRecords(), record]);
+      } catch (error) {
+        throw new Error("STORAGE_UNAVAILABLE");
+      }
+
+      try {
+        await addVariantToCart(variantId);
+      } catch (error) {
+        // These two failures are ambiguous: CYBERBIZ may already have added the
+        // item. Keep the pending design so the cart page can reconcile it.
+        if (!["CART_REQUEST_TIMEOUT", "CART_VERIFY_FAILED"].includes(error?.message)) {
+          removeRecord(request.requestId);
+        }
+        throw error;
+      }
+
+      updateRecord(request.requestId, { status: "active" });
+      return {
+        ok: true,
+        message: `已加入購物車，設計編號 ${record.designId}。請前往購物車確認製作資料。`,
+        cartUrl: new URL(CART_URL, STOREFRONT_ORIGIN).href,
+        designId: record.designId,
+        liveTest: true
+      };
+    }
+
+    function handleSubmit(event) {
+      if (event.origin !== CUSTOMIZER_ORIGIN || event.data?.type !== SUBMIT_TYPE) return;
+      const frame = trustedCustomizerFrame(event.source, context.config.mode, true);
+      if (!frame || frame !== activeFrame) return;
+
+      let request;
+      try {
+        request = validateRequest(event.data, context.config.mode);
+      } catch (error) {
+        const requestId = typeof event.data?.requestId === "string" ? event.data.requestId : "invalid-request";
+        sendResult(event.source, requestId, { ok: false, message: publicErrorMessage(error), liveTest: true });
+        return;
+      }
+
+      const cached = completedResults.get(request.requestId);
+      if (cached) {
+        sendResult(event.source, request.requestId, cached);
+        return;
+      }
+      const pending = pendingRequests.get(request.requestId);
+      if (pending) {
+        pending.then(result => sendResult(event.source, request.requestId, result));
+        return;
+      }
+
+      const task = processRequest(request, event.source)
+        .catch(error => ({ ok: false, message: publicErrorMessage(error), liveTest: true }))
+        .then(result => {
+          pendingRequests.delete(request.requestId);
+          completedResults.set(request.requestId, result);
+          if (completedResults.size > 100) completedResults.delete(completedResults.keys().next().value);
+          return result;
+        });
+
+      pendingRequests.set(request.requestId, task);
+      task.then(result => sendResult(event.source, request.requestId, result));
+    }
+
+    function enable() {
+      const frame = trustedCustomizerFrame(null, context.config.mode, false);
+      if (!frame) return false;
+      activeFrame = frame;
+      window.addEventListener("message", handleSubmit);
+      const iframeUrl = new URL(frame.src, pageUrl.href);
+      if (iframeUrl.searchParams.get("cart") !== "1") {
+        iframeUrl.searchParams.set("cart", "1");
+        frame.src = iframeUrl.href;
+      }
+      return true;
+    }
+
+    function start() {
+      if (enable()) return;
+      const observer = new MutationObserver(() => {
+        if (!enable()) return;
+        observer.disconnect();
+        window.clearTimeout(stopTimer);
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+      const stopTimer = window.setTimeout(() => observer.disconnect(), FIND_TIMEOUT_MS);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", start, { once: true });
+    } else {
+      start();
+    }
+  }
+
+  function startCartNoteSync(activeCartToken) {
+    let checkoutBlocked = false;
+    let syncTimer = null;
+    let checkoutInFlight = false;
+    let allowNextCheckout = false;
+    let cartMutationVersion = 0;
+    let syncGeneration = 0;
+
+    function ensureStyles() {
+      if (document.getElementById("eyefans-cart-live-test-style")) return;
+      const style = document.createElement("style");
+      style.id = "eyefans-cart-live-test-style";
+      style.textContent = [
+        "#eyefans-cart-design-summary{margin:12px 0;padding:14px 16px;border:1px solid #d8cdbb;border-radius:12px;background:#fffaf1;color:#173f36;line-height:1.65}",
+        "#eyefans-cart-design-summary strong{display:block;margin-bottom:6px}",
+        "#eyefans-cart-design-summary pre{margin:0;white-space:pre-wrap;font:inherit}",
+        "#eyefans-cart-design-summary[data-state='error']{border-color:#c34d35;background:#fff3ef;color:#8b2f20}",
+        "#checkout-button[data-eyefans-blocked='1']{opacity:.55;cursor:not-allowed}"
+      ].join("");
+      document.head.appendChild(style);
+    }
+
+    function renderPanel(noteBlock, errorMessage) {
+      ensureStyles();
+      let panel = document.getElementById("eyefans-cart-design-summary");
+      if (!panel) {
+        panel = document.createElement("section");
+        panel.id = "eyefans-cart-design-summary";
+        const note = document.querySelector('textarea[name="order[note]"]');
+        (note?.parentElement || document.getElementById("checkout-button")?.parentElement || document.body)
+          .insertBefore(panel, note || null);
+      }
+      panel.dataset.state = errorMessage ? "error" : "ready";
+      panel.replaceChildren();
+      const title = document.createElement("strong");
+      title.textContent = errorMessage ? "客製資料需要重新確認" : "本次客製製作資料";
+      const content = document.createElement("pre");
+      content.textContent = errorMessage || noteBlock;
+      panel.append(title, content);
+    }
+
+    function setCheckoutBlocked(blocked) {
+      checkoutBlocked = blocked;
+      const button = document.getElementById("checkout-button");
+      if (!button) return;
+      if (blocked) {
+        button.dataset.eyefansBlocked = "1";
+        button.setAttribute("aria-disabled", "true");
+      } else {
+        delete button.dataset.eyefansBlocked;
+        button.removeAttribute("aria-disabled");
+      }
+    }
+
+    function cartStateFromLineItems(lineItems) {
+      if (!Array.isArray(lineItems)) return null;
+      const quantities = new Map();
+      for (const item of lineItems) {
+        const variantId = String(item?.variant_id || "");
+        const quantity = Number(item?.quantity);
+        if (!variantId || !Number.isInteger(quantity) || quantity < 0) {
+          return { invalid: true, quantities: new Map() };
+        }
+        if (!ALL_CUSTOM_VARIANT_IDS.has(variantId)) continue;
+        quantities.set(variantId, (quantities.get(variantId) || 0) + quantity);
+      }
+      return { invalid: false, quantities };
+    }
+
+    async function fetchFreshCartState() {
+      const endpoint = new URL(CART_URL, window.location.origin);
+      if (endpoint.origin !== STOREFRONT_ORIGIN || endpoint.pathname !== CART_URL) {
+        throw new Error("INVALID_CART_ENDPOINT");
+      }
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      try {
+        const response = await window.fetch(endpoint.href, {
+          method: "GET",
+          credentials: "same-origin",
+          headers: { Accept: "text/html" },
+          cache: "no-store",
+          signal: controller.signal
+        });
+        if (!response.ok) throw new Error("CART_VERIFY_FAILED");
+        const lineItems = parseLineItemsSource(await response.text());
+        const cartState = cartStateFromLineItems(lineItems);
+        if (!cartState) throw new Error("CART_VERIFY_FAILED");
+        return cartState;
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+
+    function updateNoteValue(note, value) {
+      if (!note || note.value === value) return;
+      note.value = value;
+      note.dispatchEvent(new Event("input", { bubbles: true }));
+      note.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function reconcile(cartState) {
+      try {
+        if (cartState.invalid) {
+          renderPanel("", "購物車內容正在更新。請重新整理此頁後再確認客製資料；為避免製作錯誤，目前暫停結帳。");
+          setCheckoutBlocked(true);
+          return false;
+        }
+        const { quantities } = cartState;
+
+        let records = readRecords().filter(record => (
+          record.cartToken === null || record.cartToken === activeCartToken
+        ));
+
+        if (quantities.size === 0) {
+          const recentPending = records.filter(record => (
+            record.status === "pending" && Date.now() - record.createdAt <= RETRY_GUARD_MS
+          ));
+          if (recentPending.length) {
+            renderPanel("", "客製商品仍在確認是否加入購物車，請稍候幾秒再試；為避免重複加入或遺失設計，目前暫停結帳。");
+            setCheckoutBlocked(true);
+            return false;
+          }
+          const note = document.querySelector('textarea[name="order[note]"]');
+          if (note) updateNoteValue(note, stripExistingNoteBlock(note.value || ""));
+          writeRecords([]);
+          setCheckoutBlocked(false);
+          document.getElementById("eyefans-cart-design-summary")?.remove();
+          return true;
+        }
+
+        records = records
+          .filter(record => quantities.has(record.variantId))
+          .map(record => ({ ...record, cartToken: activeCartToken, status: "active" }));
+        writeRecords(records);
+
+        const mismatches = [];
+        quantities.forEach((quantity, variantId) => {
+          const designCount = records.filter(record => record.variantId === variantId).length;
+          if (designCount !== quantity) mismatches.push({ variantId, quantity, designCount });
+        });
+
+        if (mismatches.length) {
+          const details = mismatches.map(item => (
+            `款式 ${item.variantId}：購物車 ${item.quantity} 件／客製設計 ${item.designCount} 筆`
+          )).join("\n");
+          const message = `客製商品數量與設計資料不一致。\n${details}\n請刪除此客製商品，再回商品頁由模擬器重新加入；為避免製作錯誤，目前暫停結帳。`;
+          renderPanel("", message);
+          setCheckoutBlocked(true);
+          return true;
+        }
+
+        const note = document.querySelector('textarea[name="order[note]"]');
+        if (!note) {
+          renderPanel("", "找不到 CYBERBIZ 訂單備註欄，為避免客製資料遺失，目前暫停結帳。請聯絡網站管理員。");
+          setCheckoutBlocked(true);
+          return true;
+        }
+
+        const noteBlock = buildNoteBlock(records);
+        const manualNote = stripExistingNoteBlock(note.value || "");
+        const combinedNote = manualNote ? `${manualNote}\n\n${noteBlock}` : noteBlock;
+        if (combinedNote.length > MAX_NOTE_LENGTH) {
+          renderPanel("", "客製資料超過訂單備註可安全保存的長度，請分開結帳或聯絡客服。");
+          setCheckoutBlocked(true);
+          return true;
+        }
+
+        updateNoteValue(note, combinedNote);
+        renderPanel(noteBlock, "");
+        setCheckoutBlocked(false);
+        return true;
+      } catch (error) {
+        renderPanel("", "瀏覽器無法保存或讀取客製資料，為避免製作資料遺失，目前暫停結帳。請聯絡網站管理員。");
+        setCheckoutBlocked(true);
+        return true;
+      }
+    }
+
+    async function syncFresh(expectedMutationVersion = null) {
+      const generation = ++syncGeneration;
+      try {
+        const cartState = await fetchFreshCartState();
+        if (generation !== syncGeneration) return false;
+        if (expectedMutationVersion !== null && expectedMutationVersion !== cartMutationVersion) {
+          return false;
+        }
+        return reconcile(cartState);
+      } catch (error) {
+        if (generation !== syncGeneration) return false;
+        renderPanel("", "目前無法向 CYBERBIZ 確認最新購物車內容。為避免客製資料遺失，已暫停結帳；請確認網路後重新整理頁面。");
+        setCheckoutBlocked(true);
+        return false;
+      }
+    }
+
+    function scheduleSync() {
+      if (syncTimer !== null) window.clearTimeout(syncTimer);
+      syncTimer = window.setTimeout(() => {
+        syncTimer = null;
+        void syncFresh();
+      }, 350);
+    }
+
+    document.addEventListener("click", event => {
+      const checkoutButton = event.target.closest?.("#checkout-button");
+      if (checkoutButton) {
+        if (allowNextCheckout) {
+          allowNextCheckout = false;
+          return;
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (checkoutInFlight) return;
+        checkoutInFlight = true;
+        setCheckoutBlocked(true);
+        const expectedMutationVersion = cartMutationVersion;
+        void syncFresh(expectedMutationVersion).then(synced => {
+          checkoutInFlight = false;
+          if (synced && !checkoutBlocked) {
+            allowNextCheckout = true;
+            checkoutButton.click();
+            return;
+          }
+          document.getElementById("eyefans-cart-design-summary")?.scrollIntoView({ block: "center" });
+        });
+        return;
+      }
+      if (event.target.closest?.(".quantity-group, .delete-button")) {
+        cartMutationVersion += 1;
+        setCheckoutBlocked(true);
+        scheduleSync();
+      }
+    }, true);
+    document.addEventListener("change", event => {
+      if (event.target.matches?.('[data-testid="quantity-input"]')) {
+        cartMutationVersion += 1;
+        setCheckoutBlocked(true);
+        scheduleSync();
+      }
+    }, true);
+
+    function start() {
+      setCheckoutBlocked(true);
+      renderPanel("", "正在確認最新購物車與客製製作資料，請稍候。");
+      void syncFresh();
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", start, { once: true });
+    } else {
+      start();
+    }
+  }
+})();

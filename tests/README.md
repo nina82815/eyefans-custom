@@ -55,10 +55,23 @@ iframe 送出：
 
 `integration/cyberbiz-cart-bridge.js` 是獨立的正式環境草稿，不會由本專案自動載入。
 
+`integration/cyberbiz-cart-test-loader.js` 是完全不寫入購物車的第一階段測試；只有
+`integration/cyberbiz-cart-live-test-loader.js` 會在限定網址參數下呼叫真實
+`/cart/add`。後者只能放在未發布主題，設定方式請見
+`integration/CYBERBIZ_CART_LIVE_TEST_SETUP.md`。
+
 ## 自動檢查正式橋接草稿
 
 以下測試以假的 `fetch` 執行正式 bridge，不會連線到 CYBERBIZ；它會驗證三個商品、四種尺寸共 12 組款式 ID，以及缺少 `cart=1` 時必須拒絕請求：
 
 ```text
 node tests/cyberbiz-cart-bridge.test.js
+```
+
+真實購物車限定 loader 的自動測試仍使用假的網路回應，不會連線到 CYBERBIZ；它會
+驗證網址閘門、三種客製模式、重複送出保護、訂單備註產生，以及購物車數量不一致時
+暫停結帳：
+
+```text
+node tests/cyberbiz-cart-live-test-loader.test.js
 ```
