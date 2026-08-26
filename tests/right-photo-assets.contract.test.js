@@ -115,11 +115,11 @@ assert.match(
 );
 assert.match(htmlSource, /class="photo-blue-light-effect"/, "anti-blue-light must use a clean lens-only effect");
 assert.doesNotMatch(htmlSource, /photo-blue-light-image/, "full anti-blue-light reference photos must not replace selected frames");
-assert.match(htmlSource, /id="photo-a45-blue-light-base"/);
-assert.match(htmlSource, /fill="url\(#photo-a45-blue-light-base\)" opacity="\.62"/);
-assert.match(htmlSource, /fill="url\(#photo-a45-blue-light-sheen\)" opacity="\.25"/);
-assert.match(htmlSource, /<ellipse cx="911" cy="341" rx="174" ry="222"/);
-assert.match(htmlSource, /<ellipse cx="1352" cy="326" rx="100" ry="195"/);
+assert.match(htmlSource, /id="photo-a45-blue-light-base"/, "anti-blue-light needs a calibrated coating base");
+assert.match(htmlSource, /fill="url\(#photo-a45-blue-light-base\)" opacity="\.26" style="mix-blend-mode:screen"/);
+assert.match(htmlSource, /fill="url\(#photo-a45-blue-light-sheen\)" opacity="\.42" style="mix-blend-mode:screen"/);
+assert.match(htmlSource, /<ellipse cx="911" cy="343" rx="179" ry="229"/);
+assert.match(htmlSource, /<ellipse cx="1352" cy="328" rx="104" ry="201"/);
 assert.doesNotMatch(htmlSource, /實拍左側 45°|固定呈現左側 45°/);
 assert.doesNotMatch(`${appSource}\n${htmlSource}`, /白水銀|彩虹水銀/);
 

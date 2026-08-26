@@ -124,10 +124,9 @@ const PHOTO_ALIGNMENT_TARGET = Object.freeze({
 });
 
 // These four supplied photos all show the same anti-blue-light lens on
-// different frame colors. They are retained as visual calibration references,
-// not rendered as replacement frame photos: the clear lenses contain traces
-// of their original removal backgrounds that would otherwise contaminate the
-// customer's chosen frame color.
+// different frame colors. They calibrate the coating colors and reflection
+// band; a low-opacity screen treatment preserves each selected photo's lens
+// detail instead of importing another reference photo's removal background.
 const BLUE_LIGHT_REFERENCE_FILES = Object.freeze([
   "IMG_3631.png",
   "IMG_3632.png",
