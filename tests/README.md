@@ -62,6 +62,11 @@ iframe 送出：
 測試資料時才會啟動。設定方式請見
 `integration/CYBERBIZ_CART_LIVE_TEST_SETUP.md`。
 
+測試完成後使用獨立的 `integration/cyberbiz-cart-production-loader.js`；它不讀取 V3
+測試資料，並會在一般商品網址啟用、關閉原商品購買入口，以及在缺少 EF 製作資料時
+暫停客製結帳。正式切換順序與回滾方式請見
+`integration/CYBERBIZ_CART_PRODUCTION_SETUP.md`。
+
 ## 自動檢查正式橋接草稿
 
 以下測試以假的 `fetch` 執行正式 bridge，不會連線到 CYBERBIZ；它會驗證三個商品、四種尺寸共 12 組款式 ID，以及缺少 `cart=1` 時必須拒絕請求：
@@ -76,4 +81,15 @@ node tests/cyberbiz-cart-bridge.test.js
 
 ```text
 node tests/cyberbiz-cart-live-test-loader.test.js
+```
+
+正式 loader 的自動測試使用假的 CYBERBIZ 回應，不會修改真實購物車。它會驗證三方案
+乘四尺寸的 12 個款式、正式／測試網址互斥、原商品購買入口鎖定、正式與 V3 資料隔離、
+一般購物車保持靜默、客製商品缺少 EF 時 fail-closed，以及 click、form submit 與
+CYBERBIZ checkout event 的結帳阻擋：
+
+```text
+node tests/cyberbiz-cart-production-loader.test.js
+node tests/customizer-cart-ui.contract.test.js
+node tests/cyberbiz-production-setup.contract.test.js
 ```

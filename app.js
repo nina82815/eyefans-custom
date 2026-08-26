@@ -161,7 +161,7 @@ const ENGLISH_FONT_KEYS = new Set(["purpleSmile", "baksoSapi"]);
 const MESSAGE_SCHEMA_VERSION = 1;
 const STOREFRONT_ORIGIN = "https://www.eyefans.com.tw";
 const CART_RESULT_TIMEOUT_MS = 18000;
-const CART_IDLE_MESSAGE = "測試串接模式：商品頁會接收本次設計資料。";
+const CART_IDLE_MESSAGE = "完成搭配後，可將本次設計加入購物車。";
 
 const state = {
   customizationMode: "uv",
@@ -1165,7 +1165,7 @@ function submitCustomizerSelection() {
   const requestId = createCartRequestId();
   pendingCartRequestId = requestId;
   pendingCartSelectionFingerprint = cartSelectionFingerprint(selection);
-  setCartSubmitState("loading", "正在將設計資料送至商品頁……");
+  setCartSubmitState("loading", "正在確認設計並加入購物車……");
 
   window.parent?.postMessage({
     type: "eyefans-customizer-submit",
@@ -1180,7 +1180,7 @@ function submitCustomizerSelection() {
     pendingCartRequestId = null;
     pendingCartSelectionFingerprint = null;
     cartResultTimer = null;
-    setCartSubmitState("error", "商品頁尚未回應，請稍後再試或重新整理頁面。");
+    setCartSubmitState("error", "尚未收到購物車確認，請先查看購物車後再重試。");
   }, CART_RESULT_TIMEOUT_MS);
 }
 
