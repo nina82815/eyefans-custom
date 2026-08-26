@@ -158,6 +158,10 @@ const PRINT_FONTS = {
 };
 
 const ENGLISH_FONT_KEYS = new Set(["purpleSmile", "baksoSapi"]);
+const MESSAGE_SCHEMA_VERSION = 1;
+const STOREFRONT_ORIGIN = "https://www.eyefans.com.tw";
+const CART_RESULT_TIMEOUT_MS = 18000;
+const CART_IDLE_MESSAGE = "測試串接模式：商品頁會接收本次設計資料。";
 
 const state = {
   customizationMode: "uv",
@@ -192,6 +196,11 @@ const svgs = {};
 const printLayers = {};
 const photoLayers = {};
 let textMeasureContext;
+let pendingCartRequestId = null;
+let pendingCartSelectionFingerprint = null;
+let lastAddedSelectionFingerprint = null;
+let cartResultTimer = null;
+let cartLockedControlStates = [];
 const deferredModelColors = { frame: null, temple: null };
 let deferredModelView = null;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -385,6 +394,32 @@ function customizationModeLockedFromLocation() {
   } catch (error) {
     return false;
   }
+}
+
+function cartSubmitEnabledFromLocation() {
+  try {
+    return new URLSearchParams(window.location.search).get("cart") === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function parentMessageOrigin() {
+  const currentOrigin = window.location.origin;
+
+  if (window.parent === window) {
+    return currentOrigin && currentOrigin !== "null" ? currentOrigin : "*";
+  }
+
+  try {
+    const referrerOrigin = new URL(document.referrer).origin;
+    if (referrerOrigin === STOREFRONT_ORIGIN) return STOREFRONT_ORIGIN;
+    if (referrerOrigin === currentOrigin) return currentOrigin;
+  } catch (error) {
+    // A missing or invalid referrer must not broaden the production target origin.
+  }
+
+  return STOREFRONT_ORIGIN;
 }
 
 function syncCustomizationModeInUrl() {
@@ -994,7 +1029,7 @@ function updateSummary() {
   setChip("lens-chip", state.lens);
 }
 
-function announceAndNotifyParent() {
+function buildSelectionPayload() {
   const customizationConfig = CUSTOMIZATION_MODES[state.customizationMode] || CUSTOMIZATION_MODES.uv;
   const printMode = effectivePrintMode();
   const usesIcon = printMode === "both" || printMode === "icon";
@@ -1012,37 +1047,182 @@ function announceAndNotifyParent() {
     ? "右外側鏡腳"
     : null;
   const summary = `${previewMode}、${customizationConfig.label}、尺寸 ${state.size}、鏡框 ${state.frame.name}、鏡腳 ${state.temple.name}、鏡片 ${state.lens.name}、${personalization}${customizationSideLabel ? `、客製位置 ${customizationSideLabel}` : ""}`;
-  document.getElementById("live-status").textContent = summary;
+
+  return {
+    customizationMode: state.customizationMode,
+    customizationModeLabel: customizationConfig.label,
+    customizationModeLocked: state.customizationModeLocked,
+    size: state.size,
+    view: state.view,
+    renderMode: state.renderMode,
+    frame: state.frame.name,
+    temple: state.temple.name,
+    lens: state.lens.name,
+    lensId: state.lens.id,
+    printMode,
+    uvPrintMode: state.customizationMode === "uv" ? state.printMode : null,
+    icon1: usesIcon ? state.icon1 : null,
+    icon2: usesIcon ? state.icon2 : null,
+    name: usesName ? state.name : "",
+    textColor: usesName
+      ? state.customizationMode === "engraving" ? "white" : state.textColor
+      : null,
+    font: usesName ? state.font : null,
+    caseMode: usesName ? state.caseMode : null,
+    order: usesIcon ? state.order : null,
+    namePosition: printMode === "both" ? state.namePosition : null,
+    customizationSide: customizationSideLabel ? "right" : null,
+    customizationSideLabel,
+    summary
+  };
+}
+
+function announceAndNotifyParent() {
+  const selection = buildSelectionPayload();
+  document.getElementById("live-status").textContent = selection.summary;
+
+  const cartPanel = document.getElementById("cart-submit-panel");
+  if (
+    cartPanel?.dataset.state === "success"
+    && lastAddedSelectionFingerprint
+    && cartSelectionFingerprint(selection) !== lastAddedSelectionFingerprint
+  ) {
+    setCartSubmitState("idle", CART_IDLE_MESSAGE);
+  }
+
   window.parent?.postMessage({
     type: "eyefans-customizer-change",
-    selection: {
-      customizationMode: state.customizationMode,
-      customizationModeLabel: customizationConfig.label,
-      customizationModeLocked: state.customizationModeLocked,
-      size: state.size,
-      view: state.view,
-      renderMode: state.renderMode,
-      frame: state.frame.name,
-      temple: state.temple.name,
-      lens: state.lens.name,
-      lensId: state.lens.id,
-      printMode,
-      uvPrintMode: state.customizationMode === "uv" ? state.printMode : null,
-      icon1: usesIcon ? state.icon1 : null,
-      icon2: usesIcon ? state.icon2 : null,
-      name: usesName ? state.name : "",
-      textColor: usesName
-        ? state.customizationMode === "engraving" ? "white" : state.textColor
-        : null,
-      font: usesName ? state.font : null,
-      caseMode: usesName ? state.caseMode : null,
-      order: printMode === "both" ? state.order : null,
-      namePosition: printMode === "both" ? state.namePosition : null,
-      customizationSide: customizationSideLabel ? "right" : null,
-      customizationSideLabel,
-      summary
-    }
-  }, "*");
+    schemaVersion: MESSAGE_SCHEMA_VERSION,
+    selection
+  }, parentMessageOrigin());
+}
+
+function createCartRequestId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `eyefans-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function cartSelectionFingerprint(selection) {
+  const { view, renderMode, summary, ...cartSelection } = selection;
+  return JSON.stringify(cartSelection);
+}
+
+function setCustomizerControlsLocked(locked) {
+  if (locked) {
+    if (cartLockedControlStates.length) return;
+    cartLockedControlStates = Array.from(
+      document.querySelectorAll(".controls-panel button:not(#cart-submit-button), .controls-panel input, .controls-panel select")
+    ).map(control => ({ control, disabled: control.disabled }));
+    cartLockedControlStates.forEach(({ control }) => {
+      control.disabled = true;
+    });
+    return;
+  }
+
+  cartLockedControlStates.forEach(({ control, disabled }) => {
+    control.disabled = disabled;
+  });
+  cartLockedControlStates = [];
+}
+
+function setCartSubmitState(status, message) {
+  const panel = document.getElementById("cart-submit-panel");
+  const button = document.getElementById("cart-submit-button");
+  const statusElement = document.getElementById("cart-submit-status");
+  const isLoading = status === "loading";
+  const isSuccess = status === "success";
+  panel.dataset.state = status;
+  button.disabled = isLoading || isSuccess;
+  button.setAttribute("aria-busy", String(isLoading));
+  button.textContent = isLoading
+    ? "正在加入購物車…"
+    : isSuccess
+      ? "已加入購物車"
+      : "確認設計並加入購物車";
+  setCustomizerControlsLocked(isLoading);
+  statusElement.textContent = message;
+}
+
+function clearCartResultTimer() {
+  if (cartResultTimer === null) return;
+  window.clearTimeout(cartResultTimer);
+  cartResultTimer = null;
+}
+
+function submitCustomizerSelection() {
+  if (pendingCartRequestId) return;
+
+  const selection = buildSelectionPayload();
+  const needsName = selection.customizationMode === "engraving"
+    || (selection.customizationMode === "uv" && ["both", "name"].includes(selection.printMode));
+
+  if (needsName && !selection.name.trim()) {
+    setCartSubmitState("error", "請先輸入客製名字，再加入購物車。");
+    document.getElementById("name-input")?.focus();
+    return;
+  }
+
+  const requestId = createCartRequestId();
+  pendingCartRequestId = requestId;
+  pendingCartSelectionFingerprint = cartSelectionFingerprint(selection);
+  setCartSubmitState("loading", "正在將設計資料送至商品頁……");
+
+  window.parent?.postMessage({
+    type: "eyefans-customizer-submit",
+    schemaVersion: MESSAGE_SCHEMA_VERSION,
+    requestId,
+    selection
+  }, parentMessageOrigin());
+
+  clearCartResultTimer();
+  cartResultTimer = window.setTimeout(() => {
+    if (pendingCartRequestId !== requestId) return;
+    pendingCartRequestId = null;
+    pendingCartSelectionFingerprint = null;
+    cartResultTimer = null;
+    setCartSubmitState("error", "商品頁尚未回應，請稍後再試或重新整理頁面。");
+  }, CART_RESULT_TIMEOUT_MS);
+}
+
+function handleCartResult(event) {
+  const expectedOrigin = parentMessageOrigin();
+  if (
+    event.source !== window.parent
+    || expectedOrigin === "*"
+    || event.origin !== expectedOrigin
+  ) return;
+
+  const message = event.data;
+  if (
+    !message
+    || message.type !== "eyefans-customizer-cart-result"
+    || message.schemaVersion !== MESSAGE_SCHEMA_VERSION
+    || message.requestId !== pendingCartRequestId
+    || typeof message.ok !== "boolean"
+  ) return;
+
+  clearCartResultTimer();
+  const completedSelectionFingerprint = pendingCartSelectionFingerprint;
+  pendingCartRequestId = null;
+  pendingCartSelectionFingerprint = null;
+
+  if (message.ok) {
+    lastAddedSelectionFingerprint = completedSelectionFingerprint;
+    setCartSubmitState("success", message.message || "已成功加入購物車。");
+    return;
+  }
+
+  setCartSubmitState("error", message.message || "加入購物車失敗，請稍後再試。");
+}
+
+function initializeCartSubmit() {
+  if (!cartSubmitEnabledFromLocation()) return;
+
+  const panel = document.getElementById("cart-submit-panel");
+  panel.hidden = false;
+  panel.dataset.state = "idle";
+  document.getElementById("cart-submit-button").addEventListener("click", submitCustomizerSelection);
+  window.addEventListener("message", handleCartResult);
 }
 
 function updateAll() {
@@ -1206,6 +1386,7 @@ function bindControls() {
 async function init() {
   state.customizationMode = customizationModeFromLocation();
   state.customizationModeLocked = customizationModeLockedFromLocation();
+  initializeCartSubmit();
   loadPersonalizationDraft(state.nameSource);
   preparePhotoLayers();
   bindControls();

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>eYeFANS 購物車橋接測試頁</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #173f36;
+      background: #f5f1e7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(300px, 420px);
+      gap: 18px;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      overflow: hidden;
+      border: 1px solid #d8d0c1;
+      border-radius: 18px;
+      background: #fffdf8;
+      box-shadow: 0 12px 36px rgba(23, 63, 54, .08);
+    }
+
+    header,
+    .inspector {
+      padding: 18px;
+    }
+
+    h1,
+    h2 {
+      margin: 0 0 8px;
+      line-height: 1.25;
+    }
+
+    h1 { font-size: 1.25rem; }
+    h2 { font-size: 1rem; }
+
+    p {
+      margin: 6px 0;
+      color: #5e635f;
+      line-height: 1.55;
+    }
+
+    code {
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: .82rem;
+    }
+
+    iframe {
+      display: block;
+      width: 100%;
+      min-height: 880px;
+      border: 0;
+      border-top: 1px solid #e7e0d5;
+      background: white;
+    }
+
+    .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: #e9eee8;
+      font-size: .8rem;
+      font-weight: 700;
+    }
+
+    .badge[data-state="ready"] { background: #dff4e5; color: #165f2e; }
+    .badge[data-state="error"] { background: #fee3dc; color: #922b20; }
+
+    label {
+      display: grid;
+      gap: 6px;
+      margin: 14px 0;
+      font-size: .88rem;
+      font-weight: 700;
+    }
+
+    select,
+    button {
+      min-height: 42px;
+      border: 1px solid #cfc5b5;
+      border-radius: 10px;
+      background: white;
+      color: inherit;
+      font: inherit;
+    }
+
+    select { padding: 0 10px; }
+
+    button {
+      padding: 0 14px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    pre {
+      overflow: auto;
+      max-height: 520px;
+      min-height: 240px;
+      margin: 12px 0 0;
+      padding: 14px;
+      border-radius: 12px;
+      background: #132720;
+      color: #ecf7f2;
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .warning {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #fff0c9;
+      color: #674700;
+      font-size: .86rem;
+      font-weight: 700;
+    }
+
+    @media (max-width: 880px) {
+      body { padding: 10px; }
+      .layout { grid-template-columns: 1fr; }
+      iframe { min-height: 760px; }
+    }
+  </style>
+  <script src="cart-host.js" defer></script>
+</head>
+<body>
+  <main class="layout">
+    <section class="panel" aria-labelledby="page-title">
+      <header>
+        <h1 id="page-title">模擬器父頁／購物車橋接測試</h1>
+        <p>此頁只用 <code>postMessage</code> 模擬 CYBERBIZ，不會發送任何購物車網路請求。</p>
+        <div class="status-row">
+          <span class="badge" id="frame-status">等待模擬器</span>
+          <span class="badge">商品：UV 彩印測試品</span>
+          <span class="badge">模式：uv（鎖定）</span>
+        </div>
+      </header>
+      <iframe
+        id="customizer-frame"
+        title="eYeFANS 客製化模擬器測試"
+        src="../index.html?mode=uv&amp;locked=1&amp;cart=1"
+      ></iframe>
+    </section>
+
+    <aside class="panel inspector" aria-labelledby="inspector-title">
+      <h2 id="inspector-title">父頁接收紀錄</h2>
+      <p class="warning">TEST ONLY：款式 ID 與回傳結果都是模擬資料。</p>
+
+      <label for="simulation-result">
+        下一次送出結果
+        <select id="simulation-result">
+          <option value="success">模擬加入成功</option>
+          <option value="error">模擬 CYBERBIZ 錯誤</option>
+        </select>
+      </label>
+
+      <p><strong>預期 iframe origin：</strong><br><code id="expected-origin"></code></p>
+      <p><strong>最近選擇：</strong><br><span id="latest-summary">尚未收到</span></p>
+      <button id="clear-log" type="button">清除紀錄</button>
+      <pre id="message-log" aria-live="polite">等待 postMessage…</pre>
+    </aside>
+  </main>
+</body>
+</html>
