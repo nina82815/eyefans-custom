@@ -118,7 +118,11 @@
     productContext && pageUrl.searchParams.get(LIVE_QUERY_KEY) === LIVE_QUERY_VALUE
   );
 
-  if (!liveProductTest && !cartToken) return;
+  // CYBERBIZ can leave an unpublished product-page preview and render the
+  // checkout with the published theme. The checkout copy of this loader must
+  // therefore be safe to install in the published theme: stay completely
+  // inert unless this browser actually has a non-empty live-test payload.
+  if (!liveProductTest && (!cartToken || !hasCheckoutTestState())) return;
   window[LOADER_FLAG] = true;
 
   if (liveProductTest) {
@@ -144,6 +148,26 @@
   function currentCartToken() {
     const match = pageUrl.pathname.match(/(?:^|\/)carts\/([A-Za-z0-9_-]+)\/?$/i);
     return match ? match[1] : null;
+  }
+
+  function hasCheckoutTestState() {
+    let raw;
+    try {
+      raw = window.localStorage.getItem(STORAGE_KEY);
+    } catch (error) {
+      // A published checkout must never be interrupted merely because this
+      // browser blocks storage. There is no recoverable test payload here.
+      return false;
+    }
+    if (typeof raw !== "string" || raw.trim() === "" || raw.trim() === "[]") return false;
+    try {
+      const parsed = JSON.parse(raw);
+      return !Array.isArray(parsed) || parsed.length > 0;
+    } catch (error) {
+      // A non-empty but malformed live-test payload should enter the guarded
+      // reconciliation path so a matching custom test item cannot check out.
+      return true;
+    }
   }
 
   function readRecords() {
@@ -967,6 +991,7 @@
 
   function startCartNoteSync(activeCartToken) {
     let checkoutBlocked = false;
+    let lastVerifiedNoteValue = null;
     let syncTimer = null;
     let checkoutInFlight = false;
     let allowNextCheckout = false;
@@ -1007,6 +1032,7 @@
 
     function setCheckoutBlocked(blocked) {
       checkoutBlocked = blocked;
+      if (blocked) lastVerifiedNoteValue = null;
       const button = document.getElementById("checkout-button");
       if (!button) return;
       if (blocked) {
@@ -1056,7 +1082,16 @@
 
     function updateNoteValue(note, value) {
       if (!note || note.value === value) return;
-      note.value = value;
+      // CYBERBIZ Checkout v3 renders this as a React-controlled textarea.
+      // Calling the browser's native setter bypasses React's value tracker;
+      // the following input event is then observed by React and updates the
+      // component state that is ultimately submitted with the order.
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement?.prototype || {},
+        "value"
+      )?.set;
+      if (nativeSetter) nativeSetter.call(note, value);
+      else note.value = value;
       note.dispatchEvent(new Event("input", { bubbles: true }));
       note.dispatchEvent(new Event("change", { bubbles: true }));
     }
@@ -1070,9 +1105,13 @@
         }
         const { quantities } = cartState;
 
-        let records = readRecords().filter(record => (
-          record.cartToken === null || record.cartToken === activeCartToken
+        const allRecords = readRecords();
+        const foreignCartRecords = allRecords.filter(record => (
+          record.cartToken !== null && record.cartToken !== activeCartToken
         ));
+        const unboundRecords = allRecords.filter(record => record.cartToken === null);
+        const boundCurrentRecords = allRecords.filter(record => record.cartToken === activeCartToken);
+        let records = [...boundCurrentRecords, ...unboundRecords];
 
         if (quantities.size === 0) {
           const recentPending = records.filter(record => (
@@ -1085,20 +1124,38 @@
           }
           const note = document.querySelector('textarea[name="order[note]"]');
           if (note) updateNoteValue(note, stripExistingNoteBlock(note.value || ""));
-          writeRecords([]);
+          // An active unbound record was created on the product page before
+          // CYBERBIZ exposed a /carts/:token URL. It may belong to another
+          // cart, so an empty current cart must not discard it.
+          writeRecords([...foreignCartRecords, ...unboundRecords]);
           setCheckoutBlocked(false);
           document.getElementById("eyefans-cart-design-summary")?.remove();
           return true;
         }
 
-        records = records
-          .filter(record => quantities.has(record.variantId))
-          // A cart-page quantity match is enough to preserve the design and
-          // write its note, but it cannot reconstruct the product-page
-          // before/after delta. Keep ambiguous records pending so a later
-          // product-page retry remains blocked instead of risking a new POST.
-          .map(record => ({ ...record, cartToken: activeCartToken }));
-        writeRecords(records);
+        const matchedBoundRecords = boundCurrentRecords.filter(record => quantities.has(record.variantId));
+        const matchedCounts = new Map();
+        matchedBoundRecords.forEach(record => {
+          matchedCounts.set(record.variantId, (matchedCounts.get(record.variantId) || 0) + 1);
+        });
+        const claimedUnboundRecords = [];
+        const preservedUnboundRecords = [];
+        unboundRecords.forEach(record => {
+          const cartQuantity = quantities.get(record.variantId) || 0;
+          const matchedCount = matchedCounts.get(record.variantId) || 0;
+          if (matchedCount < cartQuantity) {
+            // A cart-page quantity match is enough to bind the design to this
+            // token, but it cannot upgrade an ambiguous POST receipt.
+            claimedUnboundRecords.push({ ...record, cartToken: activeCartToken });
+            matchedCounts.set(record.variantId, matchedCount + 1);
+          } else {
+            // Preserve unclaimed records: they may belong to another CYBERBIZ
+            // cart that has not exposed its token to the browser yet.
+            preservedUnboundRecords.push(record);
+          }
+        });
+        records = [...matchedBoundRecords, ...claimedUnboundRecords];
+        writeRecords([...foreignCartRecords, ...preservedUnboundRecords, ...records]);
 
         const mismatches = [];
         quantities.forEach((quantity, variantId) => {
@@ -1133,6 +1190,7 @@
         }
 
         updateNoteValue(note, combinedNote);
+        lastVerifiedNoteValue = combinedNote;
         renderPanel(noteBlock, "");
         setCheckoutBlocked(false);
         return true;
@@ -1204,6 +1262,37 @@
         scheduleSync();
       }
     }, true);
+
+    // CYBERBIZ Checkout v3 emits these lifecycle events. Native click/change
+    // listeners remain as a defensive fallback, while these hooks resync
+    // after React has replaced or updated the cart controls.
+    if (typeof window.jQuery === "function") {
+      window.jQuery(document).on(
+        "checkout_cart:ready.eyefansCartLiveTest checkout_cart:added.eyefansCartLiveTest checkout_cart:logined.eyefansCartLiveTest",
+        () => {
+          cartMutationVersion += 1;
+          setCheckoutBlocked(true);
+          scheduleSync();
+        }
+      );
+      // Checkout v3 serializes the form before this event. Copy the last
+      // reconciled value into that final payload as a defense against a React
+      // rerender between reconciliation and CYBERBIZ's order request.
+      window.jQuery(document).on(
+        "checkout_cart:checkout.eyefansCartLiveTest",
+        (_event, payload) => {
+          if (
+            checkoutBlocked
+            || typeof lastVerifiedNoteValue !== "string"
+            || !lastVerifiedNoteValue
+            || !isPlainObject(payload)
+          ) return;
+          payload['order[note]'] = lastVerifiedNoteValue;
+          const note = document.querySelector('textarea[name="order[note]"]');
+          if (note) updateNoteValue(note, lastVerifiedNoteValue);
+        }
+      );
+    }
 
     function start() {
       setCheckoutBlocked(true);

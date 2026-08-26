@@ -355,6 +355,8 @@ function genericElement(tagName, id = "") {
 function createCartEnvironment({
   recordsJson,
   quantity,
+  cartToken = "cart-token-123",
+  variantId = "87452778",
   pageScriptBody = null,
   runtimeLineItems = null,
   storageThrows = false
@@ -362,7 +364,7 @@ function createCartEnvironment({
   const listeners = {};
   let fetchCount = 0;
   const pageLineItems = quantity > 0
-    ? [{ variant_id: "87452778", quantity: 1 }]
+    ? [{ variant_id: variantId, quantity: 1 }]
     : [];
   const localStorage = memoryStorage({ eyefansCustomCartDesignsV3: recordsJson });
   if (storageThrows) {
@@ -377,9 +379,39 @@ function createCartEnvironment({
   const noteParent = genericElement("div");
   const note = genericElement("textarea");
   note.name = "order[note]";
+  function MockTextAreaElement() {}
+  Object.defineProperty(MockTextAreaElement.prototype, "value", {
+    configurable: true,
+    get() {
+      return this.nativeValue || "";
+    },
+    set(value) {
+      this.nativeValue = String(value);
+      this.nativeSetterCalls = (this.nativeSetterCalls || 0) + 1;
+    }
+  });
+  Object.setPrototypeOf(note, MockTextAreaElement.prototype);
   note.value = "客人原有備註";
+  // Model the own value tracker installed by React. A direct assignment would
+  // update this tracker before the input event and React would ignore it.
+  const nativeValue = Object.getOwnPropertyDescriptor(MockTextAreaElement.prototype, "value");
+  note.reactTrackedValue = note.value;
+  Object.defineProperty(note, "value", {
+    configurable: true,
+    get() {
+      return nativeValue.get.call(this);
+    },
+    set(value) {
+      nativeValue.set.call(this, value);
+      this.reactTrackedValue = String(value);
+    }
+  });
   note.dispatched = [];
-  note.dispatchEvent = event => note.dispatched.push(event.type);
+  note.dispatchEvent = event => note.dispatched.push({
+    type: event.type,
+    value: note.value,
+    trackedBeforeEvent: note.reactTrackedValue
+  });
   noteParent.append(note);
   const checkout = genericElement("button", "checkout-button");
   checkout.clickCount = 0;
@@ -427,12 +459,25 @@ function createCartEnvironment({
       listeners[type] = listener;
     }
   };
+  const jqueryHandlers = [];
+  function jQuery(target) {
+    assert.equal(target, document);
+    return {
+      on(events, handler) {
+        String(events).split(/\s+/).filter(Boolean).forEach(eventName => {
+          jqueryHandlers.push({ eventName: eventName.split(".")[0], handler });
+        });
+      }
+    };
+  }
   const window = {
-    location: new URL("https://www.eyefans.com.tw/carts/cart-token-123"),
+    location: new URL(`https://www.eyefans.com.tw/carts/${cartToken}`),
     localStorage,
     sessionStorage,
+    HTMLTextAreaElement: MockTextAreaElement,
+    jQuery,
     setTimeout(callback, delay) {
-      return setTimeout(callback, delay);
+      return setTimeout(callback, delay === 350 ? 0 : delay);
     },
     clearTimeout,
     setInterval,
@@ -476,6 +521,7 @@ function createCartEnvironment({
     });
   };
   return {
+    context,
     checkout,
     document,
     listeners,
@@ -483,6 +529,11 @@ function createCartEnvironment({
     note,
     noteParent,
     window,
+    triggerJQuery(eventName, ...args) {
+      jqueryHandlers
+        .filter(item => item.eventName === eventName)
+        .forEach(item => item.handler({ type: eventName }, ...args));
+    },
     fetchCount() {
       return fetchCount;
     }
@@ -709,9 +760,90 @@ function createCartEnvironment({
   assert.match(matchingCart.note.value, /鏡框：櫻花粉/);
   assert.match(matchingCart.note.value, /圖案：01／04/);
   assert.match(matchingCart.note.value, /排列：1 NAME 2/);
-  assert.deepEqual(matchingCart.note.dispatched, ["input", "change"]);
+  assert.deepEqual(matchingCart.note.dispatched.map(event => event.type), ["input", "change"]);
+  assert.equal(
+    matchingCart.note.dispatched[0].trackedBeforeEvent,
+    "客人原有備註",
+    "native setter must bypass React's controlled-input value tracker before input"
+  );
+  assert.match(matchingCart.note.dispatched[0].value, /【eYeFANS 客製設計資料】/);
   assert.equal(matchingCart.checkout.attributes.has("aria-disabled"), false);
   assert.equal(matchingCart.fetchCount(), 0, "cart page must use its current page state without GET /cart");
+
+  const checkoutPayload = vm.runInContext("({})", matchingCart.context);
+  matchingCart.triggerJQuery("checkout_cart:checkout", checkoutPayload);
+  assert.match(
+    checkoutPayload['order[note]'],
+    /【eYeFANS 客製設計資料】/,
+    "verified note must be copied into CYBERBIZ's final serialized checkout payload"
+  );
+
+  matchingCart.note.value = "React 更新後暫時取代內容";
+  matchingCart.triggerJQuery("checkout_cart:added");
+  await new Promise(resolve => setTimeout(resolve, 5));
+  await flushTasks();
+  await flushTasks();
+  assert.match(matchingCart.note.value, /【eYeFANS 客製設計資料】/);
+  assert.equal(matchingCart.checkout.attributes.has("aria-disabled"), false);
+
+  const unrelatedPublishedCheckout = createCartEnvironment({
+    recordsJson: "[]",
+    quantity: 1
+  });
+  await flushTasks();
+  await flushTasks();
+  assert.equal(
+    unrelatedPublishedCheckout.listeners.click,
+    undefined,
+    "published checkout must stay inert without a live-test payload"
+  );
+  assert.equal(unrelatedPublishedCheckout.document.getElementById("eyefans-cart-design-summary"), null);
+  assert.equal(unrelatedPublishedCheckout.checkout.attributes.has("aria-disabled"), false);
+
+  const foreignCartRecord = structuredClone(savedRecords[0]);
+  foreignCartRecord.cartToken = "cart-token-a";
+  const emptySecondCart = createCartEnvironment({
+    recordsJson: JSON.stringify([foreignCartRecord]),
+    quantity: 0,
+    cartToken: "cart-token-b"
+  });
+  await flushTasks();
+  await flushTasks();
+  assert.deepEqual(
+    JSON.parse(emptySecondCart.localStorage.getItem("eyefansCustomCartDesignsV3")),
+    [foreignCartRecord],
+    "reconciling an empty second cart must preserve another cart token's design records"
+  );
+
+  const unboundCartRecord = structuredClone(savedRecords[0]);
+  unboundCartRecord.cartToken = null;
+  const emptyCartBeforeFirstBinding = createCartEnvironment({
+    recordsJson: JSON.stringify([unboundCartRecord]),
+    quantity: 0,
+    cartToken: "cart-token-b"
+  });
+  await flushTasks();
+  await flushTasks();
+  assert.deepEqual(
+    JSON.parse(emptyCartBeforeFirstBinding.localStorage.getItem("eyefansCustomCartDesignsV3")),
+    [unboundCartRecord],
+    "an empty cart must preserve an active design that has not received its first cart token"
+  );
+
+  const differentVariantCart = createCartEnvironment({
+    recordsJson: JSON.stringify([unboundCartRecord]),
+    quantity: 1,
+    cartToken: "cart-token-b",
+    variantId: "87452777"
+  });
+  await flushTasks();
+  await flushTasks();
+  assert.deepEqual(
+    JSON.parse(differentVariantCart.localStorage.getItem("eyefansCustomCartDesignsV3")),
+    [unboundCartRecord],
+    "a different custom variant must not claim or discard an unbound design"
+  );
+  assert.equal(differentVariantCart.checkout.attributes.get("aria-disabled"), "true");
 
   matchingCart.note.value = "客人修改後的備註";
   let checkoutPrevented = false;

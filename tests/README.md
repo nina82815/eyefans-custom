@@ -57,7 +57,9 @@ iframe 送出：
 
 `integration/cyberbiz-cart-test-loader.js` 是完全不寫入購物車的第一階段測試；只有
 `integration/cyberbiz-cart-live-test-loader.js` 會在限定網址參數下呼叫真實
-`/cart/add`。後者只能放在未發布主題，設定方式請見
+`/cart/add`。商品頁測試先放在未發布主題；若 CYBERBIZ 結帳頁實際改用已發布主題，
+同一支 loader 也必須載入該主題才能驗收 EF 備註同步。公開結帳端只有本機存在非空
+測試資料時才會啟動。設定方式請見
 `integration/CYBERBIZ_CART_LIVE_TEST_SETUP.md`。
 
 ## 自動檢查正式橋接草稿

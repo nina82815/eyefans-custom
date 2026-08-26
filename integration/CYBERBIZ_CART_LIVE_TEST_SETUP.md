@@ -9,7 +9,10 @@
 
 ## 測試前準備
 
-1. 僅在「未發布主題」加入 loader。
+1. 商品頁測試仍在「未發布主題」加入 loader。CYBERBIZ 若在進入 `/carts/...` 後改用目前
+   已發布主題，還要把同一個 loader 暫時加入「已發布主題」的 `theme.liquid`、`</body>`
+   前面，否則結帳頁不會執行 EF 資料同步。結帳端有本次測試資料才會啟動；沒有
+   `eyefansCustomCartDesignsV3` 測試資料的公開結帳會完全略過。
 2. 測試商品欲測的尺寸必須有至少 1 件測試庫存，否則 CYBERBIZ 會拒絕加入。
 3. 先清除購物車中的三個客製測試商品，避免商品數量與設計筆數不一致。
 4. 保留目前的 no-write loader，但同一個測試網址不要同時加入
@@ -35,7 +38,7 @@
 <script
   defer
   src="https://nina82815.github.io/eyefans-custom/integration/cyberbiz-cart-live-test-loader.js"
-  integrity="sha384-2TY3mvvjAoz/8U1mUrHGZddDPTQ17CzrNDoT3Zj5EBWXDUScYWmvmDatELm4X8FJ"
+  integrity="sha384-93DoDhGIm3jZC3723gA0VEG1wEC9ZjlMxTeSM/BaNlGofa9o3rx6R6Jtt4oQ2HPX"
   crossorigin="anonymous"
 ></script>
 ```
@@ -66,6 +69,10 @@ https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd?eyefans_cart_live_test
 6. 手動把客製商品數量加減，頁面必須顯示資料不一致並暫停結帳。
 7. 移除 `eyefans_cart_live_test=1` 後，商品頁不顯示模擬器購物車按鈕。
 8. 把欲測尺寸庫存改為 0 後，送出應顯示「此尺寸目前沒有可用庫存」，且購物車不得增加。
+
+若商品頁來自未發布主題、但結帳頁原始碼載入的是另一個已發布主題資產，代表 CYBERBIZ
+沒有把預覽主題延續到結帳頁。這時只修改未發布主題無法驗收 EF 編號；必須依第 1 點讓
+實際渲染結帳頁的主題也載入此測試 loader。完成測試後，再決定是否正式發布整套主題。
 
 若畫面顯示「目前商品頁開在後台預覽框中」，請複製實際店面預覽網址到新分頁，再把
 `eyefans_cart_live_test=1` 放在 `#desc_section_1` 之前；不要在後台內嵌預覽框直接測試。
