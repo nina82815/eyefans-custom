@@ -27,7 +27,7 @@
 <script
   defer
   src="https://nina82815.github.io/eyefans-custom/integration/cyberbiz-cart-live-test-loader.js"
-  integrity="sha384-fRkaHhew3W1z/WXl9WFVHV3JyhoTBtsiPgzO0G4Sp8t6iozEk4UVq4DpTQvSvCMt"
+  integrity="sha384-dGp8UnXtM6KqYDg2WZe3ZFqiq1GtOIbLNBnPON4w7h0Cy6Lw2jzFScp2aQJVPWaQ"
   crossorigin="anonymous"
 ></script>
 ```

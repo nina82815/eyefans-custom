@@ -31,8 +31,9 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
   const requests = [];
   const replies = [];
   const cartQuantities = new Map();
-  let getRequestCount = 0;
-  const localStorage = memoryStorage();
+  const localStorage = memoryStorage(behavior.recordsJson
+    ? { eyefansCustomCartDesignsV2: behavior.recordsJson }
+    : {});
   const sessionStorage = memoryStorage();
   const frameWindow = {
     postMessage(message, targetOrigin) {
@@ -51,7 +52,7 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
       listeners[type] = listener;
     },
     setTimeout(callback, delay) {
-      if (behavior.immediateTimeout && delay === 12000) {
+      if (behavior.immediateTimeout && delay === 15000) {
         Promise.resolve().then(callback);
         return 999999;
       }
@@ -61,16 +62,6 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
     async fetch(url, options) {
       requests.push({ url, options });
       if (options.method === "GET") {
-        getRequestCount += 1;
-        if (behavior.hangFirstGet && getRequestCount === 1) {
-          return new Promise((resolve, reject) => {
-            options.signal.addEventListener("abort", () => {
-              const error = new Error("aborted");
-              error.name = "AbortError";
-              reject(error);
-            }, { once: true });
-          });
-        }
         const lineItems = Array.from(cartQuantities, ([variant_id, quantity]) => ({ variant_id, quantity }));
         return {
           ok: true,
@@ -79,6 +70,15 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
             return `window.lineItems = ${JSON.stringify(lineItems)};`;
           }
         };
+      }
+      if (behavior.hangPost) {
+        return new Promise((resolve, reject) => {
+          options.signal.addEventListener("abort", () => {
+            const error = new Error("aborted");
+            error.name = "AbortError";
+            reject(error);
+          }, { once: true });
+        });
       }
       const variantId = new URLSearchParams(options.body).get("id");
       if (variantId && !behavior.skipCartIncrement && !behavior.postStatus) {
@@ -248,15 +248,16 @@ function genericElement(tagName, id = "") {
 function createCartEnvironment({
   recordsJson,
   quantity,
-  serverQuantity = quantity,
-  serverBody = null,
-  serverOk = true,
-  deferFetch = false,
+  pageScriptBody = null,
+  runtimeLineItems = null,
   storageThrows = false
 }) {
   const listeners = {};
-  const fetchReleases = [];
-  const localStorage = memoryStorage({ eyefansCustomCartDesignsV1: recordsJson });
+  let fetchCount = 0;
+  const pageLineItems = quantity > 0
+    ? [{ variant_id: "87452778", quantity: 1 }]
+    : [];
+  const localStorage = memoryStorage({ eyefansCustomCartDesignsV2: recordsJson });
   if (storageThrows) {
     localStorage.setItem = () => {
       throw new Error("storage blocked");
@@ -299,7 +300,7 @@ function createCartEnvironment({
     head,
     body,
     scripts: [{
-      textContent: 'window.lineItems = [{"variant_id":"87452778","quantity":1}];\nwindow.customer = null;'
+      textContent: pageScriptBody ?? `window.lineItems = ${JSON.stringify(pageLineItems)};\nwindow.customer = null;`
     }],
     createElement(tagName) {
       return genericElement(tagName);
@@ -312,7 +313,7 @@ function createCartEnvironment({
       return null;
     },
     querySelectorAll(selector) {
-      if (selector === "tr.line-item") return [row];
+      if (selector === "tr.line-item") return pageLineItems.length ? [row] : [];
       return [];
     },
     addEventListener(type, listener) {
@@ -324,29 +325,17 @@ function createCartEnvironment({
     localStorage,
     sessionStorage,
     setTimeout(callback, delay) {
-      if (deferFetch && delay === 350) return 888888;
       return setTimeout(callback, delay);
     },
     clearTimeout,
     setInterval,
     clearInterval,
     async fetch(url, options) {
-      assert.equal(url, "https://www.eyefans.com.tw/cart");
-      assert.equal(options.method, "GET");
-      if (deferFetch) await new Promise(resolve => fetchReleases.push(resolve));
-      return {
-        ok: serverOk,
-        status: serverOk ? 200 : 503,
-        async text() {
-          if (serverBody !== null) return serverBody;
-          const items = serverQuantity > 0
-            ? [{ variant_id: "87452778", quantity: serverQuantity }]
-            : [];
-          return `window.lineItems = ${JSON.stringify(items)};`;
-        }
-      };
+      fetchCount += 1;
+      throw new Error(`unexpected cart-page fetch: ${options?.method || "GET"} ${url}`);
     }
   };
+  if (runtimeLineItems !== null) window.lineItems = runtimeLineItems;
   const context = vm.createContext({
     URL,
     URLSearchParams,
@@ -387,13 +376,8 @@ function createCartEnvironment({
     note,
     noteParent,
     window,
-    pendingFetches() {
-      return fetchReleases.length;
-    },
-    releaseFetch() {
-      const release = fetchReleases.shift();
-      assert.ok(release, "expected a pending cart fetch");
-      release();
+    fetchCount() {
+      return fetchCount;
     }
   };
 }
@@ -427,12 +411,17 @@ function createCartEnvironment({
 
   const livePostRequests = live.requests.filter(request => request.options.method === "POST");
   assert.equal(livePostRequests.length, 1);
+  assert.equal(
+    live.requests.filter(request => request.options.method === "GET").length,
+    0,
+    "the successful product flow must not wait for GET /cart"
+  );
   assert.equal(livePostRequests[0].url, "https://www.eyefans.com.tw/cart/add");
   assert.equal(livePostRequests[0].options.body, "id=87452778&quantity=1");
   assert.equal(live.replies.at(-1).message.ok, true);
   assert.match(live.replies.at(-1).message.designId, /^EF-/);
 
-  const savedRecords = JSON.parse(live.localStorage.getItem("eyefansCustomCartDesignsV1"));
+  const savedRecords = JSON.parse(live.localStorage.getItem("eyefansCustomCartDesignsV2"));
   assert.equal(savedRecords.length, 1);
   assert.equal(savedRecords[0].status, "active");
   assert.equal(savedRecords[0].selection.name, "PEIYU");
@@ -451,25 +440,51 @@ function createCartEnvironment({
   );
   assert.match(live.replies.at(-1).message.message, /此設計已加入購物車/);
 
-  const preflightTimeout = createProductEnvironment(
+  const postTimeout = createProductEnvironment(
     "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd?eyefans_cart_live_test=1",
     "uv",
-    { hangFirstGet: true, immediateTimeout: true }
+    { hangPost: true, immediateTimeout: true }
   );
-  preflightTimeout.listeners.message({
+  postTimeout.listeners.message({
     origin: "https://nina82815.github.io",
-    source: preflightTimeout.frameWindow,
-    data: requestInContext(preflightTimeout.context, "request-preflight-timeout-0001", uvSelection())
+    source: postTimeout.frameWindow,
+    data: requestInContext(postTimeout.context, "request-post-timeout-0001", uvSelection())
   });
   await flushTasks();
   await flushTasks();
   assert.equal(
-    preflightTimeout.requests.filter(request => request.options.method === "POST").length,
-    0,
-    "a timed-out preflight must never start the cart POST"
+    postTimeout.requests.filter(request => request.options.method === "POST").length,
+    1,
+    "a timed-out cart POST must never be repeated automatically"
   );
-  assert.equal(preflightTimeout.replies.at(-1).message.ok, false);
-  assert.match(preflightTimeout.replies.at(-1).message.message, /購物車連線逾時/);
+  assert.equal(postTimeout.replies.at(-1).message.ok, false);
+  assert.match(postTimeout.replies.at(-1).message.message, /購物車連線逾時/);
+  assert.equal(
+    JSON.parse(postTimeout.localStorage.getItem("eyefansCustomCartDesignsV2"))[0].status,
+    "pending"
+  );
+
+  const oldPendingRecord = JSON.parse(
+    postTimeout.localStorage.getItem("eyefansCustomCartDesignsV2")
+  )[0];
+  oldPendingRecord.createdAt = Date.now() - (6 * 60 * 1000);
+  const oldPendingRetry = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd?eyefans_cart_live_test=1",
+    "uv",
+    { recordsJson: JSON.stringify([oldPendingRecord]) }
+  );
+  oldPendingRetry.listeners.message({
+    origin: "https://nina82815.github.io",
+    source: oldPendingRetry.frameWindow,
+    data: requestInContext(oldPendingRetry.context, "request-old-pending-retry-0001", uvSelection())
+  });
+  await flushTasks();
+  await flushTasks();
+  assert.equal(
+    oldPendingRetry.requests.filter(request => request.options.method === "POST").length,
+    0,
+    "an unresolved pending design must never auto-unlock into a second POST"
+  );
 
   const beforeInvalidRequests = live.requests.filter(request => request.options.method === "POST").length;
   live.listeners.message({
@@ -536,6 +551,7 @@ function createCartEnvironment({
   assert.match(matchingCart.note.value, /排列：1 NAME 2/);
   assert.deepEqual(matchingCart.note.dispatched, ["input", "change"]);
   assert.equal(matchingCart.checkout.attributes.has("aria-disabled"), false);
+  assert.equal(matchingCart.fetchCount(), 0, "cart page must use its current page state without GET /cart");
 
   matchingCart.note.value = "客人修改後的備註";
   let checkoutPrevented = false;
@@ -594,28 +610,28 @@ function createCartEnvironment({
     /無法保存或讀取客製資料/
   );
 
-  const staleDomCart = createCartEnvironment({
+  const runtimeLineItemsCart = createCartEnvironment({
     recordsJson: JSON.stringify(savedRecords),
-    quantity: 0,
-    serverQuantity: 1
+    quantity: 1,
+    pageScriptBody: "window.customer = null;",
+    runtimeLineItems: [{ variant_id: "87452778", quantity: 1 }]
   });
   await flushTasks();
   await flushTasks();
-  assert.equal(staleDomCart.checkout.attributes.has("aria-disabled"), false);
-  assert.match(staleDomCart.note.value, /【eYeFANS 客製設計資料】/);
-  assert.equal(JSON.parse(staleDomCart.localStorage.getItem("eyefansCustomCartDesignsV1")).length, 1);
+  assert.equal(runtimeLineItemsCart.checkout.attributes.has("aria-disabled"), false);
+  assert.match(runtimeLineItemsCart.note.value, /【eYeFANS 客製設計資料】/);
 
   const unreadableCart = createCartEnvironment({
     recordsJson: JSON.stringify(savedRecords),
     quantity: 1,
-    serverBody: "<html><body>cart markup changed</body></html>"
+    pageScriptBody: "window.customer = null;"
   });
   await flushTasks();
   await flushTasks();
   assert.equal(unreadableCart.checkout.attributes.get("aria-disabled"), "true");
   assert.match(
     unreadableCart.document.getElementById("eyefans-cart-design-summary").children[1].textContent,
-    /無法向 CYBERBIZ 確認最新購物車/
+    /無法讀取購物車內容/
   );
 
   const pendingRecord = structuredClone(savedRecords[0]);
@@ -623,55 +639,16 @@ function createCartEnvironment({
   pendingRecord.createdAt = Date.now();
   const pendingEmptyCart = createCartEnvironment({
     recordsJson: JSON.stringify([pendingRecord]),
-    quantity: 0,
-    serverQuantity: 0
+    quantity: 0
   });
   await flushTasks();
   await flushTasks();
   assert.equal(pendingEmptyCart.checkout.attributes.get("aria-disabled"), "true");
-  assert.equal(JSON.parse(pendingEmptyCart.localStorage.getItem("eyefansCustomCartDesignsV1")).length, 1);
+  assert.equal(JSON.parse(pendingEmptyCart.localStorage.getItem("eyefansCustomCartDesignsV2")).length, 1);
   assert.match(
     pendingEmptyCart.document.getElementById("eyefans-cart-design-summary").children[1].textContent,
     /仍在確認是否加入購物車/
   );
-
-  const mutationRaceCart = createCartEnvironment({
-    recordsJson: JSON.stringify(savedRecords),
-    quantity: 1,
-    deferFetch: true
-  });
-  assert.equal(mutationRaceCart.pendingFetches(), 1);
-  mutationRaceCart.releaseFetch();
-  await flushTasks();
-  await flushTasks();
-  assert.equal(mutationRaceCart.checkout.attributes.has("aria-disabled"), false);
-
-  let mutationCheckoutPrevented = false;
-  mutationRaceCart.listeners.click({
-    target: {
-      closest(selector) {
-        return selector === "#checkout-button" ? mutationRaceCart.checkout : null;
-      }
-    },
-    preventDefault() {
-      mutationCheckoutPrevented = true;
-    },
-    stopImmediatePropagation() {}
-  });
-  assert.equal(mutationRaceCart.pendingFetches(), 1);
-  mutationRaceCart.listeners.change({
-    target: {
-      matches(selector) {
-        return selector === '[data-testid="quantity-input"]';
-      }
-    }
-  });
-  mutationRaceCart.releaseFetch();
-  await flushTasks();
-  await flushTasks();
-  assert.equal(mutationCheckoutPrevented, true);
-  assert.equal(mutationRaceCart.checkout.clickCount, 0, "cart mutation must cancel an in-flight checkout");
-  assert.equal(mutationRaceCart.checkout.attributes.get("aria-disabled"), "true");
 
   const rateLimited = createProductEnvironment(
     "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd?eyefans_cart_live_test=1",
@@ -687,7 +664,7 @@ function createCartEnvironment({
   await flushTasks();
   assert.equal(rateLimited.replies.at(-1).message.ok, false);
   assert.match(rateLimited.replies.at(-1).message.message, /操作速度過快/);
-  assert.deepEqual(JSON.parse(rateLimited.localStorage.getItem("eyefansCustomCartDesignsV1")), []);
+  assert.deepEqual(JSON.parse(rateLimited.localStorage.getItem("eyefansCustomCartDesignsV2")), []);
 
   const malformedSuccess = createProductEnvironment(
     "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd?eyefans_cart_live_test=1",
@@ -703,7 +680,7 @@ function createCartEnvironment({
   await flushTasks();
   assert.equal(malformedSuccess.replies.at(-1).message.ok, true);
   assert.equal(
-    JSON.parse(malformedSuccess.localStorage.getItem("eyefansCustomCartDesignsV1"))[0].status,
+    JSON.parse(malformedSuccess.localStorage.getItem("eyefansCustomCartDesignsV2"))[0].status,
     "active"
   );
 
@@ -719,29 +696,24 @@ function createCartEnvironment({
   });
   await flushTasks();
   await flushTasks();
-  assert.equal(interruptedSuccess.replies.at(-1).message.ok, true);
+  assert.equal(interruptedSuccess.replies.at(-1).message.ok, false);
+  assert.match(interruptedSuccess.replies.at(-1).message.message, /無法確認購物車數量/);
   assert.equal(
-    JSON.parse(interruptedSuccess.localStorage.getItem("eyefansCustomCartDesignsV1"))[0].status,
-    "active"
+    JSON.parse(interruptedSuccess.localStorage.getItem("eyefansCustomCartDesignsV2"))[0].status,
+    "pending"
   );
-
-  const unverified = createProductEnvironment(
-    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd?eyefans_cart_live_test=1",
-    "uv",
-    { skipCartIncrement: true }
-  );
-  unverified.listeners.message({
+  interruptedSuccess.listeners.message({
     origin: "https://nina82815.github.io",
-    source: unverified.frameWindow,
-    data: requestInContext(unverified.context, "request-verify-fail-0001", uvSelection())
+    source: interruptedSuccess.frameWindow,
+    data: requestInContext(interruptedSuccess.context, "request-interrupted-retry-0001", uvSelection())
   });
   await flushTasks();
   await flushTasks();
-  assert.equal(unverified.replies.at(-1).message.ok, false);
-  assert.match(unverified.replies.at(-1).message.message, /無法確認購物車數量/);
-  const pendingRecords = JSON.parse(unverified.localStorage.getItem("eyefansCustomCartDesignsV1"));
-  assert.equal(pendingRecords.length, 1);
-  assert.equal(pendingRecords[0].status, "pending");
+  assert.equal(
+    interruptedSuccess.requests.filter(request => request.options.method === "POST").length,
+    1,
+    "an ambiguous POST must not be retried for the same design"
+  );
 
   console.log("live cart test loader tests passed: gates + add + idempotency + note guard + failure safety");
 })().catch(error => {

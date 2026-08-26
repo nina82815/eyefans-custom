@@ -26,11 +26,12 @@
   const RESULT_TYPE = "eyefans-customizer-cart-result";
   const SCHEMA_VERSION = 1;
   const LOADER_FLAG = "__eyefansCartLiveTestLoaderActive";
-  const STORAGE_KEY = "eyefansCustomCartDesignsV1";
+  // V2 intentionally ignores pending V1 records created by the unreliable
+  // preflight cart check used in the first live test.
+  const STORAGE_KEY = "eyefansCustomCartDesignsV2";
   const FIND_TIMEOUT_MS = 20000;
-  // The iframe gives the parent 18 seconds to reply. Keep the entire
-  // preflight + add + verification sequence comfortably inside that window.
-  const REQUEST_TIMEOUT_MS = 12000;
+  // The iframe gives the parent 18 seconds to reply.
+  const REQUEST_TIMEOUT_MS = 15000;
   const RETRY_GUARD_MS = 5 * 60 * 1000;
   const RECORD_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
   const MAX_RECORDS = 20;
@@ -464,19 +465,22 @@
   }
 
   async function parseCartResponse(response) {
-    const responseText = await response.text();
-    let payload;
     if (response.status === 429) throw new Error("CART_RATE_LIMITED");
     if (!response.ok) throw new Error("CART_ADD_REJECTED");
+    const responseText = await response.text();
+    if (!responseText) return { acceptedByHttp: true };
+    let payload;
     try {
-      payload = responseText ? JSON.parse(responseText) : null;
+      payload = JSON.parse(responseText);
     } catch (error) {
-      throw new Error("CART_RESPONSE_NOT_JSON");
+      // CYBERBIZ has already returned HTTP 2xx. Keep the single POST as
+      // accepted and let the cart page perform the final quantity check.
+      return { acceptedByHttp: true, responseFormat: "non-json" };
     }
-    if (payload === null || payload?.success === false || payload?.error || payload?.err_msg) {
+    if (payload?.success === false || payload?.error || payload?.err_msg) {
       throw new Error("CART_ADD_REJECTED");
     }
-    return payload;
+    return payload ?? { acceptedByHttp: true };
   }
 
   function parseLineItemsSource(source) {
@@ -491,26 +495,6 @@
     }
   }
 
-  async function cartVariantQuantity(variantId, signal) {
-    const endpoint = new URL(CART_URL, window.location.origin);
-    const response = await window.fetch(endpoint.href, {
-      method: "GET",
-      credentials: "same-origin",
-      headers: { Accept: "text/html" },
-      cache: "no-store",
-      signal
-    });
-    if (!response.ok) throw new Error("CART_VERIFY_FAILED");
-    const html = await response.text();
-    const lineItems = parseLineItemsSource(html);
-    if (!lineItems) return 0;
-    return lineItems.reduce((total, item) => (
-      String(item?.variant_id || "") === String(variantId)
-        ? total + (Number.isInteger(Number(item.quantity)) ? Number(item.quantity) : 0)
-        : total
-    ), 0);
-  }
-
   async function addVariantToCart(variantId) {
     const endpoint = new URL(CART_ADD_PATH, window.location.origin);
     if (endpoint.origin !== STOREFRONT_ORIGIN || endpoint.pathname !== CART_ADD_PATH) {
@@ -522,43 +506,29 @@
     const body = new URLSearchParams();
     body.set("id", variantId);
     body.set("quantity", "1");
-    let payload = null;
-    let postError = null;
-
     try {
-      const beforeQuantity = await cartVariantQuantity(variantId, controller.signal);
-      try {
-        const response = await window.fetch(endpoint.href, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-            "X-Requested-With": "XMLHttpRequest"
-          },
-          body: body.toString(),
-          signal: controller.signal
-        });
-        payload = await parseCartResponse(response);
-      } catch (error) {
-        postError = error?.name === "AbortError"
-          ? new Error("CART_REQUEST_TIMEOUT")
-          : error instanceof Error
-            ? error
-            : new Error("CART_VERIFY_FAILED");
-      }
-
-      // The cart itself is authoritative. CYBERBIZ may successfully add the
-      // item even if its AJAX response is empty, malformed, or interrupted.
-      const afterQuantity = await cartVariantQuantity(variantId, controller.signal);
-      if (afterQuantity === beforeQuantity + 1) return payload || { verifiedByCart: true };
-      if (postError) throw postError;
-      throw new Error("CART_VERIFY_FAILED");
+      // CYBERBIZ's ordinary product flow posts directly to /cart/add. A
+      // preliminary GET /cart proved unreliable on the live storefront, so
+      // this staging bridge trusts a valid add response and preserves the
+      // pending design on every ambiguous response for cart-page recovery.
+      const response = await window.fetch(endpoint.href, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: body.toString(),
+        signal: controller.signal
+      });
+      return await parseCartResponse(response);
     } catch (error) {
       if (error?.name === "AbortError" || controller.signal.aborted) {
         throw new Error("CART_REQUEST_TIMEOUT");
       }
-      throw error;
+      if (["CART_RATE_LIMITED", "CART_ADD_REJECTED"].includes(error?.message)) throw error;
+      throw new Error("CART_VERIFY_FAILED");
     } finally {
       window.clearTimeout(timeout);
     }
@@ -601,8 +571,13 @@
       if (!/^\d+$/.test(variantId || "")) throw new Error("VARIANT_NOT_CONFIGURED");
 
       const fingerprint = fingerprintFor(context.handle, request.selection);
-      const recentRecord = readRecords().find(record => (
+      const matchingRecords = readRecords().filter(record => record.fingerprint === fingerprint);
+      const pendingRecord = matchingRecords.find(record => record.status === "pending");
+      if (pendingRecord) throw new Error("CART_REQUEST_TIMEOUT");
+
+      const recentRecord = matchingRecords.find(record => (
         record.fingerprint === fingerprint
+        && record.status === "active"
         && Date.now() - record.createdAt <= RETRY_GUARD_MS
       ));
 
@@ -615,10 +590,6 @@
           liveTest: true
         };
       }
-      if (recentRecord?.status === "pending") {
-        throw new Error("CART_REQUEST_TIMEOUT");
-      }
-
       const record = {
         designId: designIdFor(request.requestId, fingerprint),
         requestId: request.requestId,
@@ -641,9 +612,9 @@
       try {
         await addVariantToCart(variantId);
       } catch (error) {
-        // These two failures are ambiguous: CYBERBIZ may already have added the
+        // These failures are ambiguous: CYBERBIZ may already have added the
         // item. Keep the pending design so the cart page can reconcile it.
-        if (!["CART_REQUEST_TIMEOUT", "CART_VERIFY_FAILED"].includes(error?.message)) {
+        if (!["CART_REQUEST_TIMEOUT", "CART_VERIFY_FAILED", "CART_RESPONSE_NOT_JSON"].includes(error?.message)) {
           removeRecord(request.requestId);
         }
         throw error;
@@ -734,7 +705,6 @@
     let checkoutInFlight = false;
     let allowNextCheckout = false;
     let cartMutationVersion = 0;
-    let syncGeneration = 0;
 
     function ensureStyles() {
       if (document.getElementById("eyefans-cart-live-test-style")) return;
@@ -797,29 +767,25 @@
       return { invalid: false, quantities };
     }
 
-    async function fetchFreshCartState() {
-      const endpoint = new URL(CART_URL, window.location.origin);
-      if (endpoint.origin !== STOREFRONT_ORIGIN || endpoint.pathname !== CART_URL) {
-        throw new Error("INVALID_CART_ENDPOINT");
+    function embeddedLineItems() {
+      if (Array.isArray(window.lineItems)) return window.lineItems;
+      for (const script of Array.from(document.scripts || [])) {
+        const parsed = parseLineItemsSource(script.textContent || "");
+        if (parsed) return parsed;
       }
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-      try {
-        const response = await window.fetch(endpoint.href, {
-          method: "GET",
-          credentials: "same-origin",
-          headers: { Accept: "text/html" },
-          cache: "no-store",
-          signal: controller.signal
-        });
-        if (!response.ok) throw new Error("CART_VERIFY_FAILED");
-        const lineItems = parseLineItemsSource(await response.text());
-        const cartState = cartStateFromLineItems(lineItems);
-        if (!cartState) throw new Error("CART_VERIFY_FAILED");
-        return cartState;
-      } finally {
-        window.clearTimeout(timeout);
-      }
+      return null;
+    }
+
+    function currentPageCartState() {
+      const lineItems = embeddedLineItems();
+      if (!lineItems) return null;
+      const rows = Array.from(document.querySelectorAll("tr.line-item"));
+      if (rows.length !== lineItems.length) return { invalid: true, quantities: new Map() };
+      const normalized = lineItems.map((item, index) => {
+        const quantityInput = rows[index]?.querySelector?.('[data-testid="quantity-input"]');
+        return { ...item, quantity: quantityInput?.value ?? item.quantity };
+      });
+      return cartStateFromLineItems(normalized);
     }
 
     function updateNoteValue(note, value) {
@@ -907,18 +873,18 @@
       }
     }
 
-    async function syncFresh(expectedMutationVersion = null) {
-      const generation = ++syncGeneration;
+    function syncCurrentPage(expectedMutationVersion = null) {
       try {
-        const cartState = await fetchFreshCartState();
-        if (generation !== syncGeneration) return false;
-        if (expectedMutationVersion !== null && expectedMutationVersion !== cartMutationVersion) {
+        if (expectedMutationVersion !== null && expectedMutationVersion !== cartMutationVersion) return false;
+        const cartState = currentPageCartState();
+        if (!cartState) {
+          renderPanel("", "目前無法讀取購物車內容。為避免客製資料遺失，已暫停結帳；請重新整理頁面後再試。");
+          setCheckoutBlocked(true);
           return false;
         }
         return reconcile(cartState);
       } catch (error) {
-        if (generation !== syncGeneration) return false;
-        renderPanel("", "目前無法向 CYBERBIZ 確認最新購物車內容。為避免客製資料遺失，已暫停結帳；請確認網路後重新整理頁面。");
+        renderPanel("", "目前無法讀取購物車內容。為避免客製資料遺失，已暫停結帳；請重新整理頁面後再試。");
         setCheckoutBlocked(true);
         return false;
       }
@@ -928,7 +894,7 @@
       if (syncTimer !== null) window.clearTimeout(syncTimer);
       syncTimer = window.setTimeout(() => {
         syncTimer = null;
-        void syncFresh();
+        syncCurrentPage();
       }, 350);
     }
 
@@ -945,15 +911,14 @@
         checkoutInFlight = true;
         setCheckoutBlocked(true);
         const expectedMutationVersion = cartMutationVersion;
-        void syncFresh(expectedMutationVersion).then(synced => {
-          checkoutInFlight = false;
-          if (synced && !checkoutBlocked) {
-            allowNextCheckout = true;
-            checkoutButton.click();
-            return;
-          }
-          document.getElementById("eyefans-cart-design-summary")?.scrollIntoView({ block: "center" });
-        });
+        const synced = syncCurrentPage(expectedMutationVersion);
+        checkoutInFlight = false;
+        if (synced && !checkoutBlocked) {
+          allowNextCheckout = true;
+          checkoutButton.click();
+          return;
+        }
+        document.getElementById("eyefans-cart-design-summary")?.scrollIntoView({ block: "center" });
         return;
       }
       if (event.target.closest?.(".quantity-group, .delete-button")) {
@@ -973,7 +938,7 @@
     function start() {
       setCheckoutBlocked(true);
       renderPanel("", "正在確認最新購物車與客製製作資料，請稍候。");
-      void syncFresh();
+      syncCurrentPage();
     }
 
     if (document.readyState === "loading") {
