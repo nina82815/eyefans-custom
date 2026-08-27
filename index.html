@@ -55,28 +55,20 @@
         <div class="view" id="view-a45" data-photo-ready>
           <svg class="photo-composite" id="photo-a45" viewBox="0 0 1643 686" preserveAspectRatio="xMidYMid meet" role="img" aria-label="右側 45 度實拍眼鏡預覽，顯示右外側鏡腳客製效果">
             <defs>
-              <linearGradient id="photo-a45-frame-reveal" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="43%" stop-color="#000000"></stop>
-                <stop offset="43%" stop-color="#ffffff"></stop>
-              </linearGradient>
-              <linearGradient id="photo-a45-temple-reveal" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="43%" stop-color="#ffffff"></stop>
-                <stop offset="43%" stop-color="#000000"></stop>
-              </linearGradient>
-              <mask id="photo-a45-frame-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" style="mask-type:luminance">
-                <rect x="0" y="0" width="1643" height="686" fill="url(#photo-a45-frame-reveal)"></rect>
+              <mask id="photo-a45-frame-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance">
+                <path class="photo-frame-region" d="M 588 0 H 1643 V 686 H 704 C 673 522 660 430 655 354 C 653 310 647 273 632 239 C 618 207 604 177 596 143 C 588 108 586 58 588 0 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"></path>
               </mask>
               <mask id="photo-a45-frame-clear-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance">
-                <rect x="0" y="0" width="1643" height="686" fill="url(#photo-a45-frame-reveal)"></rect>
-                <ellipse class="photo-blue-light-near-mask" cx="913" cy="343" rx="178.5" ry="228.5" transform="rotate(4.9 913 343)" fill="#000000"></ellipse>
-                <ellipse class="photo-blue-light-far-mask" cx="1349.6" cy="328.6" rx="101.5" ry="203.1" transform="rotate(.8 1349.6 328.6)" fill="#000000"></ellipse>
+                <path class="photo-frame-region" d="M 588 0 H 1643 V 686 H 704 C 673 522 660 430 655 354 C 653 310 647 273 632 239 C 618 207 604 177 596 143 C 588 108 586 58 588 0 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"></path>
+                <ellipse class="photo-blue-light-near-mask" cx="913" cy="343" rx="183" ry="233" transform="rotate(4.9 913 343)" fill="#000000"></ellipse>
+                <ellipse class="photo-blue-light-far-mask" cx="1349.6" cy="328.6" rx="106" ry="207.6" transform="rotate(.8 1349.6 328.6)" fill="#000000"></ellipse>
               </mask>
-              <mask id="photo-a45-temple-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" style="mask-type:luminance">
-                <rect x="0" y="0" width="1643" height="686" fill="url(#photo-a45-temple-reveal)"></rect>
+              <mask id="photo-a45-temple-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance">
+                <path class="photo-temple-region" d="M 0 0 H 588 C 586 58 588 108 596 143 C 604 177 618 207 632 239 C 647 273 653 310 655 354 C 660 430 673 522 704 686 H 0 Z" fill="#ffffff"></path>
               </mask>
               <clipPath id="photo-a45-clear-lens-clip" clipPathUnits="userSpaceOnUse">
-                <ellipse class="photo-blue-light-near-clip" cx="913" cy="343" rx="178.5" ry="228.5" transform="rotate(4.9 913 343)"></ellipse>
-                <ellipse class="photo-blue-light-far-clip" cx="1349.6" cy="328.6" rx="101.5" ry="203.1" transform="rotate(.8 1349.6 328.6)"></ellipse>
+                <ellipse class="photo-blue-light-near-clip" cx="913" cy="343" rx="183" ry="233" transform="rotate(4.9 913 343)"></ellipse>
+                <ellipse class="photo-blue-light-far-clip" cx="1349.6" cy="328.6" rx="106" ry="207.6" transform="rotate(.8 1349.6 328.6)"></ellipse>
               </clipPath>
               <linearGradient id="photo-a45-clear-coating" x1="0" y1="0" x2="20%" y2="100%">
                 <stop offset="0%" stop-color="#f5efe5" stop-opacity=".18"></stop>
@@ -118,9 +110,6 @@
             <g mask="url(#photo-a45-temple-mask)">
               <image class="photo-temple-image" href="assets/photos/right-a45/IMG_3594.png" filter="url(#photo-a45-crisp-color)"></image>
             </g>
-            <g class="photo-frame-layer" mask="url(#photo-a45-frame-mask)">
-              <image class="photo-frame-image" href="assets/photos/right-a45/IMG_3594.png" filter="url(#photo-a45-crisp-color)"></image>
-            </g>
             <g class="photo-blue-light-effect" clip-path="url(#photo-a45-clear-lens-clip)" hidden>
               <g id="photo-a45-rear-temple" opacity=".38" filter="url(#photo-a45-rear-temple-soft)">
                 <path d="M734 225 C810 207 870 221 930 216 C980 211 1024 195 1071 220 L1061 272 C1008 285 967 301 913 288 C856 276 798 307 734 315Z"></path>
@@ -130,6 +119,9 @@
               <image class="photo-blue-light-source-image" href="assets/photos/right-a45/IMG_3594.png" opacity=".24" filter="url(#photo-a45-lens-texture)"></image>
               <rect class="photo-blue-light-coating" x="700" y="80" width="850" height="520" fill="url(#photo-a45-clear-coating)"></rect>
               <rect class="photo-blue-light-sheen" x="700" y="80" width="850" height="520" fill="url(#photo-a45-blue-light-sheen)"></rect>
+            </g>
+            <g class="photo-frame-layer" mask="url(#photo-a45-frame-mask)">
+              <image class="photo-frame-image" href="assets/photos/right-a45/IMG_3594.png" filter="url(#photo-a45-crisp-color)"></image>
             </g>
             <g id="photo-engravetext" class="photo-print-layer" transform="translate(390 260) rotate(-17)">
               <text font-family="BaksoSapi, Arial, sans-serif" font-size="38" font-weight="700">PEIYU</text>
@@ -323,6 +315,6 @@
   </footer>
 
   <div class="sr-only" id="live-status" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260827b" defer></script>
+  <script src="app.js?v=20260827c" defer></script>
 </body>
 </html>

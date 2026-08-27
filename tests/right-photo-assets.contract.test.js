@@ -56,6 +56,38 @@ function pngMetadata(fileName) {
   };
 }
 
+function htmlElementBlock(tagName, id) {
+  const match = htmlSource.match(new RegExp(`<${tagName} id="${id}"[^>]*>[\\s\\S]*?<\\/${tagName}>`));
+  assert.ok(match, `${tagName}#${id} must exist`);
+  return match[0];
+}
+
+function ellipseGeometry(block, className) {
+  const elementMatch = block.match(new RegExp(`<ellipse class="${className}"([^>]*)>`));
+  assert.ok(elementMatch, `${className} must exist in its calibrated mask or clip`);
+  const attributes = Object.fromEntries(
+    [...elementMatch[1].matchAll(/([\w-]+)="([^"]+)"/g)].map(([, name, value]) => [name, value])
+  );
+  const rotation = attributes.transform?.match(/^rotate\(([-.\d]+) ([-.\d]+) ([-.\d]+)\)$/);
+  assert.ok(rotation, `${className} must rotate around its own fitted center`);
+  assert.deepEqual(
+    [Number(rotation[2]), Number(rotation[3])],
+    [Number(attributes.cx), Number(attributes.cy)],
+    `${className} rotation center must match cx/cy`
+  );
+  return [
+    Number(attributes.cx),
+    Number(attributes.cy),
+    Number(attributes.rx),
+    Number(attributes.ry),
+    Number(rotation[1])
+  ];
+}
+
+function countElements(block, tagName) {
+  return [...block.matchAll(new RegExp(`<${tagName}\\b`, "g"))].length;
+}
+
 for (const [color, [fileName, width, height]] of expectedFramePhotos) {
   assert.match(
     appSource,
@@ -90,8 +122,22 @@ registeredPhotos.forEach(([, color, fileName, alignmentSource, nearLensSource, f
     assert.equal(geometry.length, 5, `${color}/${fileName} ${index ? "far" : "near"} lens needs five fitted values`);
     assert.ok(geometry.every(Number.isFinite), `${color}/${fileName} lens geometry must be finite`);
     assert.ok(geometry[2] > 90 && geometry[3] > 190, `${color}/${fileName} lens radii must be plausible`);
+    const [cx, cy, fittedRx, fittedRy, rotation] = geometry;
+    const coatedRx = fittedRx + 2;
+    const coatedRy = fittedRy + 1;
+    const radians = rotation * (Math.PI / 180);
+    const boundX = Math.hypot(coatedRx * Math.cos(radians), coatedRy * Math.sin(radians));
+    const boundY = Math.hypot(coatedRx * Math.sin(radians), coatedRy * Math.cos(radians));
+    assert.ok(
+      cx - boundX >= 700 && cx + boundX <= 1550 && cy - boundY >= 80 && cy + boundY <= 600,
+      `${color}/${fileName} ${index ? "far" : "near"} coated lens must remain inside the coating texture bounds`
+    );
   });
 });
+const defaultPhotoRegistration = registeredPhotos.find(([, color]) => color === "櫻花粉");
+assert.ok(defaultPhotoRegistration, "the default photo color must remain registered");
+const defaultNearLens = defaultPhotoRegistration[4].split(",").map(value => Number(value.trim()));
+const defaultFarLens = defaultPhotoRegistration[5].split(",").map(value => Number(value.trim()));
 
 assert.equal(expectedFramePhotos.size, 22);
 assert.equal(new Set([...expectedFramePhotos.values()].map(value => value[0])).size, 22);
@@ -114,17 +160,70 @@ assert.match(
 );
 assert.match(htmlSource, /<g mask="url\(#photo-a45-temple-mask\)">\s*<image class="photo-temple-image"/);
 assert.match(htmlSource, /<g class="photo-frame-layer" mask="url\(#photo-a45-frame-mask\)">\s*<image class="photo-frame-image"/);
-assert.match(
+assert.doesNotMatch(
   htmlSource,
-  /id="photo-a45-frame-reveal"[\s\S]*?<stop offset="43%" stop-color="#000000"><\/stop>\s*<stop offset="43%" stop-color="#ffffff"><\/stop>/,
-  "frame and temple photos need a crisp hinge boundary"
+  /id="photo-a45-(?:frame|temple)-reveal"/,
+  "frame and temple photos must not return to a fixed percentage split"
+);
+const frameRegionPath = "M 588 0 H 1643 V 686 H 704 C 673 522 660 430 655 354 C 653 310 647 273 632 239 C 618 207 604 177 596 143 C 588 108 586 58 588 0 Z";
+const templeRegionPath = "M 0 0 H 588 C 586 58 588 108 596 143 C 604 177 618 207 632 239 C 647 273 653 310 655 354 C 660 430 673 522 704 686 H 0 Z";
+const frameMaskBlock = htmlElementBlock("mask", "photo-a45-frame-mask");
+const clearFrameMaskBlock = htmlElementBlock("mask", "photo-a45-frame-clear-mask");
+const templeMaskBlock = htmlElementBlock("mask", "photo-a45-temple-mask");
+const clearLensClipBlock = htmlElementBlock("clipPath", "photo-a45-clear-lens-clip");
+const framePathMarkup = `class="photo-frame-region" d="${frameRegionPath}" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"`;
+const templePathMarkup = `class="photo-temple-region" d="${templeRegionPath}" fill="#ffffff"`;
+[frameMaskBlock, clearFrameMaskBlock, templeMaskBlock].forEach(maskBlock => {
+  assert.match(maskBlock, /maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance"/);
+});
+assert.ok(frameMaskBlock.includes(framePathMarkup), "normal frame mask must use the calibrated hinge contour and overlap hairline");
+assert.ok(clearFrameMaskBlock.includes(framePathMarkup), "clear frame mask must use the same calibrated hinge contour and overlap hairline");
+assert.ok(templeMaskBlock.includes(templePathMarkup), "temple mask must use the complementary hinge contour");
+assert.doesNotMatch(templeMaskBlock, /stroke=/, "the overlap may extend only the top frame layer toward the temple");
+assert.doesNotMatch(frameMaskBlock, /photo-blue-light-(?:near|far)-mask/, "gray-lens frame mask must not cut lens holes");
+assert.deepEqual(
+  [countElements(frameMaskBlock, "path"), countElements(frameMaskBlock, "ellipse"), countElements(frameMaskBlock, "rect")],
+  [1, 0, 0],
+  "normal frame mask must contain only its calibrated region"
+);
+assert.deepEqual(
+  [countElements(clearFrameMaskBlock, "path"), countElements(clearFrameMaskBlock, "ellipse"), countElements(clearFrameMaskBlock, "rect")],
+  [1, 2, 0],
+  "clear frame mask must contain one frame region and exactly two lens holes"
+);
+assert.deepEqual(
+  [countElements(templeMaskBlock, "path"), countElements(templeMaskBlock, "ellipse"), countElements(templeMaskBlock, "rect")],
+  [1, 0, 0],
+  "temple mask must contain only its calibrated region"
+);
+assert.deepEqual(
+  [countElements(clearLensClipBlock, "path"), countElements(clearLensClipBlock, "ellipse"), countElements(clearLensClipBlock, "rect")],
+  [0, 2, 0],
+  "clear-lens effect clip must contain exactly the two fitted lenses"
 );
 assert.match(
-  htmlSource,
-  /id="photo-a45-temple-reveal"[\s\S]*?<stop offset="43%" stop-color="#ffffff"><\/stop>\s*<stop offset="43%" stop-color="#000000"><\/stop>/,
-  "temple must remain opaque up to the crisp frame boundary"
+  clearFrameMaskBlock,
+  /photo-frame-region[\s\S]*?photo-blue-light-near-mask[\s\S]*?photo-blue-light-far-mask/,
+  "clear frame mask must draw the frame contour before cutting both lens holes"
 );
+assert.match(clearFrameMaskBlock, /photo-blue-light-near-mask[^>]*fill="#000000"/);
+assert.match(clearFrameMaskBlock, /photo-blue-light-far-mask[^>]*fill="#000000"/);
+const defaultPhotoFile = defaultPhotoRegistration[2].replace(".", "\\.");
+["photo-temple-image", "photo-frame-image", "photo-blue-light-source-image"].forEach(className => {
+  assert.match(
+    htmlSource,
+    new RegExp(`<image class="${className}" href="assets/photos/right-a45/${defaultPhotoFile}"`),
+    `${className} must initialize from the registered default photo`
+  );
+});
+assert.match(appSource, /frame:\s*FRAME_COLORS\[0\]/);
+assert.match(appSource, /temple:\s*TEMPLE_COLORS\[0\]/);
 assert.match(htmlSource, /class="photo-blue-light-effect"/, "anti-blue-light must use a clean lens-only effect");
+assert.match(
+  htmlSource,
+  /<g class="photo-blue-light-effect" clip-path="url\(#photo-a45-clear-lens-clip\)" hidden>/,
+  "blue-light effect must stay hidden until the blue-light lens is selected"
+);
 assert.doesNotMatch(htmlSource, /photo-blue-light-image/, "full anti-blue-light reference photos must not replace selected frames");
 assert.match(htmlSource, /id="photo-a45-frame-clear-mask"/, "clear lenses must remove the original dark photo lenses");
 assert.match(htmlSource, /class="photo-blue-light-near-mask"/);
@@ -150,6 +249,16 @@ assert.match(
   /class="photo-blue-light-effect"[\s\S]*?id="photo-a45-rear-temple"[\s\S]*?class="photo-blue-light-source-image"[\s\S]*?class="photo-blue-light-coating"[\s\S]*?class="photo-blue-light-sheen"/,
   "clear-lens depth order must be rear temple, photographic texture, coating, then sheen"
 );
+const templeLayerIndex = htmlSource.indexOf('<g mask="url(#photo-a45-temple-mask)">');
+const blueLightLayerIndex = htmlSource.indexOf('<g class="photo-blue-light-effect"');
+const frameLayerIndex = htmlSource.indexOf('<g class="photo-frame-layer"');
+const printLayerIndex = htmlSource.indexOf('<g id="photo-engravetext"');
+assert.ok(
+  templeLayerIndex < blueLightLayerIndex
+    && blueLightLayerIndex < frameLayerIndex
+    && frameLayerIndex < printLayerIndex,
+  "photo depth order must be temple, lens effect, crisp frame, then customization print"
+);
 assert.match(
   htmlSource,
   /id="photo-a45-clear-coating"[\s\S]*?stop-opacity="\.18"[\s\S]*?stop-opacity="\.08"[\s\S]*?stop-opacity="\.14"[\s\S]*?stop-opacity="\.09"/,
@@ -174,8 +283,34 @@ assert.match(appSource, /blueLightSource:\s*svg\.querySelector\("\.photo-blue-li
 assert.match(appSource, /applyPhotoPlacement\(layer\.blueLightSource, frameAsset\)/);
 assert.match(
   appSource,
-  /BLUE_LIGHT_LENS_INSET\s*=\s*Object\.freeze\(\{\s*horizontal:\s*6,\s*vertical:\s*7\s*\}\)/,
-  "clear-lens masks must stay inset from the photographed frame rim"
+  /BLUE_LIGHT_LENS_OUTSET\s*=\s*Object\.freeze\(\{\s*horizontal:\s*2,\s*vertical:\s*1\s*\}\)/,
+  "clear-lens masks must cover the photographed pressure ring without reaching the outer frame"
+);
+const expectedDefaultNearLens = [...defaultNearLens];
+const expectedDefaultFarLens = [...defaultFarLens];
+[expectedDefaultNearLens, expectedDefaultFarLens].forEach(geometry => {
+  geometry[2] += 2;
+  geometry[3] += 1;
+});
+assert.deepEqual(
+  ellipseGeometry(clearFrameMaskBlock, "photo-blue-light-near-mask"),
+  expectedDefaultNearLens,
+  "the initial near-lens hole must match the registered default photo geometry"
+);
+assert.deepEqual(
+  ellipseGeometry(clearFrameMaskBlock, "photo-blue-light-far-mask"),
+  expectedDefaultFarLens,
+  "the initial far-lens hole must match the registered default photo geometry"
+);
+assert.deepEqual(
+  ellipseGeometry(clearLensClipBlock, "photo-blue-light-near-clip"),
+  expectedDefaultNearLens,
+  "the initial near-lens effect clip must match its frame hole exactly"
+);
+assert.deepEqual(
+  ellipseGeometry(clearLensClipBlock, "photo-blue-light-far-clip"),
+  expectedDefaultFarLens,
+  "the initial far-lens effect clip must match its frame hole exactly"
 );
 assert.match(appSource, /function applyLensGeometry\(/, "each frame color needs its fitted lens outline");
 assert.match(appSource, /frameAsset\.lenses\.near/);

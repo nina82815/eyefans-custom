@@ -89,8 +89,9 @@ function rightPhoto(file, width, height, alignment, nearLens, farLens) {
 
 // Right 45-degree product photos. The files remain untouched. Alignment uses
 // [near-frame X, near top Y, near bottom Y, far-frame X, far-frame Y] landmarks.
-// Each final pair is the fitted canonical [cx, cy, rx, ry, rotation] lens edge;
-// anti-blue-light mode insets it slightly so the original pressure ring remains.
+// Each final pair is the fitted canonical [cx, cy, rx, ry, rotation] lens edge.
+// The anti-blue-light coating extends just beyond it to cover the photographed
+// pressure ring without reaching the colored outer frame.
 const PHOTO_ASSETS = {
   "櫻花粉": rightPhoto("IMG_3594.png", 1448, 1086, [783, 323, 760, 1147, 533.5], [913, 343, 181, 232, 4.9], [1349.6, 328.6, 104, 206.6, .8]),
   "粉紫": rightPhoto("IMG_3591.png", 1086, 1448, [619, 524, 906, 925, 706], [921.6, 342, 174.6, 229.4, 4.1], [1353, 323.4, 108.4, 209, -2.2]),
@@ -134,7 +135,7 @@ const BLUE_LIGHT_REFERENCE_FILES = Object.freeze([
   "IMG_3635.png"
 ]);
 
-const BLUE_LIGHT_LENS_INSET = Object.freeze({ horizontal: 6, vertical: 7 });
+const BLUE_LIGHT_LENS_OUTSET = Object.freeze({ horizontal: 2, vertical: 1 });
 const TEXT_COLOR_OPTIONS = {
   black: { label: "黑色", fill: "#171817", stroke: "none", outlineWidth: "0" },
   white: { label: "白色", fill: "#fffdf8", stroke: "#111111", outlineWidth: "0.5pt" },
@@ -431,13 +432,13 @@ function applyPhotoPlacement(image, asset) {
 function applyLensGeometry(elements, geometry) {
   if (!geometry) return;
   const [cx, cy, rx, ry, rotation] = geometry;
-  const safeRx = Math.max(1, rx - BLUE_LIGHT_LENS_INSET.horizontal);
-  const safeRy = Math.max(1, ry - BLUE_LIGHT_LENS_INSET.vertical);
+  const coatedRx = Math.max(1, rx + BLUE_LIGHT_LENS_OUTSET.horizontal);
+  const coatedRy = Math.max(1, ry + BLUE_LIGHT_LENS_OUTSET.vertical);
   elements.forEach(element => {
     element.setAttribute("cx", String(cx));
     element.setAttribute("cy", String(cy));
-    element.setAttribute("rx", String(safeRx));
-    element.setAttribute("ry", String(safeRy));
+    element.setAttribute("rx", String(coatedRx));
+    element.setAttribute("ry", String(coatedRy));
     element.setAttribute("transform", `rotate(${rotation} ${cx} ${cy})`);
   });
 }
