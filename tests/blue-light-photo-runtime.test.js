@@ -46,7 +46,7 @@ class FakeElement {
 }
 
 const sandbox = {
-  BLUE_LIGHT_LENS_INSET: { horizontal: 2.5, vertical: 3.5 },
+  BLUE_LIGHT_LENS_INSET: { horizontal: 6, vertical: 7 },
   state: { temple: { name: "霧面黑", value: "#0f0f10" } },
   ensureAmberPattern(svg, key) {
     assert.equal(key, "photo");
@@ -84,11 +84,21 @@ sandbox.updateBlueLightPhotoEffect(layer, frameAsset, true);
 assert.equal(layer.frameLayer.getAttribute("mask"), "url(#photo-a45-frame-clear-mask)");
 assert.equal(layer.blueLightEffect.hasAttribute("hidden"), false);
 assert.equal(layer.blueLightEffect.style.display, "inline");
-assert.equal(nearMask.getAttribute("rx"), "178.5");
-assert.equal(nearClip.getAttribute("ry"), "228.5");
+assert.equal(nearMask.getAttribute("rx"), "175");
+assert.equal(nearClip.getAttribute("ry"), "225");
 assert.equal(nearMask.getAttribute("transform"), "rotate(4.9 913 343)");
-assert.equal(farMask.getAttribute("rx"), "101.5");
-assert.equal(farClip.getAttribute("ry"), "203.1");
+assert.equal(nearMask.getAttribute("cx"), nearClip.getAttribute("cx"));
+assert.equal(nearMask.getAttribute("cy"), nearClip.getAttribute("cy"));
+assert.equal(nearMask.getAttribute("rx"), nearClip.getAttribute("rx"));
+assert.equal(nearMask.getAttribute("ry"), nearClip.getAttribute("ry"));
+assert.equal(nearMask.getAttribute("transform"), nearClip.getAttribute("transform"));
+assert.equal(farMask.getAttribute("rx"), "98");
+assert.equal(farClip.getAttribute("ry"), "199.6");
+assert.equal(farMask.getAttribute("cx"), farClip.getAttribute("cx"));
+assert.equal(farMask.getAttribute("cy"), farClip.getAttribute("cy"));
+assert.equal(farMask.getAttribute("rx"), farClip.getAttribute("rx"));
+assert.equal(farMask.getAttribute("ry"), farClip.getAttribute("ry"));
+assert.equal(farMask.getAttribute("transform"), farClip.getAttribute("transform"));
 rearPaths.forEach(pathElement => assert.equal(pathElement.getAttribute("fill"), "#0f0f10"));
 
 sandbox.state.temple = { name: "琥珀", type: "pattern", value: "amber" };

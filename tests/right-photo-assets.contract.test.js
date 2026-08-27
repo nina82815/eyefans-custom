@@ -116,8 +116,13 @@ assert.match(htmlSource, /<g mask="url\(#photo-a45-temple-mask\)">\s*<image clas
 assert.match(htmlSource, /<g class="photo-frame-layer" mask="url\(#photo-a45-frame-mask\)">\s*<image class="photo-frame-image"/);
 assert.match(
   htmlSource,
+  /id="photo-a45-frame-reveal"[\s\S]*?<stop offset="43%" stop-color="#000000"><\/stop>\s*<stop offset="43%" stop-color="#ffffff"><\/stop>/,
+  "frame and temple photos need a crisp hinge boundary"
+);
+assert.match(
+  htmlSource,
   /id="photo-a45-temple-reveal"[\s\S]*?<stop offset="43%" stop-color="#ffffff"><\/stop>\s*<stop offset="43%" stop-color="#000000"><\/stop>/,
-  "temple must remain opaque beneath the frame fade so the background cannot leak through"
+  "temple must remain opaque up to the crisp frame boundary"
 );
 assert.match(htmlSource, /class="photo-blue-light-effect"/, "anti-blue-light must use a clean lens-only effect");
 assert.doesNotMatch(htmlSource, /photo-blue-light-image/, "full anti-blue-light reference photos must not replace selected frames");
@@ -127,8 +132,24 @@ assert.match(htmlSource, /class="photo-blue-light-far-mask"/);
 assert.match(htmlSource, /class="photo-blue-light-near-clip"/);
 assert.match(htmlSource, /class="photo-blue-light-far-clip"/);
 assert.match(htmlSource, /id="photo-a45-clear-coating"/, "anti-blue-light needs a calibrated clear coating");
-assert.match(htmlSource, /id="photo-a45-rear-temple" opacity="\.46"/, "clear lenses must visibly recreate the selected rear temple");
+assert.match(htmlSource, /id="photo-a45-rear-temple" opacity="\.38"/, "clear lenses must visibly recreate the selected rear temple without flattening the lens texture");
 assert.match(htmlSource, /class="photo-blue-light-sheen"/, "clear lenses need a blue-purple reflection sheen");
+assert.match(
+  htmlSource,
+  /class="photo-blue-light-source-image"[^>]*opacity="\.24"[^>]*filter="url\(#photo-a45-lens-texture\)"/,
+  "clear lenses must retain a subtle photographic texture instead of becoming empty holes"
+);
+assert.match(htmlSource, /id="photo-a45-crisp-color"/, "photo colors need a crisp alpha and contrast filter");
+assert.match(
+  htmlSource,
+  /class="photo-temple-image"[^>]*filter="url\(#photo-a45-crisp-color\)"[\s\S]*?class="photo-frame-image"[^>]*filter="url\(#photo-a45-crisp-color\)"/,
+  "both photo layers must use the same edge treatment"
+);
+assert.match(
+  htmlSource,
+  /class="photo-blue-light-effect"[\s\S]*?id="photo-a45-rear-temple"[\s\S]*?class="photo-blue-light-source-image"[\s\S]*?class="photo-blue-light-coating"[\s\S]*?class="photo-blue-light-sheen"/,
+  "clear-lens depth order must be rear temple, photographic texture, coating, then sheen"
+);
 assert.match(
   htmlSource,
   /id="photo-a45-clear-coating"[\s\S]*?stop-opacity="\.18"[\s\S]*?stop-opacity="\.08"[\s\S]*?stop-opacity="\.14"[\s\S]*?stop-opacity="\.09"/,
@@ -141,13 +162,20 @@ assert.match(
 );
 assert.match(
   appSource,
-  /PRINT_CENTER_OFFSET\s*=\s*\{[^}]*a45:\s*56,[^}]*photo:\s*85[^}]*\}/,
-  "45-degree model and photo print centers must stay in the forward safe zone"
+  /PRINT_CENTER_OFFSET\s*=\s*\{[^}]*a45:\s*32,[^}]*photo:\s*85[^}]*\}/,
+  "45-degree model must stay centered on the temple while the photo remains forward"
 );
 assert.match(
   appSource,
-  /MAX_PRINT_WIDTH\s*=\s*\{[^}]*a45:\s*96,[^}]*photo:\s*320[^}]*\}/,
+  /MAX_PRINT_WIDTH\s*=\s*\{[^}]*a45:\s*68,[^}]*photo:\s*320[^}]*\}/,
   "long names and icons must shrink before they touch the temple edge"
+);
+assert.match(appSource, /blueLightSource:\s*svg\.querySelector\("\.photo-blue-light-source-image"\)/);
+assert.match(appSource, /applyPhotoPlacement\(layer\.blueLightSource, frameAsset\)/);
+assert.match(
+  appSource,
+  /BLUE_LIGHT_LENS_INSET\s*=\s*Object\.freeze\(\{\s*horizontal:\s*6,\s*vertical:\s*7\s*\}\)/,
+  "clear-lens masks must stay inset from the photographed frame rim"
 );
 assert.match(appSource, /function applyLensGeometry\(/, "each frame color needs its fitted lens outline");
 assert.match(appSource, /frameAsset\.lenses\.near/);

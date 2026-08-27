@@ -134,7 +134,7 @@ const BLUE_LIGHT_REFERENCE_FILES = Object.freeze([
   "IMG_3635.png"
 ]);
 
-const BLUE_LIGHT_LENS_INSET = Object.freeze({ horizontal: 2.5, vertical: 3.5 });
+const BLUE_LIGHT_LENS_INSET = Object.freeze({ horizontal: 6, vertical: 7 });
 const TEXT_COLOR_OPTIONS = {
   black: { label: "黑色", fill: "#171817", stroke: "none", outlineWidth: "0" },
   white: { label: "白色", fill: "#fffdf8", stroke: "#111111", outlineWidth: "0.5pt" },
@@ -248,10 +248,10 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const XLINK_NS = "http://www.w3.org/1999/xlink";
 const XML_NS = "http://www.w3.org/XML/1998/namespace";
 // Keep every print layout inside the straight, production-safe portion of the
-// outer temple.  In the 45-degree SVG this is local X 8..104; the photo uses a
-// wider equivalent range and is biased toward the hinge/front of the frame.
-const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 56, photo: 85 };
-const MAX_PRINT_WIDTH = { side: 205, a45: 96, photo: 320 };
+// outer temple. In the 45-degree SVG this is local X -2..66, so a long name
+// shrinks in place instead of pushing either icon onto the frame or temple rim.
+const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 32, photo: 85 };
+const MAX_PRINT_WIDTH = { side: 205, a45: 68, photo: 320 };
 
 function svgElement(tag) {
   return document.createElementNS(SVG_NS, tag);
@@ -364,6 +364,7 @@ function preparePhotoLayers() {
       frame: svg.querySelector(".photo-frame-image"),
       temple: svg.querySelector(".photo-temple-image"),
       blueLightEffect: svg.querySelector(".photo-blue-light-effect"),
+      blueLightSource: svg.querySelector(".photo-blue-light-source-image"),
       blueLightNearGeometry: [...svg.querySelectorAll(".photo-blue-light-near-mask, .photo-blue-light-near-clip")],
       blueLightFarGeometry: [...svg.querySelectorAll(".photo-blue-light-far-mask, .photo-blue-light-far-clip")],
       rearTemple: svg.querySelector("#photo-a45-rear-temple")
@@ -468,6 +469,7 @@ function updatePhotoComposite() {
   Object.entries(photoLayers).forEach(([key, layer]) => {
     applyPhotoPlacement(layer.temple, templeAsset);
     applyPhotoPlacement(layer.frame, frameAsset);
+    applyPhotoPlacement(layer.blueLightSource, frameAsset);
     const showBlueLight = state.lens.id === "blue-tea";
     updateBlueLightPhotoEffect(layer, frameAsset, showBlueLight);
   });

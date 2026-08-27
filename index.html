@@ -56,7 +56,7 @@
           <svg class="photo-composite" id="photo-a45" viewBox="0 0 1643 686" preserveAspectRatio="xMidYMid meet" role="img" aria-label="右側 45 度實拍眼鏡預覽，顯示右外側鏡腳客製效果">
             <defs>
               <linearGradient id="photo-a45-frame-reveal" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="39%" stop-color="#000000"></stop>
+                <stop offset="43%" stop-color="#000000"></stop>
                 <stop offset="43%" stop-color="#ffffff"></stop>
               </linearGradient>
               <linearGradient id="photo-a45-temple-reveal" x1="0" y1="0" x2="1" y2="0">
@@ -97,20 +97,38 @@
               <filter id="photo-a45-rear-temple-soft" x="-5%" y="-5%" width="110%" height="110%">
                 <feGaussianBlur stdDeviation="1.5"></feGaussianBlur>
               </filter>
+              <filter id="photo-a45-crisp-color" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
+                <feColorMatrix type="saturate" values="1.08"></feColorMatrix>
+                <feComponentTransfer>
+                  <feFuncR type="linear" slope="1.06" intercept="-.025"></feFuncR>
+                  <feFuncG type="linear" slope="1.06" intercept="-.025"></feFuncG>
+                  <feFuncB type="linear" slope="1.06" intercept="-.025"></feFuncB>
+                  <feFuncA type="linear" slope="1.35" intercept="-.16"></feFuncA>
+                </feComponentTransfer>
+              </filter>
+              <filter id="photo-a45-lens-texture" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
+                <feColorMatrix type="saturate" values=".45"></feColorMatrix>
+                <feComponentTransfer>
+                  <feFuncR type="linear" slope=".9" intercept=".12"></feFuncR>
+                  <feFuncG type="linear" slope=".9" intercept=".12"></feFuncG>
+                  <feFuncB type="linear" slope=".9" intercept=".12"></feFuncB>
+                </feComponentTransfer>
+              </filter>
             </defs>
             <g mask="url(#photo-a45-temple-mask)">
-              <image class="photo-temple-image" href="assets/photos/right-a45/IMG_3594.png"></image>
+              <image class="photo-temple-image" href="assets/photos/right-a45/IMG_3594.png" filter="url(#photo-a45-crisp-color)"></image>
             </g>
             <g class="photo-frame-layer" mask="url(#photo-a45-frame-mask)">
-              <image class="photo-frame-image" href="assets/photos/right-a45/IMG_3594.png"></image>
+              <image class="photo-frame-image" href="assets/photos/right-a45/IMG_3594.png" filter="url(#photo-a45-crisp-color)"></image>
             </g>
             <g class="photo-blue-light-effect" clip-path="url(#photo-a45-clear-lens-clip)" hidden>
-              <rect class="photo-blue-light-coating" x="700" y="80" width="850" height="520" fill="url(#photo-a45-clear-coating)"></rect>
-              <g id="photo-a45-rear-temple" opacity=".46" filter="url(#photo-a45-rear-temple-soft)">
+              <g id="photo-a45-rear-temple" opacity=".38" filter="url(#photo-a45-rear-temple-soft)">
                 <path d="M734 225 C810 207 870 221 930 216 C980 211 1024 195 1071 220 L1061 272 C1008 285 967 301 913 288 C856 276 798 307 734 315Z"></path>
                 <path d="M1026 228 C1065 244 1081 276 1087 322 C1093 373 1080 438 1046 512 C1027 498 1015 484 1010 474 C995 429 996 365 1004 318 C1009 282 1017 250 1026 228Z"></path>
                 <path d="M1248 208 C1317 193 1389 191 1454 190 L1456 270 C1395 270 1323 286 1248 307Z"></path>
               </g>
+              <image class="photo-blue-light-source-image" href="assets/photos/right-a45/IMG_3594.png" opacity=".24" filter="url(#photo-a45-lens-texture)"></image>
+              <rect class="photo-blue-light-coating" x="700" y="80" width="850" height="520" fill="url(#photo-a45-clear-coating)"></rect>
               <rect class="photo-blue-light-sheen" x="700" y="80" width="850" height="520" fill="url(#photo-a45-blue-light-sheen)"></rect>
             </g>
             <g id="photo-engravetext" class="photo-print-layer" transform="translate(390 260) rotate(-17)">
@@ -305,6 +323,6 @@
   </footer>
 
   <div class="sr-only" id="live-status" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260827a" defer></script>
+  <script src="app.js?v=20260827b" defer></script>
 </body>
 </html>
