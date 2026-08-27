@@ -80,46 +80,52 @@ const VIEW_FILES = {
   a45: "a45.svg"
 };
 
-const PHOTO_ASSET_VERSION = "20260827d";
+const PHOTO_ASSET_VERSION = "20260827e";
 
-function rightPhoto(file, width, height, alignment, nearLens, farLens) {
+function rightPhoto(file, width, height, alignment, nearLens, farLens, joint) {
   return {
     a45: `assets/photos/right-a45/${file}?v=${PHOTO_ASSET_VERSION}`,
     canvas: { width, height },
     alignment,
-    lenses: { near: nearLens, far: farLens }
+    lenses: { near: nearLens, far: farLens },
+    joint
   };
 }
 
 // Right 45-degree product photos, restored from the camera's Display P3 JPEGs
-// into web-safe sRGB while retaining the supplied transparent edges. Alignment uses
+// into tagged sRGB while retaining the supplied transparent edges. Solid-color
+// material pixels are matched to the catalog with a CIELAB L* correction only;
+// their a*/b* color and alpha, and every photographed lens pixel, stay unchanged.
+// Alignment uses
 // [near-frame X, near top Y, near bottom Y, far-frame X, far-frame Y] landmarks.
 // Each final pair is the fitted canonical [cx, cy, rx, ry, rotation] lens edge.
 // The anti-blue-light coating extends just beyond it to cover the photographed
-// pressure ring without reaching the colored outer frame.
+// pressure ring without reaching the colored outer frame. The final [x, top, bottom]
+// landmark follows the photographed molded hinge so mixed frame/temple colors can
+// be joined without a fixed seam cutting either real part.
 const PHOTO_ASSETS = {
-  "櫻花粉": rightPhoto("IMG_3594.png", 1448, 1086, [783, 323, 760, 1147, 533.5], [913, 343, 181, 232, 4.9], [1349.6, 328.6, 104, 206.6, .8]),
-  "粉紫": rightPhoto("IMG_3591.png", 1086, 1448, [619, 524, 906, 925, 706], [921.6, 342, 174.6, 229.4, 4.1], [1353, 323.4, 108.4, 209, -2.2]),
-  "暖黃": rightPhoto("IMG_3626.png", 1086, 1448, [627, 702, 1074, 892, 881.5], [909.6, 342.6, 196, 232.6, 8.1], [1361.4, 328, 100, 199, 0]),
-  "豆綠": rightPhoto("IMG_3603.png", 1086, 1448, [622, 563, 931, 915, 745.5], [909, 345.4, 179, 232, -3.4], [1356.6, 328, 113.6, 204, -.2]),
-  "深藍": rightPhoto("IMG_3593.png", 1086, 1448, [571, 573, 875, 824, 719.5], [920, 341, 178, 229, 7.1], [1342.8, 327.2, 108, 201.4, .9]),
-  "復刻粉": rightPhoto("IMG_3604.png", 1086, 1448, [627, 533, 897, 920, 706], [911.4, 342.6, 182, 232.4, 4.3], [1362.4, 329.4, 120, 206, -2.6]),
-  "芋頭紫": rightPhoto("IMG_3612.png", 1536, 1024, [869, 287, 801, 1316, 540.5], [904, 338.4, 179.4, 240.6, 5], [1352, 328.4, 116, 211.4, .5]),
-  "奶油黃": rightPhoto("IMG_3596.png", 1086, 1448, [585, 582, 906, 861, 738], [922, 342, 179, 231, .2], [1355.6, 320, 113, 195, 1.4]),
-  "薄荷綠": rightPhoto("IMG_3620.png", 1448, 1086, [812, 343, 800, 1182, 570], [910.4, 337.6, 182, 234.4, -.4], [1360, 328, 112, 207, .3]),
-  "丹寧藍": rightPhoto("IMG_3610.png", 1086, 1448, [610, 735, 1111, 940, 936], [915.6, 342, 178, 229, -1.6], [1344.4, 329, 106.4, 209, .8]),
-  "梅子": rightPhoto("IMG_3605.png", 1086, 1448, [579, 759, 1096, 856, 918.5], [909, 342, 179.4, 231.4, 1.1], [1343, 329, 105, 207, .2]),
-  "奶茶": rightPhoto("IMG_3616.png", 1086, 1448, [628, 592, 965, 927, 770], [907, 342.4, 184, 231, .3], [1357, 327.6, 114, 206.4, -2.2]),
-  "青釉綠": rightPhoto("IMG_3629.png", 1086, 1448, [609, 596, 937, 888, 761], [915.2, 343, 178, 234, -.3], [1355.6, 323.4, 100, 204.4, .3]),
-  "天藍": rightPhoto("IMG_3617.png", 1086, 1448, [590, 568, 941, 917, 749.5], [923, 343, 173.4, 239, 7.9], [1357, 322, 109, 207, 1.4]),
-  "玫瑰": rightPhoto("IMG_3606.png", 1086, 1448, [630, 611, 983, 922, 791], [902, 346.6, 177, 235.4, -.1], [1351, 323.4, 105, 203, -1.5]),
-  "咖啡牛奶": rightPhoto("IMG_3614.png", 1086, 1448, [601, 649, 989, 868, 816], [895.6, 341, 191.6, 233, 8.1], [1354.4, 331, 104, 206.4, -1]),
-  "枯黃": rightPhoto("IMG_3601.png", 1672, 941, [945, 276, 752, 1331, 507], [905.6, 343.4, 182.4, 230.6, -1.2], [1355, 328.4, 114, 205.6, -2]),
-  "霧面黑": rightPhoto("IMG_3589.png", 1086, 1448, [632, 551, 920, 933, 728.5], [903.4, 343.4, 166.6, 227, 2.9], [1347, 329, 103.4, 202, -.5]),
-  "灰色": rightPhoto("IMG_3595.png", 1448, 1086, [823, 315, 833, 1232, 563], [910.2, 338.4, 184.8, 233.6, 4.1], [1362.4, 329, 120, 206, -1.9]),
-  "咖啡紅茶": rightPhoto("IMG_3627.png", 1086, 1448, [611, 628, 982, 897, 798.5], [916, 345, 179, 229, -1.2], [1348, 326, 101, 205.4, -1.8]),
-  "霧面白": rightPhoto("IMG_3621.png", 1448, 1086, [806, 359, 721, 1102, 537.5], [901, 336.8, 179.4, 238.2, .5], [1348, 328.6, 114.6, 206, -1.7]),
-  "琥珀": rightPhoto("IMG_3630.png", 1448, 1086, [799, 319, 811, 1225, 557.5], [905.4, 345.4, 167.2, 229, -1.2], [1361, 336, 96.8, 210.6, 2.8])
+  "櫻花粉": rightPhoto("IMG_3594.png", 1448, 1086, [783, 323, 760, 1147, 533.5], [913, 343, 181, 232, 4.9], [1349.6, 328.6, 104, 206.6, .8], [543, 372, 460]),
+  "粉紫": rightPhoto("IMG_3591.png", 1086, 1448, [619, 524, 906, 925, 706], [921.6, 342, 174.6, 229.4, 4.1], [1353, 323.4, 108.4, 209, -2.2], [422, 574, 643]),
+  "暖黃": rightPhoto("IMG_3626.png", 1086, 1448, [627, 702, 1074, 892, 881.5], [909.6, 342.6, 196, 232.6, 8.1], [1361.4, 328, 100, 199, 0], [428, 741, 814]),
+  "豆綠": rightPhoto("IMG_3603.png", 1086, 1448, [622, 563, 931, 915, 745.5], [909, 345.4, 179, 232, -3.4], [1356.6, 328, 113.6, 204, -.2], [427, 610, 682]),
+  "深藍": rightPhoto("IMG_3593.png", 1086, 1448, [571, 573, 875, 824, 719.5], [920, 341, 178, 229, 7.1], [1342.8, 327.2, 108, 201.4, .9], [410, 607, 668]),
+  "復刻粉": rightPhoto("IMG_3604.png", 1086, 1448, [627, 533, 897, 920, 706], [911.4, 342.6, 182, 232.4, 4.3], [1362.4, 329.4, 120, 206, -2.6], [426, 579, 648]),
+  "芋頭紫": rightPhoto("IMG_3612.png", 1536, 1024, [869, 287, 801, 1316, 540.5], [904, 338.4, 179.4, 240.6, 5], [1352, 328.4, 116, 211.4, .5], [568, 350, 441]),
+  "奶油黃": rightPhoto("IMG_3596.png", 1086, 1448, [585, 582, 906, 861, 738], [922, 342, 179, 231, .2], [1355.6, 320, 113, 195, 1.4], [412, 624, 682]),
+  "薄荷綠": rightPhoto("IMG_3620.png", 1448, 1086, [812, 343, 800, 1182, 570], [910.4, 337.6, 182, 234.4, -.4], [1360, 328, 112, 207, .3], [565, 397, 479]),
+  "丹寧藍": rightPhoto("IMG_3610.png", 1086, 1448, [610, 735, 1111, 940, 936], [915.6, 342, 178, 229, -1.6], [1344.4, 329, 106.4, 209, .8], [423, 775, 846]),
+  "梅子": rightPhoto("IMG_3605.png", 1086, 1448, [579, 759, 1096, 856, 918.5], [909, 342, 179.4, 231.4, 1.1], [1343, 329, 105, 207, .2], [392, 795, 860]),
+  "奶茶": rightPhoto("IMG_3616.png", 1086, 1448, [628, 592, 965, 927, 770], [907, 342.4, 184, 231, .3], [1357, 327.6, 114, 206.4, -2.2], [419, 638, 711]),
+  "青釉綠": rightPhoto("IMG_3629.png", 1086, 1448, [609, 596, 937, 888, 761], [915.2, 343, 178, 234, -.3], [1355.6, 323.4, 100, 204.4, .3], [426, 630, 700]),
+  "天藍": rightPhoto("IMG_3617.png", 1086, 1448, [590, 568, 941, 917, 749.5], [923, 343, 173.4, 239, 7.9], [1357, 322, 109, 207, 1.4], [382, 620, 680]),
+  "玫瑰": rightPhoto("IMG_3606.png", 1086, 1448, [630, 611, 983, 922, 791], [902, 346.6, 177, 235.4, -.1], [1351, 323.4, 105, 203, -1.5], [427, 650, 721]),
+  "咖啡牛奶": rightPhoto("IMG_3614.png", 1086, 1448, [601, 649, 989, 868, 816], [895.6, 341, 191.6, 233, 8.1], [1354.4, 331, 104, 206.4, -1], [402, 685, 751]),
+  "枯黃": rightPhoto("IMG_3601.png", 1672, 941, [945, 276, 752, 1331, 507], [905.6, 343.4, 182.4, 230.6, -1.2], [1355, 328.4, 114, 205.6, -2], [682, 334, 419]),
+  "霧面黑": rightPhoto("IMG_3589.png", 1086, 1448, [632, 551, 920, 933, 728.5], [903.4, 343.4, 166.6, 227, 2.9], [1347, 329, 103.4, 202, -.5], [430, 590, 661]),
+  "灰色": rightPhoto("IMG_3595.png", 1448, 1086, [823, 315, 833, 1232, 563], [910.2, 338.4, 184.8, 233.6, 4.1], [1362.4, 329, 120, 206, -1.9], [541, 376, 480]),
+  "咖啡紅茶": rightPhoto("IMG_3627.png", 1086, 1448, [611, 628, 982, 897, 798.5], [916, 345, 179, 229, -1.2], [1348, 326, 101, 205.4, -1.8], [424, 669, 733]),
+  "霧面白": rightPhoto("IMG_3621.png", 1448, 1086, [806, 359, 721, 1102, 537.5], [901, 336.8, 179.4, 238.2, .5], [1348, 328.6, 114.6, 206, -1.7], [599, 397, 467]),
+  "琥珀": rightPhoto("IMG_3630.png", 1448, 1086, [799, 319, 811, 1225, 557.5], [905.4, 345.4, 167.2, 229, -1.2], [1361, 336, 96.8, 210.6, 2.8], [544, 377, 475])
 };
 
 const PHOTO_ALIGNMENT_TARGET = Object.freeze({
@@ -367,13 +373,17 @@ function preparePhotoLayers() {
     photoLayers[key] = {
       svg,
       frameLayer: svg.querySelector(".photo-frame-layer"),
+      frameRegions: [...svg.querySelectorAll(".photo-frame-region")],
+      templeRegions: [...svg.querySelectorAll(".photo-temple-region")],
       frame: svg.querySelector(".photo-frame-image"),
       temple: svg.querySelector(".photo-temple-image"),
       blueLightEffect: svg.querySelector(".photo-blue-light-effect"),
       blueLightSource: svg.querySelector(".photo-blue-light-source-image"),
       blueLightNearGeometry: [...svg.querySelectorAll(".photo-blue-light-near-mask, .photo-blue-light-near-clip")],
       blueLightFarGeometry: [...svg.querySelectorAll(".photo-blue-light-far-mask, .photo-blue-light-far-clip")],
-      rearTemple: svg.querySelector("#photo-a45-rear-temple")
+      rearTemple: svg.querySelector("#photo-a45-rear-temple"),
+      printRoot: printLayers.photo?.root || null,
+      printBaseTransform: printLayers.photo?.root?.getAttribute("transform") || ""
     };
   });
 }
@@ -422,9 +432,83 @@ function photoAlignmentMatrix(alignment) {
   return [a, b, 0, d, e, f];
 }
 
-function applyPhotoPlacement(image, asset) {
+function multiplyPhotoMatrices(left, right) {
+  const [la, lb, lc, ld, le, lf] = left;
+  const [ra, rb, rc, rd, re, rf] = right;
+  return [
+    (la * ra) + (lc * rb),
+    (lb * ra) + (ld * rb),
+    (la * rc) + (lc * rd),
+    (lb * rc) + (ld * rd),
+    (la * re) + (lc * rf) + le,
+    (lb * re) + (ld * rf) + lf
+  ];
+}
+
+function canonicalPhotoJoint(asset) {
+  const [jointX, jointTop, jointBottom] = asset.joint;
+  const [a, b, , d, e, f] = photoAlignmentMatrix(asset.alignment);
+  return {
+    x: (a * jointX) + e,
+    top: (b * jointX) + (d * jointTop) + f,
+    bottom: (b * jointX) + (d * jointBottom) + f
+  };
+}
+
+function photoTempleJoinTransform(frameAsset, templeAsset) {
+  const frameJoint = canonicalPhotoJoint(frameAsset);
+  const templeJoint = canonicalPhotoJoint(templeAsset);
+  const templeHeight = Math.max(1, templeJoint.bottom - templeJoint.top);
+  const scaleY = (frameJoint.bottom - frameJoint.top) / templeHeight;
+  return {
+    frameJoint,
+    matrix: [
+      1,
+      0,
+      0,
+      scaleY,
+      frameJoint.x - templeJoint.x,
+      frameJoint.top - (scaleY * templeJoint.top)
+    ]
+  };
+}
+
+function photoNumber(value) {
+  return String(Math.round(value * 100) / 100);
+}
+
+function photoJoinPaths(joint) {
+  const x = photoNumber(joint.x);
+  const top = photoNumber(joint.top);
+  const bottom = photoNumber(joint.bottom);
+  const lowerControl = photoNumber(joint.bottom + 45);
+  return {
+    frame: `M 588 0 H 1643 V 686 H 704 C 673 522 660 430 655 354 C 650 310 ${x} ${lowerControl} ${x} ${bottom} L ${x} ${top} C 588 95 588 55 588 0 Z`,
+    temple: `M 0 0 H 588 C 588 55 588 95 ${x} ${top} L ${x} ${bottom} C ${x} ${lowerControl} 650 310 655 354 C 660 430 673 522 704 686 H 0 Z`
+  };
+}
+
+function applyPhotoJoin(layer, frameAsset, templeAsset) {
+  const join = photoTempleJoinTransform(frameAsset, templeAsset);
+  const paths = photoJoinPaths(join.frameJoint);
+  layer.frameRegions.forEach(region => region.setAttribute("d", paths.frame));
+  layer.templeRegions.forEach(region => region.setAttribute("d", paths.temple));
+  if (layer.printRoot) {
+    layer.printRoot.setAttribute(
+      "transform",
+      `matrix(${join.matrix.join(" ")}) ${layer.printBaseTransform}`.trim()
+    );
+  }
+  layer.rearTemple?.setAttribute("transform", `matrix(${join.matrix.join(" ")})`);
+  return join.matrix;
+}
+
+function applyPhotoPlacement(image, asset, postTransform = null) {
   if (!image || !asset) return;
-  const matrix = photoAlignmentMatrix(asset.alignment);
+  const baseMatrix = photoAlignmentMatrix(asset.alignment);
+  const matrix = postTransform
+    ? multiplyPhotoMatrices(postTransform, baseMatrix)
+    : baseMatrix;
   image.setAttribute("x", "0");
   image.setAttribute("y", "0");
   image.setAttribute("width", String(asset.canvas.width));
@@ -473,7 +557,8 @@ function updatePhotoComposite() {
   if (!frameAsset || !templeAsset) return;
 
   Object.entries(photoLayers).forEach(([key, layer]) => {
-    applyPhotoPlacement(layer.temple, templeAsset);
+    const templeJoinTransform = applyPhotoJoin(layer, frameAsset, templeAsset);
+    applyPhotoPlacement(layer.temple, templeAsset, templeJoinTransform);
     applyPhotoPlacement(layer.frame, frameAsset);
     applyPhotoPlacement(layer.blueLightSource, frameAsset);
     const showBlueLight = state.lens.id === "blue-tea";

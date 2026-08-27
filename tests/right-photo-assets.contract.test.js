@@ -48,11 +48,21 @@ function pngMetadata(fileName) {
     [137, 80, 78, 71, 13, 10, 26, 10],
     `${fileName} must remain a PNG`
   );
+  const chunks = [];
+  let offset = 8;
+  while (offset + 12 <= buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    chunks.push(type);
+    offset += length + 12;
+    if (type === "IEND") break;
+  }
   return {
     width: buffer.readUInt32BE(16),
     height: buffer.readUInt32BE(20),
     bitDepth: buffer[24],
-    colorType: buffer[25]
+    colorType: buffer[25],
+    chunks
   };
 }
 
@@ -98,6 +108,10 @@ for (const [color, [fileName, width, height]] of expectedFramePhotos) {
   assert.deepEqual([metadata.width, metadata.height], [width, height], `${fileName} dimensions changed`);
   assert.equal(metadata.bitDepth, 8, `${fileName} must use 8-bit channels`);
   assert.equal(metadata.colorType, 6, `${fileName} must retain RGBA transparency`);
+  assert.ok(
+    metadata.chunks.includes("iCCP") || metadata.chunks.includes("sRGB"),
+    `${fileName} must declare its sRGB color space`
+  );
 }
 
 for (const [fileName, [width, height]] of expectedBlueLightReferences) {
@@ -105,13 +119,17 @@ for (const [fileName, [width, height]] of expectedBlueLightReferences) {
   const metadata = pngMetadata(fileName);
   assert.deepEqual([metadata.width, metadata.height], [width, height], `${fileName} dimensions changed`);
   assert.equal(metadata.colorType, 6, `${fileName} must retain RGBA transparency`);
+  assert.ok(
+    metadata.chunks.includes("iCCP") || metadata.chunks.includes("sRGB"),
+    `${fileName} must declare its sRGB color space`
+  );
 }
 
 const registeredPhotos = [...appSource.matchAll(
-  /"([^"]+)"\s*:\s*rightPhoto\("([^"]+)",\s*\d+,\s*\d+,\s*\[([^\]]+)\],\s*\[([^\]]+)\],\s*\[([^\]]+)\]\)/g
+  /"([^"]+)"\s*:\s*rightPhoto\("([^"]+)",\s*\d+,\s*\d+,\s*\[([^\]]+)\],\s*\[([^\]]+)\],\s*\[([^\]]+)\],\s*\[([^\]]+)\]\)/g
 )];
 assert.equal(registeredPhotos.length, 22, "every sale color needs one registered photo");
-registeredPhotos.forEach(([, color, fileName, alignmentSource, nearLensSource, farLensSource]) => {
+registeredPhotos.forEach(([, color, fileName, alignmentSource, nearLensSource, farLensSource, jointSource]) => {
   const alignment = alignmentSource.split(",").map(value => Number(value.trim()));
   assert.equal(alignment.length, 5, `${color}/${fileName} needs five alignment landmarks`);
   assert.ok(alignment.every(Number.isFinite), `${color}/${fileName} landmarks must be finite`);
@@ -133,6 +151,10 @@ registeredPhotos.forEach(([, color, fileName, alignmentSource, nearLensSource, f
       `${color}/${fileName} ${index ? "far" : "near"} coated lens must remain inside the coating texture bounds`
     );
   });
+  const joint = jointSource.split(",").map(value => Number(value.trim()));
+  assert.equal(joint.length, 3, `${color}/${fileName} needs x/top/bottom hinge landmarks`);
+  assert.ok(joint.every(Number.isFinite), `${color}/${fileName} hinge landmarks must be finite`);
+  assert.ok(joint[2] > joint[1], `${color}/${fileName} hinge bottom must follow top`);
 });
 const defaultPhotoRegistration = registeredPhotos.find(([, color]) => color === "櫻花粉");
 assert.ok(defaultPhotoRegistration, "the default photo color must remain registered");
@@ -148,7 +170,12 @@ assert.equal(
 );
 assert.doesNotMatch(appSource, /DEFAULT_PHOTO_COLOR/, "missing photos must not silently show another color");
 assert.match(appSource, /function photoAlignmentMatrix\(/, "photos need frame-landmark registration");
+assert.match(appSource, /function canonicalPhotoJoint\(/, "each photo needs its own molded-hinge registration");
+assert.match(appSource, /function photoTempleJoinTransform\(/, "mixed temples must map to the selected frame hinge");
+assert.match(appSource, /function photoJoinPaths\(/, "frame and temple masks must follow the selected hinge");
+assert.match(appSource, /function applyPhotoJoin\(/, "the dynamic hinge must be applied before compositing");
 assert.match(appSource, /asset\.alignment/, "placement must use registered landmarks instead of whole-image bounds");
+assert.match(appSource, /asset\.joint/, "placement must retain the photographed hinge landmarks");
 assert.doesNotMatch(appSource, /PHOTO_TARGET_BOUNDS|asset\.bbox/, "whole-image bbox stretching causes frame ghosts");
 assert.match(appSource, /BLUE_LIGHT_REFERENCE_FILES/, "anti-blue-light reference photos must be retained");
 assert.match(htmlSource, /右側 45° 客製面/);
@@ -165,8 +192,8 @@ assert.doesNotMatch(
   /id="photo-a45-(?:frame|temple)-reveal"/,
   "frame and temple photos must not return to a fixed percentage split"
 );
-const frameRegionPath = "M 588 0 H 1643 V 686 H 704 C 673 522 660 430 655 354 C 653 310 647 273 632 239 C 618 207 604 177 596 143 C 588 108 586 58 588 0 Z";
-const templeRegionPath = "M 0 0 H 588 C 586 58 588 108 596 143 C 604 177 618 207 632 239 C 647 273 653 310 655 354 C 660 430 673 522 704 686 H 0 Z";
+const frameRegionPath = "M 588 0 H 1643 V 686 H 704 C 673 522 660 430 655 354 C 650 310 601.98 288.69 601.98 243.69 L 601.98 130.92 C 588 95 588 55 588 0 Z";
+const templeRegionPath = "M 0 0 H 588 C 588 55 588 95 601.98 130.92 L 601.98 243.69 C 601.98 288.69 650 310 655 354 C 660 430 673 522 704 686 H 0 Z";
 const frameMaskBlock = htmlElementBlock("mask", "photo-a45-frame-mask");
 const clearFrameMaskBlock = htmlElementBlock("mask", "photo-a45-frame-clear-mask");
 const templeMaskBlock = htmlElementBlock("mask", "photo-a45-temple-mask");
@@ -212,11 +239,11 @@ const defaultPhotoFile = defaultPhotoRegistration[2].replace(".", "\\.");
 ["photo-temple-image", "photo-frame-image", "photo-blue-light-source-image"].forEach(className => {
   assert.match(
     htmlSource,
-    new RegExp(`<image class="${className}" href="assets/photos/right-a45/${defaultPhotoFile}\\?v=20260827d"`),
+    new RegExp(`<image class="${className}" href="assets/photos/right-a45/${defaultPhotoFile}\\?v=20260827e"`),
     `${className} must initialize from the current registered default photo`
   );
 });
-assert.match(appSource, /const PHOTO_ASSET_VERSION = "20260827d";/);
+assert.match(appSource, /const PHOTO_ASSET_VERSION = "20260827e";/);
 assert.match(
   appSource,
   /a45: `assets\/photos\/right-a45\/\$\{file\}\?v=\$\{PHOTO_ASSET_VERSION\}`/,
@@ -297,6 +324,23 @@ assert.match(
   "long names and icons must shrink before they touch the temple edge"
 );
 assert.match(appSource, /blueLightSource:\s*svg\.querySelector\("\.photo-blue-light-source-image"\)/);
+assert.match(appSource, /frameRegions:\s*\[\.\.\.svg\.querySelectorAll\("\.photo-frame-region"\)\]/);
+assert.match(appSource, /templeRegions:\s*\[\.\.\.svg\.querySelectorAll\("\.photo-temple-region"\)\]/);
+assert.match(
+  appSource,
+  /const templeJoinTransform = applyPhotoJoin\(layer, frameAsset, templeAsset\);\s*applyPhotoPlacement\(layer\.temple, templeAsset, templeJoinTransform\);/,
+  "mixed frame and temple photos must share the selected frame's real hinge"
+);
+assert.match(
+  appSource,
+  /layer\.printRoot\.setAttribute\([\s\S]*?`matrix\(\$\{join\.matrix\.join\(" "\)\}\) \$\{layer\.printBaseTransform\}`/,
+  "the UV or engraving overlay must move with its real photographed temple"
+);
+assert.match(
+  appSource,
+  /layer\.rearTemple\?\.setAttribute\("transform", `matrix\(\$\{join\.matrix\.join\(" "\)\}\)`\)/,
+  "the temple seen through a clear blue-light lens must use the same hinge transform"
+);
 assert.match(appSource, /applyPhotoPlacement\(layer\.blueLightSource, frameAsset\)/);
 assert.match(
   appSource,
