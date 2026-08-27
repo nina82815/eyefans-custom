@@ -212,10 +212,16 @@ const defaultPhotoFile = defaultPhotoRegistration[2].replace(".", "\\.");
 ["photo-temple-image", "photo-frame-image", "photo-blue-light-source-image"].forEach(className => {
   assert.match(
     htmlSource,
-    new RegExp(`<image class="${className}" href="assets/photos/right-a45/${defaultPhotoFile}"`),
-    `${className} must initialize from the registered default photo`
+    new RegExp(`<image class="${className}" href="assets/photos/right-a45/${defaultPhotoFile}\\?v=20260827d"`),
+    `${className} must initialize from the current registered default photo`
   );
 });
+assert.match(appSource, /const PHOTO_ASSET_VERSION = "20260827d";/);
+assert.match(
+  appSource,
+  /a45: `assets\/photos\/right-a45\/\$\{file\}\?v=\$\{PHOTO_ASSET_VERSION\}`/,
+  "every selected photo needs the same cache-busting asset version"
+);
 assert.match(appSource, /frame:\s*FRAME_COLORS\[0\]/);
 assert.match(appSource, /temple:\s*TEMPLE_COLORS\[0\]/);
 assert.match(htmlSource, /class="photo-blue-light-effect"/, "anti-blue-light must use a clean lens-only effect");
@@ -239,6 +245,17 @@ assert.match(
   "clear lenses must retain a subtle photographic texture instead of becoming empty holes"
 );
 assert.match(htmlSource, /id="photo-a45-crisp-color"/, "photo colors need a crisp alpha and contrast filter");
+const crispColorFilterBlock = htmlElementBlock("filter", "photo-a45-crisp-color");
+assert.doesNotMatch(
+  crispColorFilterBlock,
+  /<feColorMatrix\b|<feFunc[RGB]\b/,
+  "the shared edge filter must not recolor calibrated source photos"
+);
+assert.match(
+  crispColorFilterBlock,
+  /<feFuncA type="linear" slope="1\.18" intercept="-\.09"><\/feFuncA>/,
+  "the shared photo filter may tighten only the transparent edge"
+);
 assert.match(
   htmlSource,
   /class="photo-temple-image"[^>]*filter="url\(#photo-a45-crisp-color\)"[\s\S]*?class="photo-frame-image"[^>]*filter="url\(#photo-a45-crisp-color\)"/,

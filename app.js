@@ -1,26 +1,28 @@
 const FRAME_COLORS = [
-  // Screen-preview midtones calibrated from the 2026 front-view product photos.
-  { name: "櫻花粉", value: "#e8b4bf" },
-  { name: "粉紫", value: "#c3b3c8" },
-  { name: "暖黃", value: "#d5c452" },
-  { name: "豆綠", value: "#919871" },
-  { name: "深藍", value: "#2b4261" },
-  { name: "復刻粉", value: "#c87da9" },
-  { name: "芋頭紫", value: "#b48bbe" },
-  { name: "奶油黃", value: "#ddaa5b" },
-  { name: "薄荷綠", value: "#658987" },
-  { name: "丹寧藍", value: "#506799" },
-  { name: "梅子", value: "#a77c90" },
-  { name: "奶茶", value: "#ddb89d" },
-  { name: "青釉綠", value: "#485b50" },
-  { name: "天藍", value: "#2285ac" },
-  { name: "玫瑰", value: "#9c5354" },
-  { name: "咖啡牛奶", value: "#8f8079" },
-  { name: "枯黃", value: "#9c8d6c" },
-  { name: "霧面黑", value: "#0f0f10" },
-  { name: "灰色", value: "#717171" },
-  { name: "咖啡紅茶", value: "#834c4c" },
-  { name: "霧面白", value: "#ffffff" },
+  // sRGB midtones calibrated from the 2026 round-frame catalog. The two pale
+  // pinks use a neutral point inside the photographed range so a flat 2D fill
+  // does not appear more orange or saturated than the real material.
+  { name: "櫻花粉", value: "#dfb4bc" },
+  { name: "粉紫", value: "#c3b4c7" },
+  { name: "暖黃", value: "#cdbe54" },
+  { name: "豆綠", value: "#8f9570" },
+  { name: "深藍", value: "#2a4360" },
+  { name: "復刻粉", value: "#be77a1" },
+  { name: "芋頭紫", value: "#af89b7" },
+  { name: "奶油黃", value: "#d6a75a" },
+  { name: "薄荷綠", value: "#638785" },
+  { name: "丹寧藍", value: "#4e6494" },
+  { name: "梅子", value: "#a3788c" },
+  { name: "奶茶", value: "#d7b8a4" },
+  { name: "青釉綠", value: "#465a4f" },
+  { name: "天藍", value: "#2c83a6" },
+  { name: "玫瑰", value: "#965052" },
+  { name: "咖啡牛奶", value: "#8e7f78" },
+  { name: "枯黃", value: "#9a8b6a" },
+  { name: "霧面黑", value: "#272928" },
+  { name: "灰色", value: "#747474" },
+  { name: "咖啡紅茶", value: "#7e4b4b" },
+  { name: "霧面白", value: "#e5e5e3" },
   { name: "琥珀", type: "pattern", value: "amber", thumb: "amber.png" }
 ];
 
@@ -78,16 +80,19 @@ const VIEW_FILES = {
   a45: "a45.svg"
 };
 
+const PHOTO_ASSET_VERSION = "20260827d";
+
 function rightPhoto(file, width, height, alignment, nearLens, farLens) {
   return {
-    a45: `assets/photos/right-a45/${file}`,
+    a45: `assets/photos/right-a45/${file}?v=${PHOTO_ASSET_VERSION}`,
     canvas: { width, height },
     alignment,
     lenses: { near: nearLens, far: farLens }
   };
 }
 
-// Right 45-degree product photos. The files remain untouched. Alignment uses
+// Right 45-degree product photos, restored from the camera's Display P3 JPEGs
+// into web-safe sRGB while retaining the supplied transparent edges. Alignment uses
 // [near-frame X, near top Y, near bottom Y, far-frame X, far-frame Y] landmarks.
 // Each final pair is the fitted canonical [cx, cy, rx, ry, rotation] lens edge.
 // The anti-blue-light coating extends just beyond it to cover the photographed

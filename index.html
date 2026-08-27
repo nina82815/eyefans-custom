@@ -90,12 +90,8 @@
                 <feGaussianBlur stdDeviation="1.5"></feGaussianBlur>
               </filter>
               <filter id="photo-a45-crisp-color" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
-                <feColorMatrix type="saturate" values="1.08"></feColorMatrix>
                 <feComponentTransfer>
-                  <feFuncR type="linear" slope="1.06" intercept="-.025"></feFuncR>
-                  <feFuncG type="linear" slope="1.06" intercept="-.025"></feFuncG>
-                  <feFuncB type="linear" slope="1.06" intercept="-.025"></feFuncB>
-                  <feFuncA type="linear" slope="1.35" intercept="-.16"></feFuncA>
+                  <feFuncA type="linear" slope="1.18" intercept="-.09"></feFuncA>
                 </feComponentTransfer>
               </filter>
               <filter id="photo-a45-lens-texture" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
@@ -108,7 +104,7 @@
               </filter>
             </defs>
             <g mask="url(#photo-a45-temple-mask)">
-              <image class="photo-temple-image" href="assets/photos/right-a45/IMG_3594.png" filter="url(#photo-a45-crisp-color)"></image>
+              <image class="photo-temple-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827d" filter="url(#photo-a45-crisp-color)"></image>
             </g>
             <g class="photo-blue-light-effect" clip-path="url(#photo-a45-clear-lens-clip)" hidden>
               <g id="photo-a45-rear-temple" opacity=".38" filter="url(#photo-a45-rear-temple-soft)">
@@ -116,12 +112,12 @@
                 <path d="M1026 228 C1065 244 1081 276 1087 322 C1093 373 1080 438 1046 512 C1027 498 1015 484 1010 474 C995 429 996 365 1004 318 C1009 282 1017 250 1026 228Z"></path>
                 <path d="M1248 208 C1317 193 1389 191 1454 190 L1456 270 C1395 270 1323 286 1248 307Z"></path>
               </g>
-              <image class="photo-blue-light-source-image" href="assets/photos/right-a45/IMG_3594.png" opacity=".24" filter="url(#photo-a45-lens-texture)"></image>
+              <image class="photo-blue-light-source-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827d" opacity=".24" filter="url(#photo-a45-lens-texture)"></image>
               <rect class="photo-blue-light-coating" x="700" y="80" width="850" height="520" fill="url(#photo-a45-clear-coating)"></rect>
               <rect class="photo-blue-light-sheen" x="700" y="80" width="850" height="520" fill="url(#photo-a45-blue-light-sheen)"></rect>
             </g>
             <g class="photo-frame-layer" mask="url(#photo-a45-frame-mask)">
-              <image class="photo-frame-image" href="assets/photos/right-a45/IMG_3594.png" filter="url(#photo-a45-crisp-color)"></image>
+              <image class="photo-frame-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827d" filter="url(#photo-a45-crisp-color)"></image>
             </g>
             <g id="photo-engravetext" class="photo-print-layer" transform="translate(390 260) rotate(-17)">
               <text font-family="BaksoSapi, Arial, sans-serif" font-size="38" font-weight="700">PEIYU</text>
@@ -315,6 +311,6 @@
   </footer>
 
   <div class="sr-only" id="live-status" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260827c" defer></script>
+  <script src="app.js?v=20260827d" defer></script>
 </body>
 </html>
