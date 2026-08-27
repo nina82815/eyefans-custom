@@ -60,15 +60,15 @@
               </mask>
               <mask id="photo-a45-frame-clear-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance">
                 <path class="photo-frame-region" d="M 588 0 H 1643 V 686 H 704 C 673 522 660 430 655 354 C 650 310 601.98 288.69 601.98 243.69 L 601.98 130.92 C 588 95 588 55 588 0 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"></path>
-                <ellipse class="photo-blue-light-near-mask" cx="913" cy="343" rx="183" ry="233" transform="rotate(4.9 913 343)" fill="#000000"></ellipse>
-                <ellipse class="photo-blue-light-far-mask" cx="1349.6" cy="328.6" rx="106" ry="207.6" transform="rotate(.8 1349.6 328.6)" fill="#000000"></ellipse>
+                <ellipse class="photo-blue-light-near-mask" cx="909.7" cy="344.2" rx="191.5" ry="234.9" transform="rotate(5.7 909.7 344.2)" fill="#000000"></ellipse>
+                <ellipse class="photo-blue-light-far-mask" cx="1350.6" cy="320" rx="107.2" ry="217.9" transform="rotate(-1 1350.6 320)" fill="#000000"></ellipse>
               </mask>
               <mask id="photo-a45-temple-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance">
                 <path class="photo-temple-region" d="M 0 0 H 588 C 588 55 588 95 601.98 130.92 L 601.98 243.69 C 601.98 288.69 650 310 655 354 C 660 430 673 522 704 686 H 0 Z" fill="#ffffff"></path>
               </mask>
               <clipPath id="photo-a45-clear-lens-clip" clipPathUnits="userSpaceOnUse">
-                <ellipse class="photo-blue-light-near-clip" cx="913" cy="343" rx="183" ry="233" transform="rotate(4.9 913 343)"></ellipse>
-                <ellipse class="photo-blue-light-far-clip" cx="1349.6" cy="328.6" rx="106" ry="207.6" transform="rotate(.8 1349.6 328.6)"></ellipse>
+                <ellipse class="photo-blue-light-near-clip" cx="909.7" cy="344.2" rx="191.5" ry="234.9" transform="rotate(5.7 909.7 344.2)"></ellipse>
+                <ellipse class="photo-blue-light-far-clip" cx="1350.6" cy="320" rx="107.2" ry="217.9" transform="rotate(-1 1350.6 320)"></ellipse>
               </clipPath>
               <linearGradient id="photo-a45-clear-coating" x1="0" y1="0" x2="20%" y2="100%">
                 <stop offset="0%" stop-color="#f5efe5" stop-opacity=".18"></stop>
@@ -86,9 +86,6 @@
                 <stop offset="64%" stop-color="#d8dff0" stop-opacity=".04"></stop>
                 <stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>
               </linearGradient>
-              <filter id="photo-a45-rear-temple-soft" x="-5%" y="-5%" width="110%" height="110%">
-                <feGaussianBlur stdDeviation="1.5"></feGaussianBlur>
-              </filter>
               <filter id="photo-a45-crisp-color" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
                 <feComponentTransfer>
                   <feFuncA type="linear" slope="1.18" intercept="-.09"></feFuncA>
@@ -104,20 +101,15 @@
               </filter>
             </defs>
             <g mask="url(#photo-a45-temple-mask)">
-              <image class="photo-temple-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827e" filter="url(#photo-a45-crisp-color)"></image>
+              <image class="photo-temple-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827f" filter="url(#photo-a45-crisp-color)"></image>
             </g>
             <g class="photo-blue-light-effect" clip-path="url(#photo-a45-clear-lens-clip)" hidden>
-              <g id="photo-a45-rear-temple" opacity=".38" filter="url(#photo-a45-rear-temple-soft)">
-                <path d="M734 225 C810 207 870 221 930 216 C980 211 1024 195 1071 220 L1061 272 C1008 285 967 301 913 288 C856 276 798 307 734 315Z"></path>
-                <path d="M1026 228 C1065 244 1081 276 1087 322 C1093 373 1080 438 1046 512 C1027 498 1015 484 1010 474 C995 429 996 365 1004 318 C1009 282 1017 250 1026 228Z"></path>
-                <path d="M1248 208 C1317 193 1389 191 1454 190 L1456 270 C1395 270 1323 286 1248 307Z"></path>
-              </g>
-              <image class="photo-blue-light-source-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827e" opacity=".24" filter="url(#photo-a45-lens-texture)"></image>
+              <image class="photo-blue-light-source-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827f" opacity=".24" filter="url(#photo-a45-lens-texture)"></image>
               <rect class="photo-blue-light-coating" x="700" y="80" width="850" height="520" fill="url(#photo-a45-clear-coating)"></rect>
               <rect class="photo-blue-light-sheen" x="700" y="80" width="850" height="520" fill="url(#photo-a45-blue-light-sheen)"></rect>
             </g>
             <g class="photo-frame-layer" mask="url(#photo-a45-frame-mask)">
-              <image class="photo-frame-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827e" filter="url(#photo-a45-crisp-color)"></image>
+              <image class="photo-frame-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827f" filter="url(#photo-a45-crisp-color)"></image>
             </g>
             <g id="photo-engravetext" class="photo-print-layer" transform="translate(390 260) rotate(-17)">
               <text font-family="BaksoSapi, Arial, sans-serif" font-size="38" font-weight="700">PEIYU</text>

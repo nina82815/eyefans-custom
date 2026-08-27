@@ -80,7 +80,7 @@ const VIEW_FILES = {
   a45: "a45.svg"
 };
 
-const PHOTO_ASSET_VERSION = "20260827e";
+const PHOTO_ASSET_VERSION = "20260827f";
 
 function rightPhoto(file, width, height, alignment, nearLens, farLens, joint) {
   return {
@@ -128,6 +128,36 @@ const PHOTO_ASSETS = {
   "琥珀": rightPhoto("IMG_3630.png", 1448, 1086, [799, 319, 811, 1225, 557.5], [905.4, 345.4, 167.2, 229, -1.2], [1361, 336, 96.8, 210.6, 2.8], [544, 377, 475])
 };
 
+// The photographed pressure ring is not identical across the 22 source
+// images. A single global expansion leaves black crescents on some colors and
+// cuts real frame material on others, so every registered photo gets an
+// independently fitted clear-lens opening. Values are canonical
+// [cx, cy, rx, ry, rotation] coordinates after photo alignment.
+const CLEAR_LENS_GEOMETRY = Object.freeze({
+  "櫻花粉": { near: [909.7, 344.2, 191.5, 234.9, 5.7], far: [1350.6, 320, 107.2, 217.9, -1] },
+  "粉紫": { near: [920.9, 338.3, 183.5, 233, 4.8], far: [1353.7, 317.6, 113.2, 214.8, -2.1] },
+  "暖黃": { near: [900.3, 336.3, 204.3, 234.5, 10.9], far: [1373.1, 328.1, 111, 199.2, -2.5] },
+  "豆綠": { near: [912.9, 344.7, 186.9, 232.5, 4.5], far: [1363.9, 320.9, 120.7, 207.7, -1.2] },
+  "深藍": { near: [917.5, 337.7, 188.1, 241.1, 7.7], far: [1344.4, 324.9, 109.6, 218.5, -1] },
+  "復刻粉": { near: [914.6, 342.3, 187, 234.6, 4.8], far: [1362.7, 327.7, 123, 211, -4] },
+  "芋頭紫": { near: [911, 353.3, 183.4, 251.4, 6], far: [1351.7, 322.8, 117.7, 236.4, -1.2] },
+  "奶油黃": { near: [926.5, 345.2, 180.7, 236.3, 3.4], far: [1354.3, 317.3, 111.1, 220, -1.2] },
+  "薄荷綠": { near: [914.5, 335, 185.2, 242.3, 2.1], far: [1362.6, 315.7, 119.7, 210.7, -1.1] },
+  "丹寧藍": { near: [917.4, 349.6, 188.7, 249.9, .3], far: [1348.2, 321.2, 112.4, 214.4, -2.4] },
+  "梅子": { near: [912.5, 342, 187.7, 239.4, 1.9], far: [1347.9, 332.7, 109.3, 212.9, -3.8] },
+  "奶茶": { near: [911.6, 343.4, 189.9, 235.3, 2.1], far: [1359.2, 326.1, 115.8, 211.5, -1.6] },
+  "青釉綠": { near: [916.6, 333.8, 193.5, 243.5, -1.2], far: [1356.7, 314.9, 106.2, 210, -.6] },
+  "天藍": { near: [927.5, 347.3, 181.7, 257.5, 3.3], far: [1360, 326.6, 113.2, 222.7, -1.3] },
+  "玫瑰": { near: [904.2, 336.9, 190.3, 239.5, -2.2], far: [1352.4, 320, 110.1, 205.2, -1.4] },
+  "咖啡牛奶": { near: [887.6, 341.6, 197.7, 239.4, 6.7], far: [1352.9, 319, 112.2, 212.4, .2] },
+  "枯黃": { near: [907.6, 344.1, 191.3, 238.5, 1.9], far: [1358.4, 327, 120.8, 212.1, -4.2] },
+  "霧面黑": { near: [900.7, 337.3, 169.8, 240.9, 2.3], far: [1344.6, 325.9, 102, 206.7, .1] },
+  "灰色": { near: [913.2, 341.4, 184.5, 236.8, 5.1], far: [1361.6, 328, 121.8, 213.3, -5.9] },
+  "咖啡紅茶": { near: [921.5, 341.1, 186.5, 238.2, -.8], far: [1352.1, 325.4, 106.7, 217.9, -3.9] },
+  "霧面白": { near: [896.1, 339.3, 188.8, 239.9, 3.4], far: [1340.8, 316, 119.1, 213.1, -4.7] },
+  "琥珀": { near: [904.1, 345.3, 171, 229.2, .7], far: [1363.9, 334.8, 104.9, 209.5, 5.8] }
+});
+
 const PHOTO_ALIGNMENT_TARGET = Object.freeze({
   nearX: 900,
   nearTop: 65,
@@ -146,7 +176,6 @@ const BLUE_LIGHT_REFERENCE_FILES = Object.freeze([
   "IMG_3635.png"
 ]);
 
-const BLUE_LIGHT_LENS_OUTSET = Object.freeze({ horizontal: 2, vertical: 1 });
 const TEXT_COLOR_OPTIONS = {
   black: { label: "黑色", fill: "#171817", stroke: "none", outlineWidth: "0" },
   white: { label: "白色", fill: "#fffdf8", stroke: "#111111", outlineWidth: "0.5pt" },
@@ -381,7 +410,6 @@ function preparePhotoLayers() {
       blueLightSource: svg.querySelector(".photo-blue-light-source-image"),
       blueLightNearGeometry: [...svg.querySelectorAll(".photo-blue-light-near-mask, .photo-blue-light-near-clip")],
       blueLightFarGeometry: [...svg.querySelectorAll(".photo-blue-light-far-mask, .photo-blue-light-far-clip")],
-      rearTemple: svg.querySelector("#photo-a45-rear-temple"),
       printRoot: printLayers.photo?.root || null,
       printBaseTransform: printLayers.photo?.root?.getAttribute("transform") || ""
     };
@@ -499,7 +527,6 @@ function applyPhotoJoin(layer, frameAsset, templeAsset) {
       `matrix(${join.matrix.join(" ")}) ${layer.printBaseTransform}`.trim()
     );
   }
-  layer.rearTemple?.setAttribute("transform", `matrix(${join.matrix.join(" ")})`);
   return join.matrix;
 }
 
@@ -521,13 +548,11 @@ function applyPhotoPlacement(image, asset, postTransform = null) {
 function applyLensGeometry(elements, geometry) {
   if (!geometry) return;
   const [cx, cy, rx, ry, rotation] = geometry;
-  const coatedRx = Math.max(1, rx + BLUE_LIGHT_LENS_OUTSET.horizontal);
-  const coatedRy = Math.max(1, ry + BLUE_LIGHT_LENS_OUTSET.vertical);
   elements.forEach(element => {
     element.setAttribute("cx", String(cx));
     element.setAttribute("cy", String(cy));
-    element.setAttribute("rx", String(coatedRx));
-    element.setAttribute("ry", String(coatedRy));
+    element.setAttribute("rx", String(Math.max(1, rx)));
+    element.setAttribute("ry", String(Math.max(1, ry)));
     element.setAttribute("transform", `rotate(${rotation} ${cx} ${cy})`);
   });
 }
@@ -541,14 +566,9 @@ function updateBlueLightPhotoEffect(layer, frameAsset, showBlueLight) {
   layer.blueLightEffect.style.display = showBlueLight ? "inline" : "none";
   if (!showBlueLight) return;
 
-  applyLensGeometry(layer.blueLightNearGeometry, frameAsset.lenses.near);
-  applyLensGeometry(layer.blueLightFarGeometry, frameAsset.lenses.far);
-  const templeFill = state.temple.type === "pattern"
-    ? `url(#${ensureAmberPattern(layer.svg, "photo")})`
-    : state.temple.value;
-  layer.rearTemple.querySelectorAll("path").forEach(path => {
-    path.setAttribute("fill", templeFill);
-  });
+  const clearLenses = CLEAR_LENS_GEOMETRY[state.frame.name];
+  applyLensGeometry(layer.blueLightNearGeometry, clearLenses?.near || frameAsset.lenses.near);
+  applyLensGeometry(layer.blueLightFarGeometry, clearLenses?.far || frameAsset.lenses.far);
 }
 
 function updatePhotoComposite() {

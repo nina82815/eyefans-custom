@@ -16,10 +16,9 @@ function sourceBetween(startMarker, endMarker) {
 }
 
 class FakeElement {
-  constructor(children = []) {
+  constructor() {
     this.attributes = new Map();
     this.style = {};
-    this.children = children;
   }
 
   setAttribute(name, value) {
@@ -38,20 +37,18 @@ class FakeElement {
   hasAttribute(name) {
     return this.attributes.has(name);
   }
-
-  querySelectorAll(selector) {
-    assert.equal(selector, "path");
-    return this.children;
-  }
 }
 
 const sandbox = {
-  BLUE_LIGHT_LENS_OUTSET: { horizontal: 2, vertical: 1 },
-  state: { temple: { name: "霧面黑", value: "#0f0f10" } },
-  ensureAmberPattern(svg, key) {
-    assert.equal(key, "photo");
-    assert.ok(svg);
-    return "amberPattern-photo";
+  CLEAR_LENS_GEOMETRY: {
+    "櫻花粉": {
+      near: [909.7, 344.2, 191.5, 234.9, 5.7],
+      far: [1350.6, 320, 107.2, 217.9, -1]
+    }
+  },
+  state: {
+    frame: { name: "櫻花粉" },
+    temple: { name: "霧面黑", value: "#0f0f10" }
   }
 };
 vm.createContext(sandbox);
@@ -64,14 +61,11 @@ const nearMask = new FakeElement();
 const nearClip = new FakeElement();
 const farMask = new FakeElement();
 const farClip = new FakeElement();
-const rearPaths = [new FakeElement(), new FakeElement(), new FakeElement()];
 const layer = {
-  svg: {},
   frameLayer: new FakeElement(),
   blueLightEffect: new FakeElement(),
   blueLightNearGeometry: [nearMask, nearClip],
-  blueLightFarGeometry: [farMask, farClip],
-  rearTemple: new FakeElement(rearPaths)
+  blueLightFarGeometry: [farMask, farClip]
 };
 const frameAsset = {
   lenses: {
@@ -84,32 +78,32 @@ sandbox.updateBlueLightPhotoEffect(layer, frameAsset, true);
 assert.equal(layer.frameLayer.getAttribute("mask"), "url(#photo-a45-frame-clear-mask)");
 assert.equal(layer.blueLightEffect.hasAttribute("hidden"), false);
 assert.equal(layer.blueLightEffect.style.display, "inline");
-assert.equal(nearMask.getAttribute("rx"), "183");
-assert.equal(nearClip.getAttribute("ry"), "233");
-assert.equal(nearMask.getAttribute("transform"), "rotate(4.9 913 343)");
+assert.equal(nearMask.getAttribute("rx"), "191.5");
+assert.equal(nearClip.getAttribute("ry"), "234.9");
+assert.equal(nearMask.getAttribute("transform"), "rotate(5.7 909.7 344.2)");
 assert.equal(nearMask.getAttribute("cx"), nearClip.getAttribute("cx"));
 assert.equal(nearMask.getAttribute("cy"), nearClip.getAttribute("cy"));
 assert.equal(nearMask.getAttribute("rx"), nearClip.getAttribute("rx"));
 assert.equal(nearMask.getAttribute("ry"), nearClip.getAttribute("ry"));
 assert.equal(nearMask.getAttribute("transform"), nearClip.getAttribute("transform"));
-assert.equal(farMask.getAttribute("rx"), "106");
-assert.equal(farClip.getAttribute("ry"), "207.6");
+assert.equal(farMask.getAttribute("rx"), "107.2");
+assert.equal(farClip.getAttribute("ry"), "217.9");
 assert.equal(farMask.getAttribute("cx"), farClip.getAttribute("cx"));
 assert.equal(farMask.getAttribute("cy"), farClip.getAttribute("cy"));
 assert.equal(farMask.getAttribute("rx"), farClip.getAttribute("rx"));
 assert.equal(farMask.getAttribute("ry"), farClip.getAttribute("ry"));
 assert.equal(farMask.getAttribute("transform"), farClip.getAttribute("transform"));
-rearPaths.forEach(pathElement => assert.equal(pathElement.getAttribute("fill"), "#0f0f10"));
-
 sandbox.state.temple = { name: "琥珀", type: "pattern", value: "amber" };
 sandbox.updateBlueLightPhotoEffect(layer, frameAsset, true);
-rearPaths.forEach(pathElement => {
-  assert.equal(pathElement.getAttribute("fill"), "url(#amberPattern-photo)");
-});
+assert.equal(nearMask.getAttribute("rx"), "191.5", "temple color must not change lens geometry");
+assert.equal(farMask.getAttribute("ry"), "217.9", "temple pattern must not leak into clear lenses");
+
+const effectSource = sourceBetween("function updateBlueLightPhotoEffect(", "function updatePhotoComposite(");
+assert.doesNotMatch(effectSource, /state\.temple|rearTemple|ensureAmberPattern/);
 
 sandbox.updateBlueLightPhotoEffect(layer, frameAsset, false);
 assert.equal(layer.frameLayer.getAttribute("mask"), "url(#photo-a45-frame-mask)");
 assert.equal(layer.blueLightEffect.hasAttribute("hidden"), true);
 assert.equal(layer.blueLightEffect.style.display, "none");
 
-console.log("Blue-light photo runtime passed: fitted masks + clear toggle + temple fill.");
+console.log("Blue-light photo runtime passed: per-frame masks + clear toggle + temple independence.");
