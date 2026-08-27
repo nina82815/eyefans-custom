@@ -14,7 +14,7 @@
   <meta name="twitter:description" content="配色・UV 彩印・姓名預覽">
   <meta name="twitter:image" content="https://nina82815.github.io/eyefans-custom/og.png">
   <title>eYeFans 客製眼鏡模擬器</title>
-  <link rel="stylesheet" href="styles.css?v=a27025c">
+  <link rel="stylesheet" href="styles.css?v=20260827a">
 </head>
 <body>
   <header class="site-header">
@@ -78,18 +78,21 @@
                 <ellipse class="photo-blue-light-near-clip" cx="913" cy="343" rx="178.5" ry="228.5" transform="rotate(4.9 913 343)"></ellipse>
                 <ellipse class="photo-blue-light-far-clip" cx="1349.6" cy="328.6" rx="101.5" ry="203.1" transform="rotate(.8 1349.6 328.6)"></ellipse>
               </clipPath>
-              <linearGradient id="photo-a45-clear-coating" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#f9f6ec" stop-opacity=".70"></stop>
-                <stop offset="45%" stop-color="#dfe4f5" stop-opacity=".53"></stop>
-                <stop offset="100%" stop-color="#c9d2e8" stop-opacity=".58"></stop>
+              <linearGradient id="photo-a45-clear-coating" x1="0" y1="0" x2="20%" y2="100%">
+                <stop offset="0%" stop-color="#f5efe5" stop-opacity=".18"></stop>
+                <stop offset="35%" stop-color="#eee9ec" stop-opacity=".08"></stop>
+                <stop offset="68%" stop-color="#d7deef" stop-opacity=".14"></stop>
+                <stop offset="100%" stop-color="#e9ebf1" stop-opacity=".09"></stop>
               </linearGradient>
-              <linearGradient id="photo-a45-blue-light-sheen" x1="18%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#ffffff" stop-opacity=".03"></stop>
-                <stop offset="27%" stop-color="#c5b6d9" stop-opacity=".12"></stop>
-                <stop offset="44%" stop-color="#8b75c8" stop-opacity=".30"></stop>
-                <stop offset="58%" stop-color="#6d93d0" stop-opacity=".24"></stop>
-                <stop offset="72%" stop-color="#d4dced" stop-opacity=".08"></stop>
-                <stop offset="100%" stop-color="#ffffff" stop-opacity=".02"></stop>
+              <linearGradient id="photo-a45-blue-light-sheen" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity=".01"></stop>
+                <stop offset="28%" stop-color="#d6cadf" stop-opacity=".035"></stop>
+                <stop offset="36%" stop-color="#b6a1d6" stop-opacity=".08"></stop>
+                <stop offset="43%" stop-color="#7e64c4" stop-opacity=".16"></stop>
+                <stop offset="49%" stop-color="#486fc7" stop-opacity=".20"></stop>
+                <stop offset="56%" stop-color="#8065c2" stop-opacity=".14"></stop>
+                <stop offset="64%" stop-color="#d8dff0" stop-opacity=".04"></stop>
+                <stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>
               </linearGradient>
               <filter id="photo-a45-rear-temple-soft" x="-5%" y="-5%" width="110%" height="110%">
                 <feGaussianBlur stdDeviation="1.5"></feGaussianBlur>
@@ -103,7 +106,7 @@
             </g>
             <g class="photo-blue-light-effect" clip-path="url(#photo-a45-clear-lens-clip)" hidden>
               <rect class="photo-blue-light-coating" x="700" y="80" width="850" height="520" fill="url(#photo-a45-clear-coating)"></rect>
-              <g id="photo-a45-rear-temple" opacity=".28" filter="url(#photo-a45-rear-temple-soft)">
+              <g id="photo-a45-rear-temple" opacity=".46" filter="url(#photo-a45-rear-temple-soft)">
                 <path d="M734 225 C810 207 870 221 930 216 C980 211 1024 195 1071 220 L1061 272 C1008 285 967 301 913 288 C856 276 798 307 734 315Z"></path>
                 <path d="M1026 228 C1065 244 1081 276 1087 322 C1093 373 1080 438 1046 512 C1027 498 1015 484 1010 474 C995 429 996 365 1004 318 C1009 282 1017 250 1026 228Z"></path>
                 <path d="M1248 208 C1317 193 1389 191 1454 190 L1456 270 C1395 270 1323 286 1248 307Z"></path>
@@ -302,6 +305,6 @@
   </footer>
 
   <div class="sr-only" id="live-status" role="status" aria-live="polite"></div>
-  <script src="app.js?v=a27025c" defer></script>
+  <script src="app.js?v=20260827a" defer></script>
 </body>
 </html>

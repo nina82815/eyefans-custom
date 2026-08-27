@@ -247,8 +247,11 @@ let deferredModelView = null;
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XLINK_NS = "http://www.w3.org/1999/xlink";
 const XML_NS = "http://www.w3.org/XML/1998/namespace";
-const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 30, photo: 0 };
-const MAX_PRINT_WIDTH = { side: 205, a45: 112, photo: 360 };
+// Keep every print layout inside the straight, production-safe portion of the
+// outer temple.  In the 45-degree SVG this is local X 8..104; the photo uses a
+// wider equivalent range and is biased toward the hinge/front of the frame.
+const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 56, photo: 85 };
+const MAX_PRINT_WIDTH = { side: 205, a45: 96, photo: 320 };
 
 function svgElement(tag) {
   return document.createElementNS(SVG_NS, tag);

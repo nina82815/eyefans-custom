@@ -127,8 +127,28 @@ assert.match(htmlSource, /class="photo-blue-light-far-mask"/);
 assert.match(htmlSource, /class="photo-blue-light-near-clip"/);
 assert.match(htmlSource, /class="photo-blue-light-far-clip"/);
 assert.match(htmlSource, /id="photo-a45-clear-coating"/, "anti-blue-light needs a calibrated clear coating");
-assert.match(htmlSource, /id="photo-a45-rear-temple" opacity="\.28"/, "clear lenses must recreate the selected rear temple");
+assert.match(htmlSource, /id="photo-a45-rear-temple" opacity="\.46"/, "clear lenses must visibly recreate the selected rear temple");
 assert.match(htmlSource, /class="photo-blue-light-sheen"/, "clear lenses need a blue-purple reflection sheen");
+assert.match(
+  htmlSource,
+  /id="photo-a45-clear-coating"[\s\S]*?stop-opacity="\.18"[\s\S]*?stop-opacity="\.08"[\s\S]*?stop-opacity="\.14"[\s\S]*?stop-opacity="\.09"/,
+  "clear coating must remain translucent instead of whitening the lens"
+);
+assert.match(
+  htmlSource,
+  /id="photo-a45-blue-light-sheen"[\s\S]*?offset="43%"[\s\S]*?offset="49%"[\s\S]*?offset="56%"/,
+  "blue-light color must remain a localized reflection band"
+);
+assert.match(
+  appSource,
+  /PRINT_CENTER_OFFSET\s*=\s*\{[^}]*a45:\s*56,[^}]*photo:\s*85[^}]*\}/,
+  "45-degree model and photo print centers must stay in the forward safe zone"
+);
+assert.match(
+  appSource,
+  /MAX_PRINT_WIDTH\s*=\s*\{[^}]*a45:\s*96,[^}]*photo:\s*320[^}]*\}/,
+  "long names and icons must shrink before they touch the temple edge"
+);
 assert.match(appSource, /function applyLensGeometry\(/, "each frame color needs its fitted lens outline");
 assert.match(appSource, /frameAsset\.lenses\.near/);
 assert.match(appSource, /frameAsset\.lenses\.far/);
