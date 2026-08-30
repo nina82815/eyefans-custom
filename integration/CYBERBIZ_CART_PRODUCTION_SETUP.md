@@ -1,4 +1,27 @@
-# CYBERBIZ 客製模擬器正式購物車（Production v1）
+# CYBERBIZ 客製模擬器購物車（2026-08-30 身分核對候選版）
+
+> 本版已通過本機模擬測試。程式檔發布不代表官網主題已更新，也不代表真實購物車已完成驗收。確認下方新檔已可讀取且 SRI 一致後，先只在未發布測試主題替換；正式主題變更須另行確認。
+
+新版檔案為 `cyberbiz-cart-production-loader-20260830.js`。舊
+`cyberbiz-cart-production-loader.js` 保持原始內容及 SRI，避免部署新檔時讓既有主題的引用失效。
+同一頁仍只能載入一支購物車 loader，不要同時載入新舊版本。
+
+## 刪除後重新加入的修正
+
+- 加入前後用同源 `GET /cart` 的最終 `/carts/:token` 網址確認購物車身分；不讀取結帳 HTML。
+- 只有整台購物車的 `item_count` 為 0，加入前才允許最終網址仍為 `/cart`；加入後一定要能確認 token。
+- 成功驗證商品數量增加 1 且購物車身分一致後，新 EF 才綁定該購物車。
+- 當加入前此款式數量為 0，只清理當時已知、相同購物車及款式的舊設計；其他購物車資料不變。
+- 來源未明的舊紀錄會保留，但排除在本次已確認的購物車之外。沒有身分證據的舊 unbound 紀錄不再按件數自動認領。
+- 多筆設計無法對應件數、未確認送出結果或來源不明時，清除自動產生的客製備註並阻擋結帳；手填備註保留。
+- POST 後身分確認或保存失敗時，保留 pending 紀錄，提示查看購物車／聯絡客服，不自動重送。
+
+舊測試資料若被攔下，請先確認購物車，只移除有問題的客製商品，再從新版模擬器重新加入；
+不要靠手動修改備註、清空瀏覽器儲存或直接更改數量來略過檢查。
+
+尚待授權後的測試主題驗證：CYBERBIZ 的 `/cart` 必須以服務端轉址提供購物車網址；
+若只回傳 JavaScript 轉址或無法確認身分，新版會停止而不猜測。這仍是瀏覽器端的保護，
+不提供跨分頁儲存交易鎖，也不是伺服器端設計資料庫。
 
 正式 loader 會在下列三個一般商品網址自動啟用，不需要測試參數：
 
@@ -37,43 +60,49 @@
 | 雷雕 | 71536670 | 87452764 | 87452765 | 87452766 | 87452767 |
 | UV 彩印 | 71536673 | 87452776 | 87452777 | 87452778 | 87452779 |
 
-3. 清空測試購物車；測試 V3 資料不會被正式版讀取。
+3. 只移除本次測試的客製商品，保留其他商品與手填備註；不要清空瀏覽器資料。測試 V3 資料不會被正式版讀取。
 4. 備份已發布與未發布主題的 `theme.liquid`。
-5. 每個主題只能保留一支會寫入購物車的 loader。請「取代」
-   `cyberbiz-cart-live-test-loader.js`，不要把兩支並排加入。
+5. 每個主題只能保留一支會寫入購物車的 loader。請「取代」原有的
+   `cyberbiz-cart-production-loader.js` 或 `cyberbiz-cart-live-test-loader.js`，不要把新舊版本並排加入。
 
-## 正式引用碼
+## 新版引用碼（先用於未發布測試主題）
 
 請放在 `theme.liquid` 的 `</body>` 前：
 
 ```html
 <script
   defer
-  src="https://nina82815.github.io/eyefans-custom/integration/cyberbiz-cart-production-loader.js?v=prod-v1-20260826"
-  integrity="sha384-aX+eJhnar+/dkFGFuzj+xGWTPeuc6IK7zi1XI4tQG+M1q3G9OJUuc7OtFIErKxHI"
+  src="https://nina82815.github.io/eyefans-custom/integration/cyberbiz-cart-production-loader-20260830.js"
+  integrity="sha384-Td6f87wD8jTQR2auMY/C4Gw/WaNucYJE+mscQy9U05HuuGEag0ASsQQ7IBfafEYw"
   crossorigin="anonymous"
 ></script>
 ```
 
-## 建議切換順序（不中斷公開店面）
+## 後續正式切換規劃（需另行確認）
+
+目前只授權發布程式檔，未授權修改已發布主題。先在未發布測試主題安裝新版並確認
+商品頁與購物車頁實際載入的版本；若購物車改用已發布主題而導致版本不同，先停止驗收，
+確認正式主題的變更方式後再進行以下流程。
 
 ### 1. 已發布主題先使用「只處理既有購物車」模式
 
-先在已發布主題用下列引用碼取代 live-test loader。它不會在公開商品頁接受新設計，
-但可讓未發布主題測試產生的正式資料安全進入結帳：
+取得正式主題變更授權後，才用下列引用碼取代原有 loader。它不會在公開商品頁接受
+新設計，只檢查既有購物車。新版加入流程已確認身分的資料可以通過核對；舊版產生的
+unbound 資料會被阻擋，即使件數相同也不會直接認領。因此切換前必須規劃既有客製
+購物車的確認／重新加入流程，不能保證既有客人都能不中斷結帳。
 
 ```html
 <script
   defer
-  src="https://nina82815.github.io/eyefans-custom/integration/cyberbiz-cart-production-loader.js?v=prod-v1-20260826&amp;drain=1"
-  integrity="sha384-aX+eJhnar+/dkFGFuzj+xGWTPeuc6IK7zi1XI4tQG+M1q3G9OJUuc7OtFIErKxHI"
+  src="https://nina82815.github.io/eyefans-custom/integration/cyberbiz-cart-production-loader-20260830.js?drain=1"
+  integrity="sha384-Td6f87wD8jTQR2auMY/C4Gw/WaNucYJE+mscQy9U05HuuGEag0ASsQQ7IBfafEYw"
   crossorigin="anonymous"
 ></script>
 ```
 
 ### 2. 未發布主題改用正式引用碼並驗收
 
-在未發布主題以「正式引用碼」取代 live-test loader，另開店面預覽新分頁。使用三個一般
+在未發布主題以「新版引用碼」取代舊 production 或 live-test loader，另開店面預覽新分頁。使用三個一般
 商品網址測試，不要加 `eyefans_cart_live_test=1`。
 
 逐項確認：
@@ -85,18 +114,22 @@
 5. 購物車數量正確，結帳備註顯示完整 EF 製作明細。
 6. 一般非客製商品的加入購物車與結帳完全不受影響。
 7. 刪除客製資料或直接調高客製商品數量時，結帳會被暫停並要求回模擬器重加。
+8. 刪除最後一件直接跳空購物車後，再以不同名字、配色及鏡片加入同尺寸；備註只包含新的 EF 與新設計，重新整理仍一致。
+9. 兩筆同尺寸設計只刪掉部分數量時，不得任選其中一筆製作；應阻擋並要求明確重新加入。
+10. 刪掉最後一筆客製商品後，一般商品仍可使用原本的手填備註，不留下舊 EF，也不被客製檢查誤擋。
 
 ### 3. 正式公開
 
-未發布主題驗收完成後，把已發布主題的 `drain=1` 引用碼換成「正式引用碼」。再用無痕
+未發布主題驗收完成並取得授權後，把已發布主題的 `drain=1` 引用碼換成「新版引用碼」。再用無痕
 視窗各測一次三個一般商品網址與一個一般商品，確認後才算完成上線。未發布主題也保留
 相同正式引用碼，避免下次發布主題時倒退。
 
 ## 緊急停止與回滾
 
 若正式上線後要暫停接受新客製設計，不要立刻換回測試 loader。請先把已發布主題的網址
-加上 `&amp;drain=1`。這會停止商品頁新加入，但仍保護已在購物車中的正式 EF 設計，讓既有
-客人可以完成結帳。確認已沒有待結帳客製購物車後，才移除 production loader。
+加上 `?drain=1`（若已有查詢參數則用 `&amp;drain=1`）。這會停止商品頁新加入，但仍核對已在購物車中的 EF 設計；
+只有身分與件數一致的資料可繼續結帳，舊版 unbound 或其他無法確認的資料仍會阻擋。
+確認已沒有待結帳客製購物車後，才移除 production loader。
 
 ## Production v1 的資料邊界
 

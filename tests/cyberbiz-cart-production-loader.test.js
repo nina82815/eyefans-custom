@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const loaderPath = path.join(__dirname, "..", "integration", "cyberbiz-cart-production-loader.js");
+const loaderPath = path.join(__dirname, "..", "integration", "cyberbiz-cart-production-loader-20260830.js");
 const source = fs.readFileSync(loaderPath, "utf8");
 const TEST_PRODUCTS = Object.freeze({
   "cls-cus-mix-sun-rd": Object.freeze({
@@ -51,6 +51,8 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
     ))
   );
   let cartGetCount = 0;
+  let cartIdentityGetCount = 0;
+  let cartIdentityBodyReads = 0;
   let pullNavCartCalls = 0;
   const localStorage = memoryStorage(behavior.recordsJson
     ? { eyefansCustomCartDesignsProdV1: behavior.recordsJson }
@@ -80,11 +82,12 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
   });
   const productHandle = new URL(href).pathname.match(/\/products\/([^/?#]+)/)?.[1] || "";
   const productConfig = TEST_PRODUCTS[productHandle];
-  function mockResponse({ status = 200, body = "", contentType = "application/json", redirected = false }) {
+  function mockResponse({ status = 200, body = "", contentType = "application/json", redirected = false, url = "" }) {
     return {
       ok: status >= 200 && status < 300,
       status,
       redirected,
+      url,
       headers: {
         get(name) {
           return String(name).toLowerCase() === "content-type" ? contentType : null;
@@ -166,6 +169,24 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
             redirected: behavior.productRedirected ?? false
           });
         }
+        if (requestPath === "/cart") {
+          cartIdentityGetCount += 1;
+          const phase = cartIdentityGetCount === 1 ? "pre" : "post";
+          if (behavior.identityThrows || behavior[`${phase}CartIdentityThrows`]) {
+            throw new Error(`${phase} cart identity failure`);
+          }
+          const response = mockResponse({
+            status: behavior[`${phase}CartIdentityStatus`] ?? behavior.identityStatus ?? 200,
+            url: behavior[`${phase}CartIdentityUrl`] ?? "https://www.eyefans.com.tw/carts/cart-token-123",
+            contentType: "text/html; charset=utf-8",
+            redirected: true
+          });
+          response.text = async () => {
+            cartIdentityBodyReads += 1;
+            throw new Error("cart identity verification must use response.url, not parse checkout HTML");
+          };
+          return response;
+        }
         assert.equal(requestPath, "/cart.json");
         cartGetCount += 1;
         const phase = cartGetCount === 1 ? "preflight" : "postflight";
@@ -183,6 +204,7 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
         throw error;
       }
       const variantId = new URLSearchParams(options.body).get("id");
+      behavior.beforePost?.({ localStorage, cartQuantities, variantId });
       if (variantId && !behavior.skipCartIncrement && !behavior.postStatus) {
         cartQuantities.set(variantId, (cartQuantities.get(variantId) || 0) + 1);
       }
@@ -251,6 +273,9 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
     requests,
     replies,
     cartQuantities,
+    cartIdentityBodyReads() {
+      return cartIdentityBodyReads;
+    },
     pullNavCartCalls() {
       return pullNavCartCalls;
     }
@@ -392,7 +417,8 @@ function createCartEnvironment({
   pageScriptBody = null,
   runtimeLineItems = null,
   storageThrows = false,
-  mobileLayout = false
+  mobileLayout = false,
+  initialNote = "客人原有備註"
 }) {
   const listeners = {};
   let fetchCount = 0;
@@ -427,7 +453,7 @@ function createCartEnvironment({
     }
   });
   Object.setPrototypeOf(note, MockTextAreaElement.prototype);
-  note.value = "客人原有備註";
+  note.value = initialNote;
   // Model the own value tracker installed by React. A direct assignment would
   // update this tracker before the input event and React would ignore it.
   const nativeValue = Object.getOwnPropertyDescriptor(MockTextAreaElement.prototype, "value");
@@ -588,6 +614,12 @@ function createCartEnvironment({
     note,
     noteParent,
     window,
+    setQuantity(nextQuantity) {
+      quantityInput.value = String(nextQuantity);
+      pageLineItems.splice(0, pageLineItems.length,
+        ...(nextQuantity > 0 ? [{ variant_id: variantId, quantity: nextQuantity }] : []));
+      window.lineItems = pageLineItems;
+    },
     triggerJQuery(eventName, ...args) {
       const event = {
         type: eventName,
@@ -609,6 +641,65 @@ function createCartEnvironment({
       return fetchCount;
     }
   };
+}
+
+function productionRecords(environment) {
+  return JSON.parse(environment.localStorage.getItem("eyefansCustomCartDesignsProdV1") || "[]");
+}
+
+async function verifiedUvFixture(requestId, selectionOverrides, behavior = {}) {
+  const environment = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd",
+    "uv",
+    behavior
+  );
+  environment.listeners.message({
+    origin: "https://nina82815.github.io",
+    source: environment.frameWindow,
+    data: requestInContext(environment.context, requestId, uvSelection(selectionOverrides))
+  });
+  await flushTasks();
+  await flushTasks();
+  assert.equal(environment.replies.at(-1).message.ok, true, `${requestId}: fixture must have a verified add`);
+  assert.equal(environment.requests.filter(request => request.options.method === "POST").length, 1);
+  const record = productionRecords(environment).find(item => item.requestId === requestId);
+  assert.ok(record, `${requestId}: successful fixture must retain its manufacturing record`);
+  assert.equal(record.status, "active");
+  assert.equal(record.receipt.verifiedByCartDelta, true);
+  return { environment, record };
+}
+
+function assertAmbiguousCheckoutBlocked(environment, label) {
+  assert.equal(environment.checkout.attributes.get("aria-disabled"), "true", `${label}: desktop checkout must fail closed`);
+  assert.equal(environment.floatingCheckout.attributes.get("aria-disabled"), "true", `${label}: mobile checkout must fail closed`);
+  assert.equal(environment.document.getElementById("eyefans-cart-design-summary")?.dataset.state, "error", label);
+
+  environment.checkout.click();
+  environment.floatingCheckout.click();
+  assert.equal(environment.checkout.clickCount, 1, `${label}: blocked desktop click must not be retried`);
+  assert.equal(environment.floatingCheckout.clickCount, 1, `${label}: blocked mobile click must not be retried`);
+  assert.equal(environment.checkout.syntheticPrevented, true, label);
+  assert.equal(environment.floatingCheckout.syntheticPrevented, true, label);
+
+  let submitPrevented = false;
+  let submitRetried = 0;
+  const form = {
+    querySelector: () => environment.checkout,
+    contains: element => element === environment.checkout,
+    requestSubmit() { submitRetried += 1; }
+  };
+  environment.listeners.submit({
+    target: form,
+    preventDefault() { submitPrevented = true; },
+    stopImmediatePropagation() {}
+  });
+  assert.equal(submitPrevented, true, `${label}: direct form submission must be stopped`);
+  assert.equal(submitRetried, 0, `${label}: direct form submission must not be retried`);
+  const payload = vm.runInContext('({ "order[note]": "尚未驗證的表單備註" })', environment.context);
+  const event = environment.triggerJQuery("checkout_cart:checkout", payload);
+  assert.equal(event.defaultPrevented, true, `${label}: serialized checkout must be stopped`);
+  assert.equal(event.immediatePropagationStopped, true, label);
+  assert.equal(payload["order[note]"], "尚未驗證的表單備註", `${label}: stale design must not replace checkout payload`);
 }
 
 (async () => {
@@ -746,8 +837,8 @@ function createCartEnvironment({
   assert.equal(livePostRequests.length, 1);
   assert.equal(
     live.requests.filter(request => request.options.method === "GET").length,
-    3,
-    "successful flow must verify product availability plus the /cart.json baseline and +1 delta"
+    5,
+    "successful flow must verify product, cart identity, quantity baseline and +1 delta"
   );
   assert.equal(
     live.requests.filter(request => request.url === "https://www.eyefans.com.tw/cart.json").length,
@@ -773,6 +864,17 @@ function createCartEnvironment({
   assert.equal(savedRecords[0].receipt.cartQuantityBefore, 0);
   assert.equal(savedRecords[0].receipt.cartQuantityAfter, 1);
   assert.equal(savedRecords[0].receipt.verifiedByCartDelta, true);
+  assert.equal(savedRecords[0].cartToken, "cart-token-123", "new verified designs must bind their actual cart token");
+  const identityRequests = live.requests.filter(request => new URL(request.url).pathname === "/cart");
+  assert.equal(identityRequests.length, 2);
+  assert.ok(identityRequests.every(request => (
+    request.options.method === "GET"
+    && request.options.credentials === "same-origin"
+    && request.options.cache === "no-store"
+    && request.options.redirect === "follow"
+    && request.options.mode === "same-origin"
+  )), "cart identity must be a same-origin, uncached, read-only redirect resolution");
+  assert.equal(live.cartIdentityBodyReads(), 0, "checkout HTML must not be inspected as a design identity source");
 
   live.listeners.message({
     origin: "https://nina82815.github.io",
@@ -788,7 +890,7 @@ function createCartEnvironment({
   );
   assert.equal(
     live.requests.filter(request => request.options.method === "GET").length,
-    5,
+    8,
     "cached success must still verify current product and cart state before returning"
   );
   assert.match(live.replies.at(-1).message.message, /此設計已加入購物車/);
@@ -920,7 +1022,8 @@ function createCartEnvironment({
   const limitRecords = Array.from({ length: 20 }, (_unused, index) => ({
     ...structuredClone(savedRecords[0]),
     designId: `EF-LIMIT-${String(index + 1).padStart(6, "0")}`,
-    requestId: `request-limit-seed-${String(index + 1).padStart(2, "0")}`
+    requestId: `request-limit-seed-${String(index + 1).padStart(2, "0")}`,
+    cartToken: "preserved-foreign-cart"
   }));
   const designLimit = createProductEnvironment(
     "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd",
@@ -935,7 +1038,7 @@ function createCartEnvironment({
   await flushTasks();
   await flushTasks();
   assert.equal(designLimit.requests.filter(request => request.options.method === "POST").length, 0);
-  assert.match(designLimit.replies.at(-1).message.message, /數量已達上限/);
+  assert.match(designLimit.replies.at(-1).message.message, /暫存的客製資料已達安全上限，尚未新增商品/);
 
   const matchingCart = createCartEnvironment({
     recordsJson: JSON.stringify(savedRecords),
@@ -998,7 +1101,7 @@ function createCartEnvironment({
   assert.equal(missingRecordsCheckout.checkout.attributes.get("aria-disabled"), "true");
   assert.match(
     missingRecordsCheckout.document.getElementById("eyefans-cart-design-summary").children[1].textContent,
-    /客製商品數量與設計資料不一致/
+    /客製商品與設計資料無法明確對應/
   );
 
   const ordinaryCheckout = createCartEnvironment({
@@ -1018,7 +1121,8 @@ function createCartEnvironment({
   await flushTasks();
   await flushTasks();
   assert.equal(legacyOnlyCustomCheckout.checkout.attributes.get("aria-disabled"), "true");
-  assert.equal(legacyOnlyCustomCheckout.localStorage.getItem("eyefansCustomCartDesignsProdV1"), "[]");
+  assert.equal(legacyOnlyCustomCheckout.localStorage.getItem("eyefansCustomCartDesignsProdV1"), null,
+    "blocked legacy checkout must not invent or migrate a production record");
   assert.equal(
     legacyOnlyCustomCheckout.localStorage.getItem("eyefansCustomCartDesignsV3"),
     JSON.stringify(savedRecords),
@@ -1069,6 +1173,329 @@ function createCartEnvironment({
     "a different custom variant must not claim or discard an unbound design"
   );
   assert.equal(differentVariantCart.checkout.attributes.get("aria-disabled"), "true");
+
+  // A verified new add is not proof that an older record for the same
+  // CYBERBIZ size variant is still in the cart. In particular, removing the
+  // final line can redirect to /cart before /carts/:token reconciles zero.
+  const oldTest = await verifiedUvFixture("request-delete-old-test", {
+    name: "test", frame: "咖啡紅茶", temple: "琥珀", lens: "抗藍光鏡片", lensId: "blue-tea"
+  });
+  const newTest = await verifiedUvFixture("request-delete-new-TEST2", {
+    name: "TEST2", frame: "天藍", temple: "櫻花粉", lens: "三號灰片", lensId: "gray"
+  });
+  const foreignTest = await verifiedUvFixture("request-delete-foreign", { name: "FOREIGN" });
+  const unrelatedTest = await verifiedUvFixture("request-delete-unrelated", { name: "OTHER", size: "S" });
+  // Model legacy records written before product-page cart-token binding.
+  const oldUnbound = { ...oldTest.record, cartToken: null };
+  const newUnbound = { ...newTest.record, cartToken: null };
+  const foreignBound = { ...foreignTest.record, cartToken: "another-cart-token" };
+  const unrelatedUnbound = { ...unrelatedTest.record, cartToken: null };
+  const originalToken = "delete-last-cart-token";
+  const initialOldCheckout = createCartEnvironment({
+    recordsJson: JSON.stringify([{ ...oldTest.record, cartToken: originalToken }]),
+    quantity: 1, cartToken: originalToken
+  });
+  const oldBound = productionRecords(initialOldCheckout)[0];
+  assert.equal(oldBound.cartToken, originalToken);
+  assert.match(initialOldCheckout.note.value, /文字：test/);
+  assert.notEqual(oldBound.fingerprint, newUnbound.fingerprint);
+  assert.notEqual(oldBound.designId, newUnbound.designId);
+  assert.equal(oldBound.variantId, newUnbound.variantId);
+
+  const emptyRedirect = createProductEnvironment("https://www.eyefans.com.tw/cart", "uv", {
+    recordsJson: JSON.stringify([oldBound, foreignBound, unrelatedUnbound])
+  });
+  assert.equal(emptyRedirect.listeners.message, undefined, "plain /cart redirect has no product bridge");
+  assert.deepEqual(productionRecords(emptyRedirect), [oldBound, foreignBound, unrelatedUnbound],
+    "redirect alone is not evidence that an empty tokenized cart was reconciled");
+
+  const customerNote = "請於週五配送；這是客人自行輸入的備註。";
+  const staleNote = initialOldCheckout.note.value.replace("客人原有備註", customerNote);
+  for (const [label, ambiguousRecords] of [
+    ["old bound + new unbound", [oldBound, newUnbound]],
+    ["reversed old bound + new unbound", [newUnbound, oldBound]],
+    ["old unbound + new unbound", [oldUnbound, newUnbound]],
+    ["reversed two unbound", [newUnbound, oldUnbound]],
+    ["legacy unbound alone has no cart identity proof", [oldUnbound]]
+  ]) {
+    const checkout = createCartEnvironment({
+      recordsJson: JSON.stringify([...ambiguousRecords, foreignBound, unrelatedUnbound]),
+      quantity: 1, cartToken: originalToken, initialNote: staleNote
+    });
+    assertAmbiguousCheckoutBlocked(checkout, label);
+    assert.equal(checkout.note.value, customerNote, `${label}: clear stale managed note but preserve the manual note`);
+    const retained = productionRecords(checkout);
+    assert.deepEqual(retained.find(record => record.requestId === foreignBound.requestId), foreignBound,
+      `${label}: another cart's design must not be discarded or rebound`);
+    assert.deepEqual(retained.find(record => record.requestId === unrelatedUnbound.requestId), unrelatedUnbound,
+      `${label}: an unrelated size must not be discarded or rebound`);
+    assert.deepEqual(
+      retained.filter(record => ambiguousRecords.some(candidate => candidate.requestId === record.requestId))
+        .map(record => record.requestId).sort(),
+      ambiguousRecords.map(record => record.requestId).sort(),
+      `${label}: ambiguity must not silently discard either candidate`
+    );
+  }
+
+  const differentTokenAfterNewAdd = createCartEnvironment({
+    recordsJson: JSON.stringify([oldBound, { ...newTest.record, cartToken: "fresh-cart-token" }, unrelatedUnbound]),
+    quantity: 1, cartToken: "fresh-cart-token", initialNote: customerNote
+  });
+  assert.equal(differentTokenAfterNewAdd.checkout.attributes.has("aria-disabled"), false,
+    "a foreign-token bound record must not compete with the single current candidate");
+  assert.match(differentTokenAfterNewAdd.note.value, /文字：TEST2/);
+  assert.match(differentTokenAfterNewAdd.note.value, /鏡片：三號灰片/);
+  assert.ok(!differentTokenAfterNewAdd.note.value.includes(oldBound.designId));
+  assert.deepEqual(productionRecords(differentTokenAfterNewAdd).find(record => record.requestId === oldBound.requestId), oldBound);
+
+  const observedEmptyToken = createCartEnvironment({
+    recordsJson: JSON.stringify([oldBound, foreignBound, unrelatedUnbound]),
+    quantity: 0, cartToken: originalToken, initialNote: staleNote
+  });
+  assert.deepEqual(productionRecords(observedEmptyToken), [foreignBound, unrelatedUnbound],
+    "verified empty token may remove only its bound records, not foreign or unbound designs");
+  assert.equal(observedEmptyToken.note.value, customerNote, "empty reconciliation removes only the generated note block");
+  const cleanAfterEmpty = createCartEnvironment({
+    recordsJson: JSON.stringify([...productionRecords(observedEmptyToken), { ...newTest.record, cartToken: originalToken }]),
+    quantity: 1, cartToken: originalToken, initialNote: observedEmptyToken.note.value
+  });
+  assert.equal(cleanAfterEmpty.checkout.attributes.has("aria-disabled"), false);
+  assert.match(cleanAfterEmpty.note.value, /文字：TEST2/);
+  assert.ok(!cleanAfterEmpty.note.value.includes(oldBound.designId));
+  assert.ok(cleanAfterEmpty.note.value.includes(customerNote));
+
+  const unboundBeforeEmpty = createCartEnvironment({
+    recordsJson: JSON.stringify([oldUnbound]), quantity: 0, cartToken: originalToken
+  });
+  assert.deepEqual(productionRecords(unboundBeforeEmpty), [oldUnbound]);
+  const unboundAfterNewAdd = createCartEnvironment({
+    recordsJson: JSON.stringify([...productionRecords(unboundBeforeEmpty), newUnbound]),
+    quantity: 1, cartToken: originalToken
+  });
+  assertAmbiguousCheckoutBlocked(unboundAfterNewAdd, "unbound record preserved across an empty cart");
+
+  const secondConcurrent = await verifiedUvFixture("request-delete-second-of-two", { name: "SECOND" }, {
+    initialCartQuantities: { 87452778: 1 },
+    recordsJson: JSON.stringify([oldTest.record])
+  });
+  const twoDistinctDesigns = createCartEnvironment({
+    recordsJson: JSON.stringify([oldBound, { ...secondConcurrent.record, cartToken: originalToken }]),
+    quantity: 2, cartToken: originalToken, initialNote: customerNote
+  });
+  assert.equal(twoDistinctDesigns.checkout.attributes.has("aria-disabled"), false,
+    "two successful designs and two units must remain supported");
+  assert.match(twoDistinctDesigns.note.value, /文字：test/);
+  assert.match(twoDistinctDesigns.note.value, /文字：SECOND/);
+  const partiallyDeleted = createCartEnvironment({
+    recordsJson: JSON.stringify(productionRecords(twoDistinctDesigns)),
+    quantity: 1, cartToken: originalToken, initialNote: twoDistinctDesigns.note.value
+  });
+  assertAmbiguousCheckoutBlocked(partiallyDeleted, "partial deletion cannot choose between two same-variant designs");
+  assert.ok(partiallyDeleted.note.value.includes(customerNote));
+
+  const legacyTest = await verifiedUvFixture("request-delete-legacy-unbound", { name: "LEGACY" });
+  const legacyUnbound = { ...legacyTest.record, cartToken: null, excludedCartTokens: ["prior-excluded-token"] };
+  const unrelatedBound = { ...unrelatedTest.record, cartToken: originalToken };
+  for (const [label, preCartIdentityUrl] of [
+    ["known-empty-token", `https://www.eyefans.com.tw/carts/${originalToken}`],
+    ["empty-redirect-no-token", "https://www.eyefans.com.tw/cart"]
+  ]) {
+    const seed = [oldBound, legacyUnbound, foreignBound, unrelatedBound];
+    const replacement = await verifiedUvFixture(`request-replace-${label}`, {
+      name: "TEST2", frame: "天藍", temple: "櫻花粉", lens: "三號灰片", lensId: "gray"
+    }, {
+      recordsJson: JSON.stringify(seed),
+      preCartIdentityUrl,
+      postCartIdentityUrl: `https://www.eyefans.com.tw/carts/${originalToken}`
+    });
+    assert.equal(replacement.record.cartToken, originalToken, `${label}: new design must bind the confirmed cart`);
+    assert.equal(replacement.record.receipt.cartQuantityBefore, 0);
+    assert.equal(replacement.record.receipt.cartQuantityAfter, 1);
+    const retained = productionRecords(replacement.environment);
+    assert.equal(retained.some(record => record.requestId === oldBound.requestId), false,
+      `${label}: observed zero permits removing this token's stale same-variant bound design`);
+    assert.deepEqual(retained.find(record => record.requestId === foreignBound.requestId), foreignBound,
+      `${label}: another cart's same-variant design must survive`);
+    assert.deepEqual(retained.find(record => record.requestId === unrelatedBound.requestId), unrelatedBound,
+      `${label}: another size must not be removed by same-variant cleanup`);
+    const excludedLegacy = retained.find(record => record.requestId === legacyUnbound.requestId);
+    assert.ok(excludedLegacy, `${label}: legacy unbound data must not be globally erased`);
+    assert.equal(excludedLegacy.cartToken, null);
+    assert.deepEqual(new Set(excludedLegacy.excludedCartTokens), new Set(["prior-excluded-token", originalToken]),
+      `${label}: exclusion must be scoped to the verified cart and preserve older exclusions`);
+
+    const checkout = createCartEnvironment({
+      recordsJson: JSON.stringify(retained), quantity: 1, cartToken: originalToken, initialNote: staleNote
+    });
+    assert.equal(checkout.checkout.attributes.has("aria-disabled"), false, `${label}: verified replacement should work`);
+    assert.ok(checkout.note.value.includes(replacement.record.designId));
+    assert.match(checkout.note.value, /文字：TEST2/);
+    assert.match(checkout.note.value, /鏡框：天藍/);
+    assert.match(checkout.note.value, /鏡片：三號灰片/);
+    assert.ok(!checkout.note.value.includes(oldBound.designId), `${label}: old EF must not return`);
+    assert.ok(!checkout.note.value.includes(legacyUnbound.designId), `${label}: excluded legacy EF must not return`);
+    assert.ok(checkout.note.value.includes(customerNote), `${label}: merchant/customer note must survive replacement`);
+    const checkoutPayload = vm.runInContext("({})", checkout.context);
+    const checkoutEvent = checkout.triggerJQuery("checkout_cart:checkout", checkoutPayload);
+    assert.equal(checkoutEvent.defaultPrevented, false, `${label}: verified replacement can be serialized`);
+    assert.ok(checkoutPayload["order[note]"].includes(replacement.record.designId));
+    assert.ok(!checkoutPayload["order[note]"].includes(oldBound.designId), `${label}: stale EF cannot re-enter the final payload`);
+    const refreshed = createCartEnvironment({
+      recordsJson: JSON.stringify(productionRecords(checkout)),
+      quantity: 1, cartToken: originalToken, initialNote: checkout.note.value
+    });
+    assert.equal(refreshed.checkout.attributes.has("aria-disabled"), false, `${label}: scoped exclusion must survive reload`);
+    assert.ok(refreshed.note.value.includes(replacement.record.designId));
+    assert.ok(!refreshed.note.value.includes(oldBound.designId));
+    assert.ok(!refreshed.note.value.includes(legacyUnbound.designId));
+  }
+
+  const concurrentRecord = { ...foreignTest.record, cartToken: originalToken };
+  const concurrentChange = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd", "uv", {
+      recordsJson: JSON.stringify([oldBound]),
+      preCartIdentityUrl: `https://www.eyefans.com.tw/carts/${originalToken}`,
+      postCartIdentityUrl: `https://www.eyefans.com.tw/carts/${originalToken}`,
+      beforePost({ localStorage }) {
+        const records = JSON.parse(localStorage.getItem("eyefansCustomCartDesignsProdV1"));
+        localStorage.setItem("eyefansCustomCartDesignsProdV1", JSON.stringify([...records, concurrentRecord]));
+      }
+    }
+  );
+  concurrentChange.listeners.message({
+    origin: "https://nina82815.github.io", source: concurrentChange.frameWindow,
+    data: requestInContext(concurrentChange.context, "request-after-snapshot-change", uvSelection({ name: "TEST2" }))
+  });
+  await flushTasks();
+  await flushTasks();
+  assert.equal(concurrentChange.requests.filter(request => request.options.method === "POST").length, 1);
+  assert.deepEqual(productionRecords(concurrentChange).find(record => record.requestId === concurrentRecord.requestId), concurrentRecord,
+    "zero-baseline cleanup must not erase a same-variant record that appeared after the preflight snapshot");
+  assert.ok(productionRecords(concurrentChange).some(record => record.requestId === "request-after-snapshot-change"),
+    "a POST that happened must retain its own pending or active record");
+  const concurrentCheckout = createCartEnvironment({
+    recordsJson: JSON.stringify(productionRecords(concurrentChange)), quantity: 1, cartToken: originalToken
+  });
+  assertAmbiguousCheckoutBlocked(concurrentCheckout, "concurrent local design must not be silently discarded");
+
+  const identityFailureCases = [
+    { label: "foreign redirect", preCartIdentityUrl: "https://evil.example/carts/cart-token-123" },
+    { label: "similar host", preCartIdentityUrl: "https://www.eyefans.com.tw.evil.example/carts/cart-token-123" },
+    { label: "insecure redirect", preCartIdentityUrl: "http://www.eyefans.com.tw/carts/cart-token-123" },
+    { label: "unexpected port", preCartIdentityUrl: "https://www.eyefans.com.tw:8443/carts/cart-token-123" },
+    { label: "login redirect", preCartIdentityUrl: "https://www.eyefans.com.tw/account/login" },
+    { label: "non-cart path", preCartIdentityUrl: "https://www.eyefans.com.tw/carts/cart-token-123/extra" },
+    { label: "relative response URL", preCartIdentityUrl: "/carts/cart-token-123" },
+    { label: "missing response URL", preCartIdentityUrl: "" },
+    { label: "failed response", identityStatus: 503 },
+    { label: "network failure", identityThrows: true },
+    {
+      label: "same-variant quantity without identity", preCartIdentityUrl: "https://www.eyefans.com.tw/cart",
+      initialCartQuantities: { 87452778: 1 }
+    },
+    {
+      label: "other items still require cart identity", preCartIdentityUrl: "https://www.eyefans.com.tw/cart",
+      initialCartQuantities: { 99999999: 1 }
+    }
+  ];
+  for (const [index, { label, ...behavior }] of identityFailureCases.entries()) {
+    const seed = [oldBound, foreignBound, unrelatedBound];
+    const environment = createProductEnvironment(
+      "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd", "uv",
+      { recordsJson: JSON.stringify(seed), ...behavior }
+    );
+    environment.listeners.message({
+      origin: "https://nina82815.github.io", source: environment.frameWindow,
+      data: requestInContext(environment.context, `request-identity-${index}`, uvSelection({ name: "TEST2" }))
+    });
+    await flushTasks();
+    await flushTasks();
+    assert.equal(environment.replies.at(-1).message.ok, false, `${label}: cannot promise an identified cart`);
+    assert.equal(environment.requests.filter(request => request.options.method === "POST").length, 0,
+      `${label}: identity must be verified before writing the cart`);
+    assert.deepEqual(productionRecords(environment), seed, `${label}: failed preflight must not mutate old records`);
+    assert.equal(environment.cartIdentityBodyReads(), 0);
+  }
+
+  for (const [index, behavior] of [
+    { postCartIdentityUrl: "https://www.eyefans.com.tw/carts/changed-cart-token" },
+    { postCartIdentityUrl: "https://evil.example/carts/cart-token-123" },
+    { postCartIdentityUrl: "https://www.eyefans.com.tw/cart" },
+    { postCartIdentityStatus: 503 },
+    { postCartIdentityThrows: true }
+  ].entries()) {
+    const previousCartRecord = { ...oldBound, cartToken: "changed-cart-token" };
+    const environment = createProductEnvironment(
+      "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd", "uv", {
+        ...behavior,
+        ...(index === 0 ? { recordsJson: JSON.stringify([previousCartRecord]) } : {})
+      }
+    );
+    environment.listeners.message({
+      origin: "https://nina82815.github.io", source: environment.frameWindow,
+      data: requestInContext(environment.context, `request-post-identity-${index}`, uvSelection({ name: "TEST2" }))
+    });
+    await flushTasks();
+    await flushTasks();
+    assert.equal(environment.cartQuantities.get("87452778"), 1, "fixture must model a POST that already took effect");
+    assert.equal(environment.replies.at(-1).message.ok, false, "unverified post-identity is not successful completion");
+    const pending = productionRecords(environment).filter(record => record.status === "pending");
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0].cartToken, null,
+      "pending POST cannot bind the preflight token before postflight confirms which cart received it");
+    if (index === 0) {
+      assert.deepEqual(productionRecords(environment).find(record => record.requestId === previousCartRecord.requestId), previousCartRecord);
+      const changedIdentityCheckout = createCartEnvironment({
+        recordsJson: JSON.stringify(productionRecords(environment)), quantity: 1,
+        cartToken: "changed-cart-token", initialNote: staleNote
+      });
+      assertAmbiguousCheckoutBlocked(changedIdentityCheckout, "T-to-U identity change must not hide pending behind U's old bound record");
+      assert.equal(changedIdentityCheckout.note.value, customerNote);
+    }
+    environment.listeners.message({
+      origin: "https://nina82815.github.io", source: environment.frameWindow,
+      data: requestInContext(environment.context, `request-post-identity-retry-${index}`, uvSelection({ name: "TEST2" }))
+    });
+    await flushTasks();
+    await flushTasks();
+    assert.equal(environment.requests.filter(request => request.options.method === "POST").length, 1,
+      "retry after uncertain identity must not create another cart item");
+    assert.equal(environment.replies.at(-1).message.ok, false);
+    assert.equal(productionRecords(environment).find(record => record.requestId === `request-post-identity-${index}`).status, "pending");
+  }
+
+  for (const manualNote of [customerNote, ""]) {
+    const excludedLegacy = { ...legacyUnbound, excludedCartTokens: [...legacyUnbound.excludedCartTokens, originalToken] };
+    const seed = [oldBound, excludedLegacy, foreignBound];
+    const deletedLast = createCartEnvironment({
+      recordsJson: JSON.stringify(seed), quantity: 1, cartToken: originalToken, initialNote: manualNote
+    });
+    assert.equal(deletedLast.checkout.attributes.has("aria-disabled"), false);
+    assert.ok(deletedLast.note.value.includes(oldBound.designId));
+    deletedLast.setQuantity(0);
+    deletedLast.triggerJQuery("checkout_cart:added");
+    await new Promise(resolve => setTimeout(resolve, 5));
+    await flushTasks();
+    assert.equal(deletedLast.checkout.attributes.has("aria-disabled"), false, "empty cart should clear its stale verified note state");
+    assert.equal(deletedLast.note.value, manualNote);
+    assert.deepEqual(productionRecords(deletedLast), [foreignBound, excludedLegacy]);
+    const emptyPayload = vm.runInContext('({ "order[note]": "stale serialized custom note" })', deletedLast.context);
+    const emptyEvent = deletedLast.triggerJQuery("checkout_cart:checkout", emptyPayload);
+    assert.equal(emptyEvent.defaultPrevented, false, "no-custom checkout must accept a verified empty-string note too");
+    assert.equal(emptyPayload["order[note]"], manualNote, "removed EF cannot return through the final payload hook");
+
+    const ordinaryOnly = createCartEnvironment({
+      recordsJson: JSON.stringify(seed), quantity: 1, variantId: "99999999", cartToken: originalToken,
+      initialNote: initialOldCheckout.note.value.replace("客人原有備註", manualNote)
+    });
+    assert.equal(ordinaryOnly.checkout.attributes.has("aria-disabled"), false,
+      "preserved legacy exclusions must not block an ordinary non-custom cart");
+    assert.equal(ordinaryOnly.note.value, manualNote);
+    const ordinaryPayload = vm.runInContext("({})", ordinaryOnly.context);
+    const ordinaryEvent = ordinaryOnly.triggerJQuery("checkout_cart:checkout", ordinaryPayload);
+    assert.equal(ordinaryEvent.defaultPrevented, false);
+    assert.equal(ordinaryPayload["order[note]"], manualNote);
+  }
 
   matchingCart.note.value = "客人修改後的備註";
   let checkoutPrevented = false;
@@ -1270,18 +1697,15 @@ function createCartEnvironment({
   });
   await flushTasks();
   await flushTasks();
-  assert.equal(pendingPresentCart.checkout.attributes.has("aria-disabled"), false);
-  assert.match(pendingPresentCart.note.value, /【eYeFANS 客製設計資料】/);
+  assertAmbiguousCheckoutBlocked(pendingPresentCart, "an unresolved POST cannot be promoted by quantity coincidence");
+  assert.equal(pendingPresentCart.note.value, "客人原有備註");
   assert.equal(
     JSON.parse(pendingPresentCart.localStorage.getItem("eyefansCustomCartDesignsProdV1"))[0].status,
     "pending",
     "cart-page reconciliation must not upgrade an ambiguous POST into receipt-verified active"
   );
-  pendingPresentCart.checkout.click();
-  await flushTasks();
-  await flushTasks();
-  assert.equal(pendingPresentCart.checkout.clickCount, 2, "repeat checkout sync should safely continue");
-  assert.equal(pendingPresentCart.checkout.attributes.has("aria-disabled"), false);
+  assert.equal(pendingPresentCart.checkout.clickCount, 1, "pending checkout must not retry a blocked click");
+  assert.equal(pendingPresentCart.checkout.attributes.get("aria-disabled"), "true");
   assert.equal(
     JSON.parse(pendingPresentCart.localStorage.getItem("eyefansCustomCartDesignsProdV1"))[0].status,
     "pending"
@@ -1351,6 +1775,7 @@ function createCartEnvironment({
     "uv",
     {
       initialCartQuantities: { 87452778: 1 },
+      recordsJson: JSON.stringify(savedRecords),
       productVariantOverrides: {
         M: { available: true, inventory_policy: "deny", inventory_quantity: 1 }
       }
@@ -1366,7 +1791,8 @@ function createCartEnvironment({
   assert.equal(inventoryAtCapacity.replies.at(-1).message.ok, false);
   assert.match(inventoryAtCapacity.replies.at(-1).message.message, /沒有可用庫存/);
   assert.equal(inventoryAtCapacity.requests.filter(request => request.options.method === "POST").length, 0);
-  assert.equal(inventoryAtCapacity.localStorage.getItem("eyefansCustomCartDesignsProdV1"), null);
+  assert.deepEqual(productionRecords(inventoryAtCapacity), savedRecords,
+    "stock rejection must preserve the existing verified design without creating a pending add");
 
   const productMismatchCases = [
     { productVariantOverrides: { M: { id: 99999999 } } },
@@ -1434,7 +1860,7 @@ function createCartEnvironment({
     await flushTasks();
     assert.equal(environment.replies.at(-1).message.ok, true, `${testCase.label} receipt needs +1 proof`);
     assert.equal(environment.requests.filter(request => request.options.method === "POST").length, 1);
-    assert.equal(environment.requests.filter(request => request.options.method === "GET").length, 3);
+    assert.equal(environment.requests.filter(request => request.options.method === "GET").length, 5);
     const records = JSON.parse(environment.localStorage.getItem("eyefansCustomCartDesignsProdV1"));
     assert.equal(records[0].status, "active");
     assert.equal(records[0].receipt.verifiedByCartDelta, true);

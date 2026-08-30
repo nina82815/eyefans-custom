@@ -66,7 +66,9 @@ iframe 送出：
 測試資料時才會啟動。設定方式請見
 `integration/CYBERBIZ_CART_LIVE_TEST_SETUP.md`。
 
-測試完成後使用獨立的 `integration/cyberbiz-cart-production-loader.js`；它不讀取 V3
+修正版使用獨立的 `integration/cyberbiz-cart-production-loader-20260830.js`；程式檔發布不代表主題已安裝或購物車已完成驗收。
+舊 `integration/cyberbiz-cart-production-loader.js` 保持原內容與 SRI，避免影響既有主題。
+新版不讀取 V3
 測試資料，並會在一般商品網址啟用、關閉原商品購買入口，以及在缺少 EF 製作資料時
 暫停客製結帳。正式切換順序與回滾方式請見
 `integration/CYBERBIZ_CART_PRODUCTION_SETUP.md`。
@@ -87,7 +89,7 @@ node tests/cyberbiz-cart-bridge.test.js
 node tests/cyberbiz-cart-live-test-loader.test.js
 ```
 
-正式 loader 的自動測試使用假的 CYBERBIZ 回應，不會修改真實購物車。它會驗證三方案
+候選 loader 的自動測試使用假的 CYBERBIZ 回應，不會修改真實購物車。它會驗證三方案
 乘四尺寸的 12 個款式、正式／測試網址互斥、原商品購買入口鎖定、正式與 V3 資料隔離、
 一般購物車保持靜默、客製商品缺少 EF 時 fail-closed，以及 click、form submit 與
 CYBERBIZ checkout event 的結帳阻擋：
@@ -97,6 +99,11 @@ node tests/cyberbiz-cart-production-loader.test.js
 node tests/customizer-cart-ui.contract.test.js
 node tests/cyberbiz-production-setup.contract.test.js
 ```
+
+回歸另涵蓋同源 `/cart` 前後身分確認、刪最後一件後同尺寸重新加入、舊 bound／unbound
+混淆、部分刪除時不得任選設計、跨購物車資料保留、零基線限定清理與持久排除、身分驗證
+失敗後不重複 POST、手填備註保留，以及一般商品與空備註不被誤擋。這些是記憶體模擬，
+不代表已確認真實 CYBERBIZ 的轉址契約或完成正式訂單驗收。
 
 右側 45° 實拍素材合約會確認 22 種在售框色均有正確透明 PNG、四張額外照片只被標記為
 抗藍光鏡片參考、前框與鏡腳使用互補遮罩，以及抗藍光效果不會用整張參考照片覆蓋客人
