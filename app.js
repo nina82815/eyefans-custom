@@ -80,83 +80,64 @@ const VIEW_FILES = {
   a45: "a45.svg"
 };
 
-const PHOTO_ASSET_VERSION = "20260827f";
+const PHOTO_ASSET_VERSION = "20260830a";
+const REGISTERED_PHOTO_ALIGNMENT = Object.freeze([900, 65, 625, 1352, 330]);
+const REGISTERED_PHOTO_CANVAS = Object.freeze({ width: 1643, height: 686 });
+const PHOTO_MASK_PROFILES = Object.freeze({
+  standard: Object.freeze({
+    frameFull: `assets/photos/right-a45/normalized/masks/standard/frame-full.png?v=${PHOTO_ASSET_VERSION}`,
+    frameShell: `assets/photos/right-a45/normalized/masks/standard/frame-shell.png?v=${PHOTO_ASSET_VERSION}`,
+    temple: `assets/photos/right-a45/normalized/masks/standard/temple.png?v=${PHOTO_ASSET_VERSION}`,
+    lens: `assets/photos/right-a45/normalized/masks/standard/lens.png?v=${PHOTO_ASSET_VERSION}`
+  }),
+  amber: Object.freeze({
+    frameFull: `assets/photos/right-a45/normalized/masks/amber/frame-full.png?v=${PHOTO_ASSET_VERSION}`,
+    frameShell: `assets/photos/right-a45/normalized/masks/amber/frame-shell.png?v=${PHOTO_ASSET_VERSION}`,
+    temple: `assets/photos/right-a45/normalized/masks/amber/temple.png?v=${PHOTO_ASSET_VERSION}`,
+    lens: `assets/photos/right-a45/normalized/masks/amber/lens.png?v=${PHOTO_ASSET_VERSION}`
+  })
+});
+const PHOTO_TEMPLE_PAIR_MASKS = Object.freeze({
+  "amber:standard": `assets/photos/right-a45/normalized/masks/pairs/amber-frame-standard-temple/temple.png?v=${PHOTO_ASSET_VERSION}`
+});
 
-function rightPhoto(file, width, height, alignment, nearLens, farLens, joint) {
+function rightPhoto(file, maskProfile = "standard") {
   return {
     a45: `assets/photos/right-a45/${file}?v=${PHOTO_ASSET_VERSION}`,
-    canvas: { width, height },
-    alignment,
-    lenses: { near: nearLens, far: farLens },
-    joint
+    canvas: REGISTERED_PHOTO_CANVAS,
+    alignment: REGISTERED_PHOTO_ALIGNMENT,
+    maskProfile
   };
 }
 
-// Right 45-degree product photos, restored from the camera's Display P3 JPEGs
-// into tagged sRGB while retaining the supplied transparent edges. Solid-color
-// material pixels are matched to the catalog with a CIELAB L* correction only;
-// their a*/b* color and alpha, and every photographed lens pixel, stay unchanged.
-// Alignment uses
-// [near-frame X, near top Y, near bottom Y, far-frame X, far-frame Y] landmarks.
-// Each final pair is the fitted canonical [cx, cy, rx, ry, rotation] lens edge.
-// The anti-blue-light coating extends just beyond it to cover the photographed
-// pressure ring without reaching the colored outer frame. The final [x, top, bottom]
-// landmark follows the photographed molded hinge so mixed frame/temple colors can
-// be joined without a fixed seam cutting either real part.
+// The 2026 Drive cutouts are mirrored to the right-side view, stripped of the
+// photographed brand mark, tagged sRGB and registered to one 1643x686 canvas.
+// The 21 solid colours therefore share pixel-identical geometry. Tortoiseshell
+// came from a separate crop and is normalized independently to the same canvas.
 const PHOTO_ASSETS = {
-  "櫻花粉": rightPhoto("IMG_3594.png", 1448, 1086, [783, 323, 760, 1147, 533.5], [913, 343, 181, 232, 4.9], [1349.6, 328.6, 104, 206.6, .8], [543, 372, 460]),
-  "粉紫": rightPhoto("IMG_3591.png", 1086, 1448, [619, 524, 906, 925, 706], [921.6, 342, 174.6, 229.4, 4.1], [1353, 323.4, 108.4, 209, -2.2], [422, 574, 643]),
-  "暖黃": rightPhoto("IMG_3626.png", 1086, 1448, [627, 702, 1074, 892, 881.5], [909.6, 342.6, 196, 232.6, 8.1], [1361.4, 328, 100, 199, 0], [428, 741, 814]),
-  "豆綠": rightPhoto("IMG_3603.png", 1086, 1448, [622, 563, 931, 915, 745.5], [909, 345.4, 179, 232, -3.4], [1356.6, 328, 113.6, 204, -.2], [427, 610, 682]),
-  "深藍": rightPhoto("IMG_3593.png", 1086, 1448, [571, 573, 875, 824, 719.5], [920, 341, 178, 229, 7.1], [1342.8, 327.2, 108, 201.4, .9], [410, 607, 668]),
-  "復刻粉": rightPhoto("IMG_3604.png", 1086, 1448, [627, 533, 897, 920, 706], [911.4, 342.6, 182, 232.4, 4.3], [1362.4, 329.4, 120, 206, -2.6], [426, 579, 648]),
-  "芋頭紫": rightPhoto("IMG_3612.png", 1536, 1024, [869, 287, 801, 1316, 540.5], [904, 338.4, 179.4, 240.6, 5], [1352, 328.4, 116, 211.4, .5], [568, 350, 441]),
-  "奶油黃": rightPhoto("IMG_3596.png", 1086, 1448, [585, 582, 906, 861, 738], [922, 342, 179, 231, .2], [1355.6, 320, 113, 195, 1.4], [412, 624, 682]),
-  "薄荷綠": rightPhoto("IMG_3620.png", 1448, 1086, [812, 343, 800, 1182, 570], [910.4, 337.6, 182, 234.4, -.4], [1360, 328, 112, 207, .3], [565, 397, 479]),
-  "丹寧藍": rightPhoto("IMG_3610.png", 1086, 1448, [610, 735, 1111, 940, 936], [915.6, 342, 178, 229, -1.6], [1344.4, 329, 106.4, 209, .8], [423, 775, 846]),
-  "梅子": rightPhoto("IMG_3605.png", 1086, 1448, [579, 759, 1096, 856, 918.5], [909, 342, 179.4, 231.4, 1.1], [1343, 329, 105, 207, .2], [392, 795, 860]),
-  "奶茶": rightPhoto("IMG_3616.png", 1086, 1448, [628, 592, 965, 927, 770], [907, 342.4, 184, 231, .3], [1357, 327.6, 114, 206.4, -2.2], [419, 638, 711]),
-  "青釉綠": rightPhoto("IMG_3629.png", 1086, 1448, [609, 596, 937, 888, 761], [915.2, 343, 178, 234, -.3], [1355.6, 323.4, 100, 204.4, .3], [426, 630, 700]),
-  "天藍": rightPhoto("IMG_3617.png", 1086, 1448, [590, 568, 941, 917, 749.5], [923, 343, 173.4, 239, 7.9], [1357, 322, 109, 207, 1.4], [382, 620, 680]),
-  "玫瑰": rightPhoto("IMG_3606.png", 1086, 1448, [630, 611, 983, 922, 791], [902, 346.6, 177, 235.4, -.1], [1351, 323.4, 105, 203, -1.5], [427, 650, 721]),
-  "咖啡牛奶": rightPhoto("IMG_3614.png", 1086, 1448, [601, 649, 989, 868, 816], [895.6, 341, 191.6, 233, 8.1], [1354.4, 331, 104, 206.4, -1], [402, 685, 751]),
-  "枯黃": rightPhoto("IMG_3601.png", 1672, 941, [945, 276, 752, 1331, 507], [905.6, 343.4, 182.4, 230.6, -1.2], [1355, 328.4, 114, 205.6, -2], [682, 334, 419]),
-  "霧面黑": rightPhoto("IMG_3589.png", 1086, 1448, [632, 551, 920, 933, 728.5], [903.4, 343.4, 166.6, 227, 2.9], [1347, 329, 103.4, 202, -.5], [430, 590, 661]),
-  "灰色": rightPhoto("IMG_3595.png", 1448, 1086, [823, 315, 833, 1232, 563], [910.2, 338.4, 184.8, 233.6, 4.1], [1362.4, 329, 120, 206, -1.9], [541, 376, 480]),
-  "咖啡紅茶": rightPhoto("IMG_3627.png", 1086, 1448, [611, 628, 982, 897, 798.5], [916, 345, 179, 229, -1.2], [1348, 326, 101, 205.4, -1.8], [424, 669, 733]),
-  "霧面白": rightPhoto("IMG_3621.png", 1448, 1086, [806, 359, 721, 1102, 537.5], [901, 336.8, 179.4, 238.2, .5], [1348, 328.6, 114.6, 206, -1.7], [599, 397, 467]),
-  "琥珀": rightPhoto("IMG_3630.png", 1448, 1086, [799, 319, 811, 1225, 557.5], [905.4, 345.4, 167.2, 229, -1.2], [1361, 336, 96.8, 210.6, 2.8], [544, 377, 475])
+  "櫻花粉": rightPhoto("normalized/gray/sakura-pink.png"),
+  "粉紫": rightPhoto("normalized/gray/powder-purple.png"),
+  "暖黃": rightPhoto("normalized/gray/warm-yellow.png"),
+  "豆綠": rightPhoto("normalized/gray/pea-green.png"),
+  "深藍": rightPhoto("normalized/gray/deep-blue.png"),
+  "復刻粉": rightPhoto("normalized/gray/retro-pink.png"),
+  "芋頭紫": rightPhoto("normalized/gray/taro-purple.png"),
+  "奶油黃": rightPhoto("normalized/gray/butter-yellow.png"),
+  "薄荷綠": rightPhoto("normalized/gray/mint-green.png"),
+  "丹寧藍": rightPhoto("normalized/gray/denim-blue.png"),
+  "梅子": rightPhoto("normalized/gray/plum.png"),
+  "奶茶": rightPhoto("normalized/gray/milk-tea.png"),
+  "青釉綠": rightPhoto("normalized/gray/celadon-green.png"),
+  "天藍": rightPhoto("normalized/gray/sky-blue.png"),
+  "玫瑰": rightPhoto("normalized/gray/rose.png"),
+  "咖啡牛奶": rightPhoto("normalized/gray/coffee-milk.png"),
+  "枯黃": rightPhoto("normalized/gray/withered-yellow.png"),
+  "霧面黑": rightPhoto("normalized/gray/matte-black.png"),
+  "灰色": rightPhoto("normalized/gray/gray.png"),
+  "咖啡紅茶": rightPhoto("normalized/gray/coffee-black-tea.png"),
+  "霧面白": rightPhoto("normalized/gray/matte-white.png"),
+  "琥珀": rightPhoto("normalized/gray/amber.png", "amber")
 };
-
-// The photographed pressure ring is not identical across the 22 source
-// images. A single global expansion leaves black crescents on some colors and
-// cuts real frame material on others, so every registered photo gets an
-// independently fitted clear-lens opening. Values are canonical
-// [cx, cy, rx, ry, rotation] coordinates after photo alignment.
-const CLEAR_LENS_GEOMETRY = Object.freeze({
-  "櫻花粉": { near: [909.7, 344.2, 191.5, 234.9, 5.7], far: [1350.6, 320, 107.2, 217.9, -1] },
-  "粉紫": { near: [920.9, 338.3, 183.5, 233, 4.8], far: [1353.7, 317.6, 113.2, 214.8, -2.1] },
-  "暖黃": { near: [900.3, 336.3, 204.3, 234.5, 10.9], far: [1373.1, 328.1, 111, 199.2, -2.5] },
-  "豆綠": { near: [912.9, 344.7, 186.9, 232.5, 4.5], far: [1363.9, 320.9, 120.7, 207.7, -1.2] },
-  "深藍": { near: [917.5, 337.7, 188.1, 241.1, 7.7], far: [1344.4, 324.9, 109.6, 218.5, -1] },
-  "復刻粉": { near: [914.6, 342.3, 187, 234.6, 4.8], far: [1362.7, 327.7, 123, 211, -4] },
-  "芋頭紫": { near: [911, 353.3, 183.4, 251.4, 6], far: [1351.7, 322.8, 117.7, 236.4, -1.2] },
-  "奶油黃": { near: [926.5, 345.2, 180.7, 236.3, 3.4], far: [1354.3, 317.3, 111.1, 220, -1.2] },
-  "薄荷綠": { near: [914.5, 335, 185.2, 242.3, 2.1], far: [1362.6, 315.7, 119.7, 210.7, -1.1] },
-  "丹寧藍": { near: [917.4, 349.6, 188.7, 249.9, .3], far: [1348.2, 321.2, 112.4, 214.4, -2.4] },
-  "梅子": { near: [912.5, 342, 187.7, 239.4, 1.9], far: [1347.9, 332.7, 109.3, 212.9, -3.8] },
-  "奶茶": { near: [911.6, 343.4, 189.9, 235.3, 2.1], far: [1359.2, 326.1, 115.8, 211.5, -1.6] },
-  "青釉綠": { near: [916.6, 333.8, 193.5, 243.5, -1.2], far: [1356.7, 314.9, 106.2, 210, -.6] },
-  "天藍": { near: [927.5, 347.3, 181.7, 257.5, 3.3], far: [1360, 326.6, 113.2, 222.7, -1.3] },
-  "玫瑰": { near: [904.2, 336.9, 190.3, 239.5, -2.2], far: [1352.4, 320, 110.1, 205.2, -1.4] },
-  "咖啡牛奶": { near: [887.6, 341.6, 197.7, 239.4, 6.7], far: [1352.9, 319, 112.2, 212.4, .2] },
-  "枯黃": { near: [907.6, 344.1, 191.3, 238.5, 1.9], far: [1358.4, 327, 120.8, 212.1, -4.2] },
-  "霧面黑": { near: [900.7, 337.3, 169.8, 240.9, 2.3], far: [1344.6, 325.9, 102, 206.7, .1] },
-  "灰色": { near: [913.2, 341.4, 184.5, 236.8, 5.1], far: [1361.6, 328, 121.8, 213.3, -5.9] },
-  "咖啡紅茶": { near: [921.5, 341.1, 186.5, 238.2, -.8], far: [1352.1, 325.4, 106.7, 217.9, -3.9] },
-  "霧面白": { near: [896.1, 339.3, 188.8, 239.9, 3.4], far: [1340.8, 316, 119.1, 213.1, -4.7] },
-  "琥珀": { near: [904.1, 345.3, 171, 229.2, .7], far: [1363.9, 334.8, 104.9, 209.5, 5.8] }
-});
 
 const PHOTO_ALIGNMENT_TARGET = Object.freeze({
   nearX: 900,
@@ -166,15 +147,30 @@ const PHOTO_ALIGNMENT_TARGET = Object.freeze({
   farY: 330
 });
 
-// These four supplied photos show the real anti-blue-light coating. Their
-// reflections calibrate the neutral SVG treatment; the original files are not
-// composited directly because they also contain a baked-in frame and temple.
-const BLUE_LIGHT_REFERENCE_FILES = Object.freeze([
-  "IMG_3631.png",
-  "IMG_3632.png",
-  "IMG_3634.png",
-  "IMG_3635.png"
-]);
+const BLUE_LIGHT_PHOTO_ASSETS = Object.freeze({
+  "櫻花粉": rightPhoto("normalized/blue-light/sakura-pink.png"),
+  "粉紫": rightPhoto("normalized/blue-light/powder-purple.png"),
+  "暖黃": rightPhoto("normalized/blue-light/warm-yellow.png"),
+  "豆綠": rightPhoto("normalized/blue-light/pea-green.png"),
+  "深藍": rightPhoto("normalized/blue-light/deep-blue.png"),
+  "復刻粉": rightPhoto("normalized/blue-light/retro-pink.png"),
+  "芋頭紫": rightPhoto("normalized/blue-light/taro-purple.png"),
+  "奶油黃": rightPhoto("normalized/blue-light/butter-yellow.png"),
+  "薄荷綠": rightPhoto("normalized/blue-light/mint-green.png"),
+  "丹寧藍": rightPhoto("normalized/blue-light/denim-blue.png"),
+  "梅子": rightPhoto("normalized/blue-light/plum.png"),
+  "奶茶": rightPhoto("normalized/blue-light/milk-tea.png"),
+  "青釉綠": rightPhoto("normalized/blue-light/celadon-green.png"),
+  "天藍": rightPhoto("normalized/blue-light/sky-blue.png"),
+  "玫瑰": rightPhoto("normalized/blue-light/rose.png"),
+  "咖啡牛奶": rightPhoto("normalized/blue-light/coffee-milk.png"),
+  "枯黃": rightPhoto("normalized/blue-light/withered-yellow.png"),
+  "霧面黑": rightPhoto("normalized/blue-light/matte-black.png"),
+  "灰色": rightPhoto("normalized/blue-light/gray.png"),
+  "咖啡紅茶": rightPhoto("normalized/blue-light/coffee-black-tea.png"),
+  "霧面白": rightPhoto("normalized/blue-light/matte-white.png"),
+  "琥珀": rightPhoto("normalized/blue-light/amber.png", "amber")
+});
 
 const TEXT_COLOR_OPTIONS = {
   black: { label: "黑色", fill: "#171817", stroke: "none", outlineWidth: "0" },
@@ -242,8 +238,14 @@ const PRINT_FONTS = {
 const ENGLISH_FONT_KEYS = new Set(["purpleSmile", "baksoSapi"]);
 const MESSAGE_SCHEMA_VERSION = 1;
 const STOREFRONT_ORIGIN = "https://www.eyefans.com.tw";
+const STOREFRONT_PRODUCT_PATHS = Object.freeze({
+  color: "/products/cls-cus-mix-sun-rd",
+  engraving: "/products/cls-cus-mix-laser-sun-rd",
+  uv: "/products/cls-cus-mix-uv-sun-rd"
+});
 const CART_RESULT_TIMEOUT_MS = 18000;
 const CART_IDLE_MESSAGE = "完成搭配後，可將本次設計加入購物車。";
+const CART_PREVIEW_MESSAGE = "目前為獨立預覽或購物車尚未連線，尚未送出商品。請從官網商品頁使用此功能；前往官網後需重新選擇搭配。";
 
 const state = {
   customizationMode: "uv",
@@ -258,8 +260,8 @@ const state = {
   icon1: "01",
   icon2: "04",
   activeIconSlot: "icon1",
-  nameSource: "PEIYU",
-  name: "PEIYU",
+  nameSource: "eyefans",
+  name: "eyefans",
   textColor: "white",
   font: "baksoSapi",
   caseMode: "preserve",
@@ -268,7 +270,7 @@ const state = {
 };
 
 const customizationDrafts = {
-  uv: { nameSource: "PEIYU", font: "baksoSapi", caseMode: "preserve" },
+  uv: { nameSource: "eyefans", font: "baksoSapi", caseMode: "preserve" },
   engraving: { nameSource: null, font: "baksoSapi", caseMode: "preserve" }
 };
 
@@ -291,8 +293,10 @@ const XML_NS = "http://www.w3.org/XML/1998/namespace";
 // Keep every print layout inside the straight, production-safe portion of the
 // outer temple. In the 45-degree SVG this is local X -2..66, so a long name
 // shrinks in place instead of pushing either icon onto the frame or temple rim.
-const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 32, photo: 85 };
-const MAX_PRINT_WIDTH = { side: 205, a45: 68, photo: 320 };
+// Photo coordinates are calibrated separately on the normalized 1643 × 686
+// canvas. Center on the outer temple, away from both the hinge and lower rim.
+const PRINT_CENTER_OFFSET = { front: 0, side: 15, a45: 32, photo: 0 };
+const MAX_PRINT_WIDTH = { side: 205, a45: 68, photo: 280 };
 
 function svgElement(tag) {
   return document.createElementNS(SVG_NS, tag);
@@ -402,16 +406,13 @@ function preparePhotoLayers() {
     photoLayers[key] = {
       svg,
       frameLayer: svg.querySelector(".photo-frame-layer"),
-      frameRegions: [...svg.querySelectorAll(".photo-frame-region")],
-      templeRegions: [...svg.querySelectorAll(".photo-temple-region")],
       frame: svg.querySelector(".photo-frame-image"),
       temple: svg.querySelector(".photo-temple-image"),
       blueLightEffect: svg.querySelector(".photo-blue-light-effect"),
       blueLightSource: svg.querySelector(".photo-blue-light-source-image"),
-      blueLightNearGeometry: [...svg.querySelectorAll(".photo-blue-light-near-mask, .photo-blue-light-near-clip")],
-      blueLightFarGeometry: [...svg.querySelectorAll(".photo-blue-light-far-mask, .photo-blue-light-far-clip")],
-      printRoot: printLayers.photo?.root || null,
-      printBaseTransform: printLayers.photo?.root?.getAttribute("transform") || ""
+      frameMaskImage: svg.querySelector(".photo-frame-mask-image"),
+      templeMaskImage: svg.querySelector(".photo-temple-mask-image"),
+      lensMaskImage: svg.querySelector(".photo-lens-mask-image")
     };
   });
 }
@@ -446,6 +447,10 @@ function photoAssetFor(color) {
   return PHOTO_ASSETS[color.name] || null;
 }
 
+function blueLightPhotoAssetFor(color) {
+  return BLUE_LIGHT_PHOTO_ASSETS[color.name] || BLUE_LIGHT_PHOTO_ASSETS["霧面黑"];
+}
+
 function photoAlignmentMatrix(alignment) {
   const [nearX, nearTop, nearBottom, farX, farY] = alignment;
   const sourceNearCenterY = (nearTop + nearBottom) / 2;
@@ -460,82 +465,9 @@ function photoAlignmentMatrix(alignment) {
   return [a, b, 0, d, e, f];
 }
 
-function multiplyPhotoMatrices(left, right) {
-  const [la, lb, lc, ld, le, lf] = left;
-  const [ra, rb, rc, rd, re, rf] = right;
-  return [
-    (la * ra) + (lc * rb),
-    (lb * ra) + (ld * rb),
-    (la * rc) + (lc * rd),
-    (lb * rc) + (ld * rd),
-    (la * re) + (lc * rf) + le,
-    (lb * re) + (ld * rf) + lf
-  ];
-}
-
-function canonicalPhotoJoint(asset) {
-  const [jointX, jointTop, jointBottom] = asset.joint;
-  const [a, b, , d, e, f] = photoAlignmentMatrix(asset.alignment);
-  return {
-    x: (a * jointX) + e,
-    top: (b * jointX) + (d * jointTop) + f,
-    bottom: (b * jointX) + (d * jointBottom) + f
-  };
-}
-
-function photoTempleJoinTransform(frameAsset, templeAsset) {
-  const frameJoint = canonicalPhotoJoint(frameAsset);
-  const templeJoint = canonicalPhotoJoint(templeAsset);
-  const templeHeight = Math.max(1, templeJoint.bottom - templeJoint.top);
-  const scaleY = (frameJoint.bottom - frameJoint.top) / templeHeight;
-  return {
-    frameJoint,
-    matrix: [
-      1,
-      0,
-      0,
-      scaleY,
-      frameJoint.x - templeJoint.x,
-      frameJoint.top - (scaleY * templeJoint.top)
-    ]
-  };
-}
-
-function photoNumber(value) {
-  return String(Math.round(value * 100) / 100);
-}
-
-function photoJoinPaths(joint) {
-  const x = photoNumber(joint.x);
-  const top = photoNumber(joint.top);
-  const bottom = photoNumber(joint.bottom);
-  const lowerControl = photoNumber(joint.bottom + 45);
-  return {
-    frame: `M 588 0 H 1643 V 686 H 704 C 673 522 660 430 655 354 C 650 310 ${x} ${lowerControl} ${x} ${bottom} L ${x} ${top} C 588 95 588 55 588 0 Z`,
-    temple: `M 0 0 H 588 C 588 55 588 95 ${x} ${top} L ${x} ${bottom} C ${x} ${lowerControl} 650 310 655 354 C 660 430 673 522 704 686 H 0 Z`
-  };
-}
-
-function applyPhotoJoin(layer, frameAsset, templeAsset) {
-  const join = photoTempleJoinTransform(frameAsset, templeAsset);
-  const paths = photoJoinPaths(join.frameJoint);
-  layer.frameRegions.forEach(region => region.setAttribute("d", paths.frame));
-  layer.templeRegions.forEach(region => region.setAttribute("d", paths.temple));
-  if (layer.printRoot) {
-    layer.printRoot.setAttribute(
-      "transform",
-      `matrix(${join.matrix.join(" ")}) ${layer.printBaseTransform}`.trim()
-    );
-  }
-  return join.matrix;
-}
-
-function applyPhotoPlacement(image, asset, postTransform = null) {
+function applyPhotoPlacement(image, asset) {
   if (!image || !asset) return;
-  const baseMatrix = photoAlignmentMatrix(asset.alignment);
-  const matrix = postTransform
-    ? multiplyPhotoMatrices(postTransform, baseMatrix)
-    : baseMatrix;
+  const matrix = photoAlignmentMatrix(asset.alignment);
   image.setAttribute("x", "0");
   image.setAttribute("y", "0");
   image.setAttribute("width", String(asset.canvas.width));
@@ -545,30 +477,24 @@ function applyPhotoPlacement(image, asset, postTransform = null) {
   setSvgHref(image, asset.a45);
 }
 
-function applyLensGeometry(elements, geometry) {
-  if (!geometry) return;
-  const [cx, cy, rx, ry, rotation] = geometry;
-  elements.forEach(element => {
-    element.setAttribute("cx", String(cx));
-    element.setAttribute("cy", String(cy));
-    element.setAttribute("rx", String(Math.max(1, rx)));
-    element.setAttribute("ry", String(Math.max(1, ry)));
-    element.setAttribute("transform", `rotate(${rotation} ${cx} ${cy})`);
-  });
+function photoMaskProfileFor(asset) {
+  return PHOTO_MASK_PROFILES[asset?.maskProfile] || PHOTO_MASK_PROFILES.standard;
 }
 
-function updateBlueLightPhotoEffect(layer, frameAsset, showBlueLight) {
-  layer.frameLayer.setAttribute(
-    "mask",
-    showBlueLight ? "url(#photo-a45-frame-clear-mask)" : "url(#photo-a45-frame-mask)"
-  );
+function photoTempleMaskFor(frameAsset, templeAsset) {
+  const frameProfile = frameAsset?.maskProfile || "standard";
+  const templeProfile = templeAsset?.maskProfile || "standard";
+  return PHOTO_TEMPLE_PAIR_MASKS[`${frameProfile}:${templeProfile}`]
+    || photoMaskProfileFor(templeAsset).temple;
+}
+
+function updateBlueLightPhotoEffect(layer, frameAsset, templeAsset, showBlueLight) {
+  const frameMasks = photoMaskProfileFor(frameAsset);
+  setSvgHref(layer.frameMaskImage, showBlueLight ? frameMasks.frameShell : frameMasks.frameFull);
+  setSvgHref(layer.templeMaskImage, photoTempleMaskFor(frameAsset, templeAsset));
+  setSvgHref(layer.lensMaskImage, frameMasks.lens);
   layer.blueLightEffect.toggleAttribute("hidden", !showBlueLight);
   layer.blueLightEffect.style.display = showBlueLight ? "inline" : "none";
-  if (!showBlueLight) return;
-
-  const clearLenses = CLEAR_LENS_GEOMETRY[state.frame.name];
-  applyLensGeometry(layer.blueLightNearGeometry, clearLenses?.near || frameAsset.lenses.near);
-  applyLensGeometry(layer.blueLightFarGeometry, clearLenses?.far || frameAsset.lenses.far);
 }
 
 function updatePhotoComposite() {
@@ -577,12 +503,11 @@ function updatePhotoComposite() {
   if (!frameAsset || !templeAsset) return;
 
   Object.entries(photoLayers).forEach(([key, layer]) => {
-    const templeJoinTransform = applyPhotoJoin(layer, frameAsset, templeAsset);
-    applyPhotoPlacement(layer.temple, templeAsset, templeJoinTransform);
+    applyPhotoPlacement(layer.temple, templeAsset);
     applyPhotoPlacement(layer.frame, frameAsset);
-    applyPhotoPlacement(layer.blueLightSource, frameAsset);
+    applyPhotoPlacement(layer.blueLightSource, blueLightPhotoAssetFor(state.frame));
     const showBlueLight = state.lens.id === "blue-tea";
-    updateBlueLightPhotoEffect(layer, frameAsset, showBlueLight);
+    updateBlueLightPhotoEffect(layer, frameAsset, templeAsset, showBlueLight);
   });
 
   const photoMode = state.renderMode === "photo";
@@ -621,6 +546,28 @@ function customizationModeLockedFromLocation() {
 function cartSubmitEnabledFromLocation() {
   try {
     return new URLSearchParams(window.location.search).get("cart") === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+// Showing the purchase entry is not permission to write a cart. The store
+// loader still has to opt a locked product iframe in with the exact cart=1.
+function cartPanelVisibleFromLocation() {
+  try {
+    return new URLSearchParams(window.location.search).get("cart") !== "0";
+  } catch (error) {
+    return true;
+  }
+}
+
+function cartSubmissionAvailable() {
+  if (!cartSubmitEnabledFromLocation() || window.parent === window || !state.customizationModeLocked) return false;
+  try {
+    const referrerOrigin = new URL(document.referrer).origin;
+    const sameOriginTestHost = /^https?:$/.test(window.location.protocol)
+      && referrerOrigin === window.location.origin;
+    return referrerOrigin === STOREFRONT_ORIGIN || sameOriginTestHost;
   } catch (error) {
     return false;
   }
@@ -1300,6 +1247,7 @@ function buildSelectionPayload() {
 }
 
 function announceAndNotifyParent() {
+  syncCartSubmitAvailability();
   const selection = buildSelectionPayload();
   document.getElementById("live-status").textContent = selection.summary;
 
@@ -1354,7 +1302,7 @@ function setCartSubmitState(status, message) {
   const isLoading = status === "loading";
   const isSuccess = status === "success";
   panel.dataset.state = status;
-  button.disabled = isLoading || isSuccess;
+  button.disabled = isLoading || isSuccess || status === "unavailable" || !cartSubmissionAvailable();
   button.setAttribute("aria-busy", String(isLoading));
   button.textContent = isLoading
     ? "正在加入購物車…"
@@ -1363,6 +1311,22 @@ function setCartSubmitState(status, message) {
       : "確認設計並加入購物車";
   setCustomizerControlsLocked(isLoading);
   statusElement.textContent = message;
+  // This is a fixed store URL, never a redirect supplied in a postMessage.
+  document.getElementById("cart-view-link").hidden = !isSuccess;
+}
+
+function syncCartSubmitAvailability() {
+  const panel = document.getElementById("cart-submit-panel");
+  panel.hidden = !cartPanelVisibleFromLocation();
+  const available = cartSubmissionAvailable();
+  const storefrontLink = document.getElementById("cart-storefront-link");
+  storefrontLink.href = STOREFRONT_ORIGIN + (STOREFRONT_PRODUCT_PATHS[state.customizationMode] || STOREFRONT_PRODUCT_PATHS.uv);
+  storefrontLink.hidden = available;
+  if (!available) {
+    setCartSubmitState("unavailable", CART_PREVIEW_MESSAGE);
+  } else if (!panel.dataset.state || panel.dataset.state === "unavailable") {
+    setCartSubmitState("idle", CART_IDLE_MESSAGE);
+  }
 }
 
 function clearCartResultTimer() {
@@ -1373,8 +1337,13 @@ function clearCartResultTimer() {
 
 function submitCustomizerSelection() {
   if (pendingCartRequestId) return;
+  if (!cartSubmissionAvailable()) {
+    syncCartSubmitAvailability();
+    return;
+  }
 
   const selection = buildSelectionPayload();
+  if (cartSelectionFingerprint(selection) === lastAddedSelectionFingerprint) return;
   const needsName = selection.customizationMode === "engraving"
     || (selection.customizationMode === "uv" && ["both", "name"].includes(selection.printMode));
 
@@ -1407,6 +1376,7 @@ function submitCustomizerSelection() {
 }
 
 function handleCartResult(event) {
+  if (!pendingCartRequestId || !cartSubmissionAvailable()) return;
   const expectedOrigin = parentMessageOrigin();
   if (
     event.source !== window.parent
@@ -1438,11 +1408,7 @@ function handleCartResult(event) {
 }
 
 function initializeCartSubmit() {
-  if (!cartSubmitEnabledFromLocation()) return;
-
-  const panel = document.getElementById("cart-submit-panel");
-  panel.hidden = false;
-  panel.dataset.state = "idle";
+  syncCartSubmitAvailability();
   document.getElementById("cart-submit-button").addEventListener("click", submitCustomizerSelection);
   window.addEventListener("message", handleCartResult);
 }

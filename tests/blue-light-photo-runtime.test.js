@@ -39,71 +39,95 @@ class FakeElement {
   }
 }
 
-const sandbox = {
-  CLEAR_LENS_GEOMETRY: {
-    "櫻花粉": {
-      near: [909.7, 344.2, 191.5, 234.9, 5.7],
-      far: [1350.6, 320, 107.2, 217.9, -1]
-    }
+const PHOTO_MASK_PROFILES = {
+  standard: {
+    frameFull: "standard/frame-full.png",
+    frameShell: "standard/frame-shell.png",
+    temple: "standard/temple.png",
+    lens: "standard/lens.png"
   },
-  state: {
-    frame: { name: "櫻花粉" },
-    temple: { name: "霧面黑", value: "#0f0f10" }
+  amber: {
+    frameFull: "amber/frame-full.png",
+    frameShell: "amber/frame-shell.png",
+    temple: "amber/temple.png",
+    lens: "amber/lens.png"
+  }
+};
+const PHOTO_TEMPLE_PAIR_MASKS = {
+  "amber:standard": "pairs/amber-frame-standard-temple/temple.png"
+};
+
+const sandbox = {
+  PHOTO_MASK_PROFILES,
+  PHOTO_TEMPLE_PAIR_MASKS,
+  setSvgHref(element, href) {
+    element.setAttribute("href", href);
   }
 };
 vm.createContext(sandbox);
 vm.runInContext(
-  sourceBetween("function applyLensGeometry(", "function updatePhotoComposite("),
+  sourceBetween("function photoMaskProfileFor(", "function updatePhotoComposite("),
   sandbox
 );
 
-const nearMask = new FakeElement();
-const nearClip = new FakeElement();
-const farMask = new FakeElement();
-const farClip = new FakeElement();
 const layer = {
   frameLayer: new FakeElement(),
-  blueLightEffect: new FakeElement(),
-  blueLightNearGeometry: [nearMask, nearClip],
-  blueLightFarGeometry: [farMask, farClip]
+  frameMaskImage: new FakeElement(),
+  templeMaskImage: new FakeElement(),
+  lensMaskImage: new FakeElement(),
+  blueLightEffect: new FakeElement()
 };
-const frameAsset = {
-  lenses: {
-    near: [913, 343, 181, 232, 4.9],
-    far: [1349.6, 328.6, 104, 206.6, .8]
-  }
-};
+const standardFrame = { maskProfile: "standard" };
+const standardTemple = { maskProfile: "standard" };
+const amberFrame = { maskProfile: "amber" };
+const amberTemple = { maskProfile: "amber" };
 
-sandbox.updateBlueLightPhotoEffect(layer, frameAsset, true);
-assert.equal(layer.frameLayer.getAttribute("mask"), "url(#photo-a45-frame-clear-mask)");
-assert.equal(layer.blueLightEffect.hasAttribute("hidden"), false);
-assert.equal(layer.blueLightEffect.style.display, "inline");
-assert.equal(nearMask.getAttribute("rx"), "191.5");
-assert.equal(nearClip.getAttribute("ry"), "234.9");
-assert.equal(nearMask.getAttribute("transform"), "rotate(5.7 909.7 344.2)");
-assert.equal(nearMask.getAttribute("cx"), nearClip.getAttribute("cx"));
-assert.equal(nearMask.getAttribute("cy"), nearClip.getAttribute("cy"));
-assert.equal(nearMask.getAttribute("rx"), nearClip.getAttribute("rx"));
-assert.equal(nearMask.getAttribute("ry"), nearClip.getAttribute("ry"));
-assert.equal(nearMask.getAttribute("transform"), nearClip.getAttribute("transform"));
-assert.equal(farMask.getAttribute("rx"), "107.2");
-assert.equal(farClip.getAttribute("ry"), "217.9");
-assert.equal(farMask.getAttribute("cx"), farClip.getAttribute("cx"));
-assert.equal(farMask.getAttribute("cy"), farClip.getAttribute("cy"));
-assert.equal(farMask.getAttribute("rx"), farClip.getAttribute("rx"));
-assert.equal(farMask.getAttribute("ry"), farClip.getAttribute("ry"));
-assert.equal(farMask.getAttribute("transform"), farClip.getAttribute("transform"));
-sandbox.state.temple = { name: "琥珀", type: "pattern", value: "amber" };
-sandbox.updateBlueLightPhotoEffect(layer, frameAsset, true);
-assert.equal(nearMask.getAttribute("rx"), "191.5", "temple color must not change lens geometry");
-assert.equal(farMask.getAttribute("ry"), "217.9", "temple pattern must not leak into clear lenses");
-
-const effectSource = sourceBetween("function updateBlueLightPhotoEffect(", "function updatePhotoComposite(");
-assert.doesNotMatch(effectSource, /state\.temple|rearTemple|ensureAmberPattern/);
-
-sandbox.updateBlueLightPhotoEffect(layer, frameAsset, false);
-assert.equal(layer.frameLayer.getAttribute("mask"), "url(#photo-a45-frame-mask)");
+// The frame selects frame + lens masks, while the temple independently selects
+// only the temple mask. Gray lenses must use the complete photographed frame.
+sandbox.updateBlueLightPhotoEffect(layer, standardFrame, amberTemple, false);
+assert.equal(layer.frameMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.standard.frameFull);
+assert.equal(layer.templeMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.amber.temple);
+assert.equal(layer.lensMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.standard.lens);
 assert.equal(layer.blueLightEffect.hasAttribute("hidden"), true);
 assert.equal(layer.blueLightEffect.style.display, "none");
 
-console.log("Blue-light photo runtime passed: per-frame masks + clear toggle + temple independence.");
+// Blue-light mode switches only the frame from full to shell. The real lens
+// aperture remains tied to the frame profile, even with an amber temple.
+sandbox.updateBlueLightPhotoEffect(layer, standardFrame, amberTemple, true);
+assert.equal(layer.frameMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.standard.frameShell);
+assert.equal(layer.templeMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.amber.temple);
+assert.equal(layer.lensMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.standard.lens);
+assert.equal(layer.blueLightEffect.hasAttribute("hidden"), false);
+assert.equal(layer.blueLightEffect.style.display, "inline");
+const standardLensHref = layer.lensMaskImage.getAttribute("href");
+
+// Changing the temple profile must not change the lens aperture or frame mask.
+sandbox.updateBlueLightPhotoEffect(layer, standardFrame, standardTemple, true);
+assert.equal(layer.frameMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.standard.frameShell);
+assert.equal(layer.templeMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.standard.temple);
+assert.equal(layer.lensMaskImage.getAttribute("href"), standardLensHref);
+
+// Amber has independent raster geometry. Its frame and lens use amber masks,
+// while a standard temple uses the pair-specific bridge at both hinge joins.
+sandbox.updateBlueLightPhotoEffect(layer, amberFrame, standardTemple, true);
+assert.equal(layer.frameMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.amber.frameShell);
+assert.equal(layer.templeMaskImage.getAttribute("href"), PHOTO_TEMPLE_PAIR_MASKS["amber:standard"]);
+assert.equal(layer.lensMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.amber.lens);
+
+// Returning to gray restores frame-full without disturbing independent masks.
+sandbox.updateBlueLightPhotoEffect(layer, amberFrame, standardTemple, false);
+assert.equal(layer.frameMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.amber.frameFull);
+assert.equal(layer.templeMaskImage.getAttribute("href"), PHOTO_TEMPLE_PAIR_MASKS["amber:standard"]);
+assert.equal(layer.lensMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.amber.lens);
+
+// Matching amber temples leave the pair-specific route and restore the normal
+// amber temple mask. The reverse standard-frame combination must not opt in.
+sandbox.updateBlueLightPhotoEffect(layer, amberFrame, amberTemple, false);
+assert.equal(layer.templeMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.amber.temple);
+sandbox.updateBlueLightPhotoEffect(layer, standardFrame, amberTemple, false);
+assert.equal(layer.templeMaskImage.getAttribute("href"), PHOTO_MASK_PROFILES.amber.temple);
+
+const effectSource = sourceBetween("function updateBlueLightPhotoEffect(", "function updatePhotoComposite(");
+assert.doesNotMatch(effectSource, /CLEAR_LENS_GEOMETRY|applyLensGeometry|state\.frame|state\.temple/);
+
+console.log("Blue-light photo runtime passed: raster profiles + full/shell toggle + temple independence.");

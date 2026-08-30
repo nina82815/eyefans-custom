@@ -1,0 +1,413 @@
+{
+  "canvas": [
+    1643,
+    686
+  ],
+  "orientation": "right-45 (temple on left, frame on right)",
+  "colourSpace": "sRGB IEC61966-2.1 (embedded ICC)",
+  "logoBrush": {
+    "pixels": 27320,
+    "bbox": [
+      154,
+      110,
+      474,
+      286
+    ]
+  },
+  "masks": {
+    "standard": {
+      "frame-full": "masks/standard/frame-full.png",
+      "frame-shell": "masks/standard/frame-shell.png",
+      "temple": "masks/standard/temple.png",
+      "lens": "masks/standard/lens.png"
+    },
+    "amber": {
+      "frame-full": "masks/amber/frame-full.png",
+      "frame-shell": "masks/amber/frame-shell.png",
+      "temple": "masks/amber/temple.png",
+      "lens": "masks/amber/lens.png"
+    },
+    "pairs": {
+      "amber-frame-standard-temple": {
+        "temple": "masks/pairs/amber-frame-standard-temple/temple.png"
+      }
+    }
+  },
+  "gray": {
+    "櫻花粉": {
+      "file": "gray/sakura-pink.png",
+      "source": "圓框＿櫻花＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.0164,
+      "reference": "pink"
+    },
+    "粉紫": {
+      "file": "gray/powder-purple.png",
+      "source": "圓框＿粉紫＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.3086,
+      "reference": "pink"
+    },
+    "暖黃": {
+      "file": "gray/warm-yellow.png",
+      "source": "圓框＿暖黃＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.4648,
+      "reference": "pink"
+    },
+    "豆綠": {
+      "file": "gray/pea-green.png",
+      "source": "圓框＿豆綠＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.3657,
+      "reference": "pink"
+    },
+    "深藍": {
+      "file": "gray/deep-blue.png",
+      "source": "圓框＿深藍＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.4057,
+      "reference": "black"
+    },
+    "復刻粉": {
+      "file": "gray/retro-pink.png",
+      "source": "圓框＿復刻粉＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.3124,
+      "reference": "pink"
+    },
+    "芋頭紫": {
+      "file": "gray/taro-purple.png",
+      "source": "圓框＿芋頭＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.3297,
+      "reference": "pink"
+    },
+    "奶油黃": {
+      "file": "gray/butter-yellow.png",
+      "source": "圓框＿奶油＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 1.008,
+      "reference": "pink"
+    },
+    "薄荷綠": {
+      "file": "gray/mint-green.png",
+      "source": "圓框＿薄荷＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.6264,
+      "reference": "pink"
+    },
+    "丹寧藍": {
+      "file": "gray/denim-blue.png",
+      "source": "圓框＿丹寧＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.4347,
+      "reference": "black"
+    },
+    "梅子": {
+      "file": "gray/plum.png",
+      "source": "圓框＿梅子＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.323,
+      "reference": "pink"
+    },
+    "奶茶": {
+      "file": "gray/milk-tea.png",
+      "source": "圓框＿奶茶＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.3513,
+      "reference": "pink"
+    },
+    "青釉綠": {
+      "file": "gray/celadon-green.png",
+      "source": "圓框＿青釉＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.4235,
+      "reference": "black"
+    },
+    "天藍": {
+      "file": "gray/sky-blue.png",
+      "source": "圓框＿天藍＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.9569,
+      "reference": "pink"
+    },
+    "玫瑰": {
+      "file": "gray/rose.png",
+      "source": "圓框＿玫瑰＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.4482,
+      "reference": "black"
+    },
+    "咖啡牛奶": {
+      "file": "gray/coffee-milk.png",
+      "source": "圓框＿咖牛＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.4562,
+      "reference": "pink"
+    },
+    "枯黃": {
+      "file": "gray/withered-yellow.png",
+      "source": "圓框＿枯黃＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.3853,
+      "reference": "pink"
+    },
+    "霧面黑": {
+      "file": "gray/matte-black.png",
+      "source": "圓框＿黑＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.0273,
+      "reference": "black"
+    },
+    "灰色": {
+      "file": "gray/gray.png",
+      "source": "圓框＿灰＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.4061,
+      "reference": "pink"
+    },
+    "咖啡紅茶": {
+      "file": "gray/coffee-black-tea.png",
+      "source": "圓框＿紅茶＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.4432,
+      "reference": "black"
+    },
+    "霧面白": {
+      "file": "gray/matte-white.png",
+      "source": "圓框＿白＿側2026.png",
+      "normalization": "pixel-registered mirror; geometry unchanged",
+      "maskProfile": "standard",
+      "colourMapMae": 0.3436,
+      "reference": "pink"
+    },
+    "琥珀": {
+      "file": "gray/amber.png",
+      "source": "圓框＿琥珀＿側2026.png",
+      "normalization": "independent tortoiseshell repair; resized to canonical canvas",
+      "note": "Separate original crop; lens texture and frame remain photographic.",
+      "maskProfile": "amber"
+    }
+  },
+  "blueLight": {
+    "櫻花粉": {
+      "file": "blue-light/sakura-pink.png",
+      "source": "sakura-pink.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/sakura-pink.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "粉紫": {
+      "file": "blue-light/powder-purple.png",
+      "source": "powder-purple.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/powder-purple.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "暖黃": {
+      "file": "blue-light/warm-yellow.png",
+      "source": "warm-yellow.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/warm-yellow.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "豆綠": {
+      "file": "blue-light/pea-green.png",
+      "source": "pea-green.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/pea-green.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "深藍": {
+      "file": "blue-light/deep-blue.png",
+      "source": "deep-blue.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/deep-blue.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "復刻粉": {
+      "file": "blue-light/retro-pink.png",
+      "source": "retro-pink.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/retro-pink.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "芋頭紫": {
+      "file": "blue-light/taro-purple.png",
+      "source": "taro-purple.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/taro-purple.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "奶油黃": {
+      "file": "blue-light/butter-yellow.png",
+      "source": "butter-yellow.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/butter-yellow.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "薄荷綠": {
+      "file": "blue-light/mint-green.png",
+      "source": "mint-green.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/mint-green.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "丹寧藍": {
+      "file": "blue-light/denim-blue.png",
+      "source": "denim-blue.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/denim-blue.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "梅子": {
+      "file": "blue-light/plum.png",
+      "source": "plum.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/plum.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "奶茶": {
+      "file": "blue-light/milk-tea.png",
+      "source": "milk-tea.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/milk-tea.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "青釉綠": {
+      "file": "blue-light/celadon-green.png",
+      "source": "celadon-green.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/celadon-green.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "天藍": {
+      "file": "blue-light/sky-blue.png",
+      "source": "sky-blue.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/sky-blue.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "玫瑰": {
+      "file": "blue-light/rose.png",
+      "source": "rose.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/rose.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "咖啡牛奶": {
+      "file": "blue-light/coffee-milk.png",
+      "source": "coffee-milk.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/coffee-milk.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "枯黃": {
+      "file": "blue-light/withered-yellow.png",
+      "source": "withered-yellow.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/withered-yellow.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "霧面黑": {
+      "file": "blue-light/matte-black.png",
+      "source": "matte-black.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/matte-black.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "灰色": {
+      "file": "blue-light/gray.png",
+      "source": "gray.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/gray.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "咖啡紅茶": {
+      "file": "blue-light/coffee-black-tea.png",
+      "source": "coffee-black-tea.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/coffee-black-tea.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "霧面白": {
+      "file": "blue-light/matte-white.png",
+      "source": "matte-white.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/matte-white.png",
+      "maskProfile": "standard",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    },
+    "琥珀": {
+      "file": "blue-light/amber.png",
+      "source": "amber.png",
+      "normalization": "colour-matched blue-light photo de-screened with low-frequency chroma, canonical gray-lens surface detail, and the true raster lens apertures",
+      "baseGeometry": "gray/amber.png",
+      "maskProfile": "amber",
+      "lensOnly": true,
+      "alphaMatchesLensMask": true
+    }
+  }
+}

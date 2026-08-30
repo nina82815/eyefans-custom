@@ -14,7 +14,7 @@
   <meta name="twitter:description" content="配色・UV 彩印・姓名預覽">
   <meta name="twitter:image" content="https://nina82815.github.io/eyefans-custom/og.png">
   <title>eYeFans 客製眼鏡模擬器</title>
-  <link rel="stylesheet" href="styles.css?v=20260827a">
+  <link rel="stylesheet" href="styles.css?v=20260830e">
 </head>
 <body>
   <header class="site-header">
@@ -56,20 +56,14 @@
           <svg class="photo-composite" id="photo-a45" viewBox="0 0 1643 686" preserveAspectRatio="xMidYMid meet" role="img" aria-label="右側 45 度實拍眼鏡預覽，顯示右外側鏡腳客製效果">
             <defs>
               <mask id="photo-a45-frame-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance">
-                <path class="photo-frame-region" d="M 588 0 H 1643 V 686 H 704 C 673 522 660 430 655 354 C 650 310 601.98 288.69 601.98 243.69 L 601.98 130.92 C 588 95 588 55 588 0 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"></path>
-              </mask>
-              <mask id="photo-a45-frame-clear-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance">
-                <path class="photo-frame-region" d="M 588 0 H 1643 V 686 H 704 C 673 522 660 430 655 354 C 650 310 601.98 288.69 601.98 243.69 L 601.98 130.92 C 588 95 588 55 588 0 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"></path>
-                <ellipse class="photo-blue-light-near-mask" cx="909.7" cy="344.2" rx="191.5" ry="234.9" transform="rotate(5.7 909.7 344.2)" fill="#000000"></ellipse>
-                <ellipse class="photo-blue-light-far-mask" cx="1350.6" cy="320" rx="107.2" ry="217.9" transform="rotate(-1 1350.6 320)" fill="#000000"></ellipse>
+                <image class="photo-frame-mask-image" href="assets/photos/right-a45/normalized/masks/standard/frame-full.png?v=20260830a" x="0" y="0" width="1643" height="686" preserveAspectRatio="none"></image>
               </mask>
               <mask id="photo-a45-temple-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance">
-                <path class="photo-temple-region" d="M 0 0 H 588 C 588 55 588 95 601.98 130.92 L 601.98 243.69 C 601.98 288.69 650 310 655 354 C 660 430 673 522 704 686 H 0 Z" fill="#ffffff"></path>
+                <image class="photo-temple-mask-image" href="assets/photos/right-a45/normalized/masks/standard/temple.png?v=20260830a" x="0" y="0" width="1643" height="686" preserveAspectRatio="none"></image>
               </mask>
-              <clipPath id="photo-a45-clear-lens-clip" clipPathUnits="userSpaceOnUse">
-                <ellipse class="photo-blue-light-near-clip" cx="909.7" cy="344.2" rx="191.5" ry="234.9" transform="rotate(5.7 909.7 344.2)"></ellipse>
-                <ellipse class="photo-blue-light-far-clip" cx="1350.6" cy="320" rx="107.2" ry="217.9" transform="rotate(-1 1350.6 320)"></ellipse>
-              </clipPath>
+              <mask id="photo-a45-lens-mask" x="0" y="0" width="1643" height="686" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance">
+                <image class="photo-lens-mask-image" href="assets/photos/right-a45/normalized/masks/standard/lens.png?v=20260830a" x="0" y="0" width="1643" height="686" preserveAspectRatio="none"></image>
+              </mask>
               <linearGradient id="photo-a45-clear-coating" x1="0" y1="0" x2="20%" y2="100%">
                 <stop offset="0%" stop-color="#f5efe5" stop-opacity=".18"></stop>
                 <stop offset="35%" stop-color="#eee9ec" stop-opacity=".08"></stop>
@@ -91,28 +85,20 @@
                   <feFuncA type="linear" slope="1.18" intercept="-.09"></feFuncA>
                 </feComponentTransfer>
               </filter>
-              <filter id="photo-a45-lens-texture" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
-                <feColorMatrix type="saturate" values=".45"></feColorMatrix>
-                <feComponentTransfer>
-                  <feFuncR type="linear" slope=".9" intercept=".12"></feFuncR>
-                  <feFuncG type="linear" slope=".9" intercept=".12"></feFuncG>
-                  <feFuncB type="linear" slope=".9" intercept=".12"></feFuncB>
-                </feComponentTransfer>
-              </filter>
             </defs>
             <g mask="url(#photo-a45-temple-mask)">
-              <image class="photo-temple-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827f" filter="url(#photo-a45-crisp-color)"></image>
+              <image class="photo-temple-image" href="assets/photos/right-a45/normalized/gray/sakura-pink.png?v=20260830a" filter="url(#photo-a45-crisp-color)"></image>
             </g>
-            <g class="photo-blue-light-effect" clip-path="url(#photo-a45-clear-lens-clip)" hidden>
-              <image class="photo-blue-light-source-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827f" opacity=".24" filter="url(#photo-a45-lens-texture)"></image>
+            <g class="photo-blue-light-effect" mask="url(#photo-a45-lens-mask)" hidden>
+              <image class="photo-blue-light-source-image" href="assets/photos/right-a45/normalized/blue-light/matte-black.png?v=20260830a"></image>
               <rect class="photo-blue-light-coating" x="700" y="80" width="850" height="520" fill="url(#photo-a45-clear-coating)"></rect>
               <rect class="photo-blue-light-sheen" x="700" y="80" width="850" height="520" fill="url(#photo-a45-blue-light-sheen)"></rect>
             </g>
             <g class="photo-frame-layer" mask="url(#photo-a45-frame-mask)">
-              <image class="photo-frame-image" href="assets/photos/right-a45/IMG_3594.png?v=20260827f" filter="url(#photo-a45-crisp-color)"></image>
+              <image class="photo-frame-image" href="assets/photos/right-a45/normalized/gray/sakura-pink.png?v=20260830a" filter="url(#photo-a45-crisp-color)"></image>
             </g>
-            <g id="photo-engravetext" class="photo-print-layer" transform="translate(390 260) rotate(-17)">
-              <text font-family="BaksoSapi, Arial, sans-serif" font-size="38" font-weight="700">PEIYU</text>
+            <g id="photo-engravetext" class="photo-print-layer" transform="translate(340 200) rotate(-20)">
+              <text font-family="BaksoSapi, Arial, sans-serif" font-size="46" font-weight="700">eyefans</text>
             </g>
           </svg>
         </div>
@@ -222,8 +208,8 @@
         <fieldset class="choice-field" id="name-field">
           <legend><span id="name-legend-label">輸入名字</span><small id="name-limit-label">英文 10 字／中文 4 字</small></legend>
           <div class="name-input-wrap">
-            <input id="name-input" type="text" value="PEIYU" maxlength="24" inputmode="text" autocomplete="off" enterkeyhint="done" aria-describedby="name-help name-validation">
-            <span id="name-count">5/10</span>
+            <input id="name-input" type="text" value="eyefans" maxlength="24" inputmode="text" autocomplete="off" enterkeyhint="done" aria-describedby="name-help name-validation">
+            <span id="name-count">7/10</span>
           </div>
           <p class="field-help" id="name-help">支援中文、英文與數字；中文可使用注音、拼音等輸入法，完成選字後計算字數。</p>
           <p class="field-validation" id="name-validation" role="status" aria-live="polite" hidden></p>
@@ -284,15 +270,18 @@
         <p class="print-note" id="print-note">模擬位置為右外側鏡腳；實拍與 2D 右側 45° 均可確認客製排列，另一側固定保留 eYeFANS 品牌 Logo。</p>
       </section>
 
-      <section class="cart-submit-panel" id="cart-submit-panel" aria-labelledby="cart-submit-title" hidden>
+      <section class="cart-submit-panel" id="cart-submit-panel" aria-labelledby="cart-submit-title" data-state="unavailable">
         <span class="eyebrow">CUSTOM ORDER</span>
         <h3 id="cart-submit-title">完成你的客製搭配</h3>
-        <button class="cart-submit-button" id="cart-submit-button" type="button">
+        <p class="cart-submit-note">每次加入 1 副眼鏡，並附上本次配色、圖案與名字等客製明細。</p>
+        <button class="cart-submit-button" id="cart-submit-button" type="button" aria-describedby="cart-submit-status" disabled>
           確認設計並加入購物車
         </button>
+        <a class="cart-view-link" id="cart-view-link" href="https://www.eyefans.com.tw/cart" target="_top" hidden>前往購物車</a>
         <p class="cart-submit-status" id="cart-submit-status" role="status" aria-live="polite" aria-atomic="true">
-          完成搭配後，可將本次設計加入購物車。
+          請從官網商品頁開啟模擬器，才能將客製內容加入購物車。
         </p>
+        <a class="cart-storefront-link" id="cart-storefront-link" href="https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd" target="_top">前往官網客製商品頁</a>
       </section>
     </aside>
   </main>
@@ -303,6 +292,6 @@
   </footer>
 
   <div class="sr-only" id="live-status" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260827e" defer></script>
+  <script src="app.js?v=20260830e" defer></script>
 </body>
 </html>
