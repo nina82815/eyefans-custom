@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const loaderPath = path.join(__dirname, "..", "integration", "cyberbiz-cart-production-loader-20260830.js");
+const loaderPath = path.join(__dirname, "..", "integration", "cyberbiz-cart-production-loader-20260831.js");
 const source = fs.readFileSync(loaderPath, "utf8");
 const TEST_PRODUCTS = Object.freeze({
   "cls-cus-mix-sun-rd": Object.freeze({
@@ -179,7 +179,7 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
             status: behavior[`${phase}CartIdentityStatus`] ?? behavior.identityStatus ?? 200,
             url: behavior[`${phase}CartIdentityUrl`] ?? "https://www.eyefans.com.tw/carts/cart-token-123",
             contentType: "text/html; charset=utf-8",
-            redirected: true
+            redirected: behavior[`${phase}CartIdentityRedirected`] ?? true
           });
           response.text = async () => {
             cartIdentityBodyReads += 1;
@@ -994,6 +994,7 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
     { handle: "cls-cus-mix-uv-sun-rd", mode: "uv", selection: uvSelection }
   ];
   let matrixIndex = 0;
+  const modeRecords = new Map();
   for (const testCase of modeMatrix) {
     for (const [size, expectedVariant] of Object.entries(TEST_PRODUCTS[testCase.handle].variants)) {
       matrixIndex += 1;
@@ -1016,7 +1017,63 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
       assert.equal(postRequests.length, 1, `${testCase.mode}/${size} should call the cart once`);
       assert.equal(postRequests[0].options.body, `id=${expectedVariant}&quantity=1`);
       assert.equal(environment.replies.at(-1).message.ok, true);
+      if (size === "M") modeRecords.set(testCase.mode, productionRecords(environment)[0]);
     }
+  }
+
+  // CYBERBIZ redirects a genuinely empty /cart to the storefront homepage.
+  // Cover every customization mode, with a deleted item's stale design still
+  // stored locally, without weakening the identity required after the POST.
+  for (const testCase of modeMatrix) {
+    const cartToken = `empty-home-${testCase.mode}`;
+    const deletedRecord = { ...modeRecords.get(testCase.mode), cartToken };
+    const environment = createProductEnvironment(
+      `https://www.eyefans.com.tw/products/${testCase.handle}`,
+      testCase.mode,
+      {
+        recordsJson: JSON.stringify([deletedRecord]),
+        preCartIdentityUrl: "https://www.eyefans.com.tw/",
+        postCartIdentityUrl: `https://www.eyefans.com.tw/carts/${cartToken}`
+      }
+    );
+    const requestId = `request-empty-home-${testCase.mode}`;
+    environment.listeners.message({
+      origin: "https://nina82815.github.io", source: environment.frameWindow,
+      data: requestInContext(environment.context, requestId, testCase.selection({
+        frame: "天藍", temple: "櫻花粉", lens: "三號灰片", lensId: "gray",
+        ...(testCase.mode === "color" ? {} : { name: testCase.mode === "engraving" ? "TESTTWO" : "TEST2" })
+      }))
+    });
+    await flushTasks();
+    await flushTasks();
+    assert.equal(environment.replies.at(-1).message.ok, true, `${testCase.mode}: verified empty homepage permits one add`);
+    const postRequests = environment.requests.filter(request => request.options.method === "POST");
+    assert.equal(postRequests.length, 1, `${testCase.mode}: empty homepage must not duplicate the add`);
+    assert.equal(postRequests[0].options.body, `id=${TEST_PRODUCTS[testCase.handle].variants.M}&quantity=1`);
+    const records = productionRecords(environment);
+    assert.equal(records.length, 1, `${testCase.mode}: only the verified replacement should remain for this variant/cart`);
+    const replacement = records[0];
+    assert.equal(replacement.requestId, requestId);
+    assert.equal(replacement.status, "active");
+    assert.equal(replacement.cartToken, cartToken, `${testCase.mode}: only the postflight identity binds the new design`);
+    assert.equal(replacement.receipt.cartQuantityBefore, 0);
+    assert.equal(replacement.receipt.cartQuantityAfter, 1);
+    assert.notEqual(replacement.designId, deletedRecord.designId);
+    assert.equal(environment.cartIdentityBodyReads(), 0);
+
+    const checkout = createCartEnvironment({
+      recordsJson: JSON.stringify(records), quantity: 1, cartToken,
+      variantId: String(TEST_PRODUCTS[testCase.handle].variants.M), initialNote: "保留客人原有備註"
+    });
+    assert.equal(checkout.checkout.attributes.has("aria-disabled"), false, `${testCase.mode}: identified replacement may checkout`);
+    assert.ok(checkout.note.value.includes(replacement.designId));
+    assert.ok(!checkout.note.value.includes(deletedRecord.designId));
+    assert.match(checkout.note.value, /鏡框：天藍/);
+    assert.match(checkout.note.value, /保留客人原有備註/);
+    const payload = vm.runInContext("({})", checkout.context);
+    assert.equal(checkout.triggerJQuery("checkout_cart:checkout", payload).defaultPrevented, false);
+    assert.ok(payload["order[note]"].includes(replacement.designId));
+    assert.ok(!payload["order[note]"].includes(deletedRecord.designId));
   }
 
   const limitRecords = Array.from({ length: 20 }, (_unused, index) => ({
@@ -1298,7 +1355,8 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
   const unrelatedBound = { ...unrelatedTest.record, cartToken: originalToken };
   for (const [label, preCartIdentityUrl] of [
     ["known-empty-token", `https://www.eyefans.com.tw/carts/${originalToken}`],
-    ["empty-redirect-no-token", "https://www.eyefans.com.tw/cart"]
+    ["empty-redirect-no-token", "https://www.eyefans.com.tw/cart"],
+    ["empty-homepage-redirect-no-token", "https://www.eyefans.com.tw/"]
   ]) {
     const seed = [oldBound, legacyUnbound, foreignBound, unrelatedBound];
     const replacement = await verifiedUvFixture(`request-replace-${label}`, {
@@ -1389,6 +1447,23 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
     { label: "missing response URL", preCartIdentityUrl: "" },
     { label: "failed response", identityStatus: 503 },
     { label: "network failure", identityThrows: true },
+    { label: "foreign homepage redirect", preCartIdentityUrl: "https://evil.example/" },
+    { label: "insecure homepage redirect", preCartIdentityUrl: "http://www.eyefans.com.tw/" },
+    { label: "homepage query is not the verified empty route", preCartIdentityUrl: "https://www.eyefans.com.tw/?next=%2Fcarts%2Fcart-token-123" },
+    { label: "homepage fragment is not the verified empty route", preCartIdentityUrl: "https://www.eyefans.com.tw/#cart" },
+    { label: "homepage without a redirect is not the verified empty route", preCartIdentityUrl: "https://www.eyefans.com.tw/", preCartIdentityRedirected: false },
+    {
+      label: "same-variant quantity cannot use homepage exception", preCartIdentityUrl: "https://www.eyefans.com.tw/",
+      initialCartQuantities: { 87452778: 1 }
+    },
+    {
+      label: "other items cannot use homepage exception", preCartIdentityUrl: "https://www.eyefans.com.tw/",
+      initialCartQuantities: { 99999999: 1 }
+    },
+    {
+      label: "contradictory empty count cannot use homepage exception", preCartIdentityUrl: "https://www.eyefans.com.tw/",
+      preflightBody: JSON.stringify({ items: [{ variant_id_int: 99999999, quantity: 1 }], item_count: 0 })
+    },
     {
       label: "same-variant quantity without identity", preCartIdentityUrl: "https://www.eyefans.com.tw/cart",
       initialCartQuantities: { 87452778: 1 }
@@ -1421,15 +1496,17 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
     { postCartIdentityUrl: "https://www.eyefans.com.tw/carts/changed-cart-token" },
     { postCartIdentityUrl: "https://evil.example/carts/cart-token-123" },
     { postCartIdentityUrl: "https://www.eyefans.com.tw/cart" },
+    { preCartIdentityUrl: "https://www.eyefans.com.tw/", postCartIdentityUrl: "https://www.eyefans.com.tw/" },
     { postCartIdentityStatus: 503 },
     { postCartIdentityThrows: true }
   ].entries()) {
     const previousCartRecord = { ...oldBound, cartToken: "changed-cart-token" };
+    const environmentBehavior = {
+      ...behavior,
+      ...(index === 0 ? { recordsJson: JSON.stringify([previousCartRecord]) } : {})
+    };
     const environment = createProductEnvironment(
-      "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd", "uv", {
-        ...behavior,
-        ...(index === 0 ? { recordsJson: JSON.stringify([previousCartRecord]) } : {})
-      }
+      "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd", "uv", environmentBehavior
     );
     environment.listeners.message({
       origin: "https://nina82815.github.io", source: environment.frameWindow,
@@ -1452,6 +1529,11 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
       assertAmbiguousCheckoutBlocked(changedIdentityCheckout, "T-to-U identity change must not hide pending behind U's old bound record");
       assert.equal(changedIdentityCheckout.note.value, customerNote);
     }
+    // Even if the identity endpoint recovers, the earlier uncertain add must
+    // stay pending rather than permit a second POST for the same design.
+    environmentBehavior.postCartIdentityUrl = "https://www.eyefans.com.tw/carts/cart-token-123";
+    environmentBehavior.postCartIdentityStatus = 200;
+    environmentBehavior.postCartIdentityThrows = false;
     environment.listeners.message({
       origin: "https://nina82815.github.io", source: environment.frameWindow,
       data: requestInContext(environment.context, `request-post-identity-retry-${index}`, uvSelection({ name: "TEST2" }))

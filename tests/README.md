@@ -66,12 +66,16 @@ iframe 送出：
 測試資料時才會啟動。設定方式請見
 `integration/CYBERBIZ_CART_LIVE_TEST_SETUP.md`。
 
-修正版使用獨立的 `integration/cyberbiz-cart-production-loader-20260830.js`；程式檔發布不代表主題已安裝或購物車已完成驗收。
+已發布修正版使用獨立的 `integration/cyberbiz-cart-production-loader-20260830.js`；程式檔發布不代表主題已安裝或購物車已完成驗收。
 舊 `integration/cyberbiz-cart-production-loader.js` 保持原內容與 SRI，避免影響既有主題。
 新版不讀取 V3
 測試資料，並會在一般商品網址啟用、關閉原商品購買入口，以及在缺少 EF 製作資料時
 暫停客製結帳。正式切換順序與回滾方式請見
 `integration/CYBERBIZ_CART_PRODUCTION_SETUP.md`。
+
+空購物車轉回首頁的修正版為 `integration/cyberbiz-cart-production-loader-20260831.js`；發布不代表主題已安裝或完成實際驗收。
+runtime 測試目前指向此版；setup 合約核對 20260830／20260831 引用碼，並鎖定兩個舊 loader 的 SRI。
+新版的範圍、替換碼與待驗收項目見 `integration/CYBERBIZ_CART_EMPTY_CART_FIX_20260831.md`。
 
 ## 自動檢查正式橋接草稿
 
