@@ -1,5 +1,11 @@
 # CYBERBIZ 尺寸 × 鏡片未發布候選版（2026-09-01）
 
+> **此 v1 候選版已停止驗收，不得再安裝。** 真實購物車測試發現：React／AJAX
+> 刪除一個數量為 2 的商品列時，頁面列已刪除，但啟動時的 `window.lineItems` 仍可能
+> 維持舊資料，造成訂單備註未清除。既有檔案與 SRI 為了可稽核與安全回復而保持
+> byte-identical；修正版請使用
+> `CYBERBIZ_CART_POLARIZED_CANDIDATE_V2_20260901.md`，不可覆寫此 URL。
+
 候選檔案為 `cyberbiz-cart-production-loader-20260901-polarized.js`。九個商品、36 個
 variants 與三個偏光商品 `+NT$300` 均已由正式商品 JSON 核對；這仍只是**未發布
 production candidate**，尚未上傳、尚未安裝，也尚未完成真實購物車驗收。

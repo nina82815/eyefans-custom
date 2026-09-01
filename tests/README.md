@@ -80,9 +80,13 @@ setup 合約仍核對已發布的 20260830／20260831 引用碼，並鎖定兩�
 新版的範圍、替換碼與待驗收項目見 `integration/CYBERBIZ_CART_EMPTY_CART_FIX_20260831.md`。
 20260901 候選的安全界線與回歸項目見 `integration/CYBERBIZ_CART_QUANTITY_FIX_20260901.md`。
 
-尺寸 × 鏡片的隔離測試快照為
-`integration/cyberbiz-cart-size-lens-development-loader.js`，另已由相同核心建立未發布
-production candidate：`integration/cyberbiz-cart-production-loader-20260901-polarized.js`。
+尺寸 × 鏡片的隔離測試入口為
+`integration/cyberbiz-cart-size-lens-development-loader.js`；它用 development query 與固定
+SRI 載入同一份 v2 core，但隔離 production storage。原本的
+`integration/cyberbiz-cart-production-loader-20260901-polarized.js` 已因真實刪除 QA
+發現靜態 `window.lineItems` 競態而停止驗收，檔案與 URL 保持 byte-identical。修正版的新
+未發布 production candidate 為
+`integration/cyberbiz-cart-production-loader-20260901-polarized-v2.js`。
 三個可見 SUN 商品是入口，
 每個入口會依鏡片選擇 SUN／BL／PL 三個獨立 target products，再依尺寸加入該商品的
 variant。九個 target products 與 36 個 variants 的實際 mapping 均已固定，live catalog
@@ -92,11 +96,16 @@ ready。已無 catalog 或價格 blocker，但在未發布主題完成全套驗�
 主題。範圍、九組 mapping、catalog 狀態與上線前驗證見
 `integration/CYBERBIZ_CART_SIZE_LENS_DEVELOPMENT.md`。對應測試驗證三入口 → 九商品 →
 36 variants 的精確 mapping；完整 36 組使用假的可售回應，並另外以不可售 fixture 驗證
-fail-closed 與零 POST，不會連線到 CYBERBIZ：
+fail-closed 與零 POST。v2 targeted regression 另驗證超過 350 ms 的延遲刪除、React DOM
+與靜態 lineItems mismatch、整列 note／records pruning、checkout safety，以及同 variant
+數量減少時不猜設計 identity；也涵蓋 hidden responsive duplicates、無 quantity input 的
+不可調商品列、item_count 行數／件數語意、optional total_quantity 與 malformed cart
+JSON fail-closed。測試不會連線到 CYBERBIZ：
 
 ```text
 node tests/cyberbiz-cart-size-lens-development-loader.test.js
 node tests/cyberbiz-cart-polarized-production-candidate.test.js
+node tests/cyberbiz-cart-note-sync-v2.test.js
 ```
 
 ## 自動檢查正式橋接草稿

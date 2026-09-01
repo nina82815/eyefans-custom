@@ -5,9 +5,11 @@
 > 或價格 blocker，但仍須先完成未發布主題的全套驗收，才可安裝至已發布主題；不得與
 > `cyberbiz-cart-production-loader-20260901.js` 並排載入。
 
-已另建立未發布候選檔 `cyberbiz-cart-production-loader-20260901-polarized.js`；固定 SRI、
-替換片段與驗收順序見 `CYBERBIZ_CART_POLARIZED_CANDIDATE_20260901.md`。本 development
-loader 保留為隔離測試快照，不應安裝到主題。
+真實刪除 QA 已淘汰 v1 polarized candidate；不得覆寫或繼續安裝該既有 URL。修正版為
+`cyberbiz-cart-production-loader-20260901-polarized-v2.js`，固定 SRI、替換片段與驗收
+順序見 `CYBERBIZ_CART_POLARIZED_CANDIDATE_V2_20260901.md`。development loader 現在是
+一個小型隔離入口：以明確 query 載入同一份 v2 core，但使用 development flag 與
+`eyefansCustomCartDesignsSizeLensDevV1`，不讀寫 production records。
 
 ## 實際商品結構
 
@@ -80,16 +82,20 @@ variant ID 與即時可售狀態。任何 mapping 不符或庫存不可售都會
 5. 在未發布主題中，三個入口各測灰片、抗藍光與偏光。
 6. 同一入口、同尺寸先加灰片再加偏光，購物車必須是兩個不同商品 variants，兩筆製作
    備註不可互相認領。
-7. 重新整理後備註仍完整，刪除任一 target 商品後對應資料能安全清理。
-8. 使用已建立的未發布候選檔與固定 SRI 完成未發布主題全套驗收；通過後才能另行安排
+7. 重新整理後備註仍完整；刪除數量 2 的完整 target row 後，等待 React／AJAX 最終
+   狀態，對應兩筆 note／records 必須自動清理，且同步期間 checkout 必須 fail closed。
+8. 使用 v2 未發布候選檔與固定 SRI 完成未發布主題全套驗收；通過後才能另行安排
    已發布主題替換，既有 20260901 loader 永遠保持不變。
 
 本機測試：
 
 ```text
 node tests/cyberbiz-cart-size-lens-development-loader.test.js
+node tests/cyberbiz-cart-note-sync-v2.test.js
 ```
 
 測試使用九個實際 catalog mappings，並在記憶體中建立可售 fixture 驗證完整 36 組
 matrix；另以不可售 fixture 驗證 fail-closed 與零 POST。所有網路回應都是本機假的，
-不會連線或修改真實 CYBERBIZ。
+不會連線或修改真實 CYBERBIZ。第二個 targeted test 另涵蓋 delayed delete、靜態
+`window.lineItems` mismatch、最終 note／records pruning、checkout safety 與不猜同
+variant 的設計 identity。

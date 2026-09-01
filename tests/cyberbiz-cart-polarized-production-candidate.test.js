@@ -4,80 +4,105 @@ const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const integrationDir = path.join(__dirname, "..", "integration");
-const developmentSource = fs.readFileSync(
+const developmentEntrySource = fs.readFileSync(
   path.join(integrationDir, "cyberbiz-cart-size-lens-development-loader.js"),
   "utf8"
 );
-const candidateSource = fs.readFileSync(
+const v1CandidateSource = fs.readFileSync(
   path.join(integrationDir, "cyberbiz-cart-production-loader-20260901-polarized.js"),
+  "utf8"
+);
+const v2CandidateSource = fs.readFileSync(
+  path.join(integrationDir, "cyberbiz-cart-production-loader-20260901-polarized-v2.js"),
   "utf8"
 );
 const currentProductionSource = fs.readFileSync(
   path.join(integrationDir, "cyberbiz-cart-production-loader-20260901.js"),
   "utf8"
 );
-const guide = fs.readFileSync(
+const v1Guide = fs.readFileSync(
   path.join(integrationDir, "CYBERBIZ_CART_POLARIZED_CANDIDATE_20260901.md"),
   "utf8"
 );
-
-const expectedCandidate = developmentSource
-  .replace(
-    "eYeFANS CYBERBIZ integration — SIZE × LENS DEVELOPMENT BUILD.",
-    "eYeFANS CYBERBIZ integration — SIZE × LENS PRODUCTION CANDIDATE."
-  )
-  .replace(
-    "UNPUBLISHED DEVELOPMENT SNAPSHOT / DO NOT INSTALL.",
-    "UNPUBLISHED PRODUCTION CANDIDATE / DO NOT INSTALL ON A PUBLISHED THEME."
-  )
-  .replace(
-    " * variants are pinned below and the catalog snapshot is ready. This file stays\n"
-      + " * development-only; use the separately versioned production candidate for\n"
-      + " * unpublished-theme QA. Product JSON, inventory, and exact target identity are\n"
-      + " * checked before POST.",
-    " * variants are pinned below and the catalog snapshot is ready. This candidate\n"
-      + " * may be installed only as a replacement loader in an unpublished theme for QA.\n"
-      + " * Product JSON, inventory, and exact target identity are checked before POST."
-  )
-  .replace(
-    "function eyefansCyberbizCartSizeLensDevelopmentLoader()",
-    "function eyefansCyberbizCartPolarizedProductionCandidateLoader()"
-  )
-  .replace(
-    "const LOADER_FLAG = \"__eyefansCartSizeLensDevelopmentLoaderActive\";",
-    "const LOADER_FLAG = \"__eyefansCartProductionLoaderActive\";"
-  )
-  .replace(
-    "// Development records never read, migrate, or overwrite production data.\n"
-      + "  const STORAGE_KEY = \"eyefansCustomCartDesignsSizeLensDevV1\";",
-    "// This is a replacement candidate and must never run beside another production loader.\n"
-      + "  const STORAGE_KEY = \"eyefansCustomCartDesignsProdV1\";"
-  );
-
-assert.equal(
-  candidateSource,
-  expectedCandidate,
-  "the candidate may differ from the fully tested development core only by release identity"
+const v2Guide = fs.readFileSync(
+  path.join(integrationDir, "CYBERBIZ_CART_POLARIZED_CANDIDATE_V2_20260901.md"),
+  "utf8"
 );
-assert.match(candidateSource, /UNPUBLISHED PRODUCTION CANDIDATE/);
-assert.match(candidateSource, /const LOADER_FLAG = "__eyefansCartProductionLoaderActive"/);
-assert.match(candidateSource, /const STORAGE_KEY = "eyefansCustomCartDesignsProdV1"/);
-assert.doesNotMatch(candidateSource, /SizeLensDevV1|PENDING_/);
 
-const candidateSha256 = crypto.createHash("sha256").update(candidateSource).digest("hex");
-const candidateSri = `sha384-${crypto.createHash("sha384").update(candidateSource).digest("base64")}`;
-assert.equal(candidateSha256, "ade85d93875ae7192a77c197f4cafd0a4b8787e1082943a6666aebefdd69a579");
-assert.equal(candidateSri, "sha384-rPz/izM7fEIWspbrR5dQ1raWC1tk4Eyw3t47nhAjRYE72CKTt/zhGTa2Hg0IU5gr");
-assert.match(guide, new RegExp(candidateSha256));
-assert.ok(guide.includes(`integrity="${candidateSri}"`));
-assert.ok(guide.includes("cyberbiz-cart-production-loader-20260901-polarized.js"));
+function sha256(value) {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function sri(value) {
+  return `sha384-${crypto.createHash("sha384").update(value).digest("base64")}`;
+}
 
 assert.equal(
-  crypto.createHash("sha256").update(currentProductionSource).digest("hex"),
+  sha256(currentProductionSource),
   "4a461f3cedaf510ade2333d55bdcff9d0b1f461bb09d443d146adb33b843f4c8",
   "the installed 20260901 production loader must remain byte-identical"
 );
+assert.equal(
+  sha256(v1CandidateSource),
+  "ade85d93875ae7192a77c197f4cafd0a4b8787e1082943a6666aebefdd69a579",
+  "the already-published polarized v1 candidate URL must remain byte-identical"
+);
+assert.equal(
+  sri(v1CandidateSource),
+  "sha384-rPz/izM7fEIWspbrR5dQ1raWC1tk4Eyw3t47nhAjRYE72CKTt/zhGTa2Hg0IU5gr"
+);
+assert.match(v1Guide, /v1 候選版已停止驗收/);
+assert.match(v1Guide, /不得再安裝/);
 
-console.log("polarized production candidate contract passed: tested core parity + fixed SRI");
+const v2Sha256 = sha256(v2CandidateSource);
+const v2Sri = sri(v2CandidateSource);
+assert.equal(v2Sha256, "00689233056c418e6e421d4923ec2ab20abb739cdb59afe31e5290e02b5b248f");
+assert.equal(v2Sri, "sha384-W/OS+aihXUMeAXmMoTfl1y0b6dXSdStyc+LTyNjZsAHt6RXhJsbAaiT1cCb6Q7ks");
+assert.match(v2CandidateSource, /UNPUBLISHED PRODUCTION CANDIDATE V2/);
+assert.match(v2CandidateSource, /CART_SYNC_RETRY_DELAYS_MS/);
+assert.match(v2CandidateSource, /fetchAuthoritativeCartState/);
+assert.match(v2CandidateSource, /cartMutationPending/);
+assert.doesNotMatch(v2CandidateSource, /PENDING_/);
+assert.ok(v2Guide.includes(v2Sha256));
+assert.ok(v2Guide.includes(`integrity="${v2Sri}"`));
+assert.ok(v2Guide.includes("cyberbiz-cart-production-loader-20260901-polarized-v2.js"));
+
+assert.match(developmentEntrySource, /UNPUBLISHED DEVELOPMENT ONLY/);
+assert.match(developmentEntrySource, /eyefans_size_lens_development/);
+assert.ok(developmentEntrySource.includes(v2Sri),
+  "development entry must pin and load the exact v2 core without copying production records");
+
+const appendedScripts = [];
+const wrapperWindow = { location: new URL("https://www.eyefans.com.tw/products/cls-cus-mix-sun-rd") };
+const wrapperDocument = {
+  currentScript: {
+    src: "https://nina82815.github.io/eyefans-custom/integration/cyberbiz-cart-size-lens-development-loader.js"
+  },
+  head: {
+    appendChild(script) {
+      appendedScripts.push(script);
+    }
+  },
+  documentElement: null,
+  createElement() {
+    return {};
+  }
+};
+vm.runInNewContext(developmentEntrySource, {
+  URL,
+  window: wrapperWindow,
+  document: wrapperDocument
+});
+assert.equal(appendedScripts.length, 1);
+assert.equal(
+  appendedScripts[0].src,
+  "https://nina82815.github.io/eyefans-custom/integration/cyberbiz-cart-production-loader-20260901-polarized-v2.js?eyefans_size_lens_development=1"
+);
+assert.equal(appendedScripts[0].integrity, v2Sri);
+assert.equal(appendedScripts[0].crossOrigin, "anonymous");
+assert.equal(appendedScripts[0].async, false);
+
+console.log("polarized v1 immutability + v2 production candidate contract passed");

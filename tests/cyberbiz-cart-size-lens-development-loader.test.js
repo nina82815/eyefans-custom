@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -9,9 +10,16 @@ const loaderPath = path.join(
   __dirname,
   "..",
   "integration",
-  "cyberbiz-cart-size-lens-development-loader.js"
+  "cyberbiz-cart-production-loader-20260901-polarized-v2.js"
 );
 const rawSource = fs.readFileSync(loaderPath, "utf8");
+const developmentEntryPath = path.join(
+  __dirname,
+  "..",
+  "integration",
+  "cyberbiz-cart-size-lens-development-loader.js"
+);
+const developmentEntrySource = fs.readFileSync(developmentEntryPath, "utf8");
 
 const SIZES = Object.freeze(["XS", "S", "M", "L"]);
 const LENSES = Object.freeze({
@@ -305,7 +313,9 @@ function createProductEnvironment({
     readyState: "complete",
     documentElement: {},
     head: null,
-    currentScript: { src: "https://example.invalid/cyberbiz-cart-size-lens-development-loader.js" },
+    currentScript: {
+      src: "https://example.invalid/cyberbiz-cart-production-loader-20260901-polarized-v2.js?eyefans_size_lens_development=1"
+    },
     querySelectorAll(selector) {
       return selector === ".eyefans-custom-wrap iframe" ? [frame] : [];
     },
@@ -430,7 +440,7 @@ function storedRecords(environment) {
   );
 }
 
-function createCheckoutBoot(source, variantId) {
+function createCheckoutBoot(source, variantId, developmentRuntime = true) {
   const window = {
     location: new URL("https://www.eyefans.com.tw/carts/size-lens-cart-token"),
     lineItems: [{ variant_id: String(variantId), quantity: 1 }],
@@ -445,7 +455,9 @@ function createCheckoutBoot(source, variantId) {
   const document = {
     readyState: "loading",
     documentElement: {},
-    currentScript: { src: "https://example.invalid/cyberbiz-cart-size-lens-development-loader.js" },
+    currentScript: {
+      src: `https://example.invalid/cyberbiz-cart-production-loader-20260901-polarized-v2.js${developmentRuntime ? "?eyefans_size_lens_development=1" : ""}`
+    },
     scripts: [],
     addEventListener(type, listener) {
       documentListeners[type] = listener;
@@ -466,12 +478,19 @@ function createCheckoutBoot(source, variantId) {
 }
 
 async function main() {
-  assert.match(rawSource, /UNPUBLISHED DEVELOPMENT SNAPSHOT \/ DO NOT INSTALL/);
+  assert.match(rawSource, /UNPUBLISHED PRODUCTION CANDIDATE V2 \/ DO NOT INSTALL ON A PUBLISHED THEME/);
   assert.match(rawSource, /CYBERBIZ owns all prices/);
   assert.match(rawSource, /polarized: "偏光鏡片"/);
-  assert.match(rawSource, /const STORAGE_KEY = "eyefansCustomCartDesignsSizeLensDevV1"/);
-  assert.doesNotMatch(rawSource, /const STORAGE_KEY = "eyefansCustomCartDesignsProdV1"/);
+  assert.match(rawSource, /eyefans_size_lens_development/);
+  assert.match(rawSource, /"eyefansCustomCartDesignsSizeLensDevV1"/);
+  assert.match(rawSource, /"eyefansCustomCartDesignsProdV1"/);
   assert.doesNotMatch(rawSource, /body\.set\(["']price["']/);
+
+  const candidateSri = `sha384-${crypto.createHash("sha384").update(rawSource).digest("base64")}`;
+  assert.match(developmentEntrySource, /UNPUBLISHED DEVELOPMENT ONLY/);
+  assert.match(developmentEntrySource, /eyefans_size_lens_development/);
+  assert.ok(developmentEntrySource.includes(candidateSri),
+    "development entry must pin the exact v2 candidate core SRI");
 
   assert.doesNotMatch(rawSource, /PENDING_/, "all nine target mappings must be pinned before catalog QA");
 
@@ -703,6 +722,16 @@ async function main() {
   assert.equal(premiumCheckout.window.__eyefansCartSizeLensDevelopmentLoaderActive, true);
   assert.equal(typeof premiumCheckout.documentListeners.DOMContentLoaded, "function",
     "a premium variant in checkout must activate the guarded note-sync path");
+
+  const productionCandidateBoot = createCheckoutBoot(
+    configured.source,
+    uv.targetsByLens.polarized.variantsBySize.M,
+    false
+  );
+  assert.equal(productionCandidateBoot.window.__eyefansCartProductionLoaderActive, true,
+    "the normal v2 URL must use the production replacement flag");
+  assert.equal(productionCandidateBoot.window.__eyefansCartSizeLensDevelopmentLoaderActive, undefined);
+  assert.equal(typeof productionCandidateBoot.documentListeners.DOMContentLoaded, "function");
 
   console.log("cyberbiz cart size+lens development loader tests passed");
 }
