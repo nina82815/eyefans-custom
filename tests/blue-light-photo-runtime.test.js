@@ -15,6 +15,34 @@ function sourceBetween(startMarker, endMarker) {
   return source.slice(start, end);
 }
 
+const lensSandbox = {};
+vm.createContext(lensSandbox);
+vm.runInContext(
+  `${sourceBetween("const GRAY_LENS_VISUAL", "const VIEW_FILES")}\n`
+    + "globalThis.__LENS_COLORS = LENS_COLORS;",
+  lensSandbox
+);
+const lenses = JSON.parse(JSON.stringify(lensSandbox.__LENS_COLORS));
+assert.deepEqual(lenses.map(lens => lens.id), ["gray", "blue-tea", "polarized"]);
+const grayLens = lenses.find(lens => lens.id === "gray");
+const polarizedLens = lenses.find(lens => lens.id === "polarized");
+assert.equal(polarizedLens.name, "偏光鏡片");
+assert.equal(polarizedLens.priceDelta, 300);
+assert.deepEqual(
+  {
+    value: polarizedLens.value,
+    swatch: polarizedLens.swatch,
+    photoFill: polarizedLens.photoFill
+  },
+  { value: grayLens.value, swatch: grayLens.swatch, photoFill: grayLens.photoFill },
+  "polarized lens must deliberately reuse the gray-lens 2D and photo appearance"
+);
+assert.match(
+  sourceBetween("function updatePhotoComposite(", "function customizationModeFromLocation("),
+  /state\.lens\.id === "blue-tea"/,
+  "only anti-blue-light lenses may enable the special photographed coating"
+);
+
 class FakeElement {
   constructor() {
     this.attributes = new Map();

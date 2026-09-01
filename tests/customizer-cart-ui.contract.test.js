@@ -69,7 +69,8 @@ const variableNames = [
 ];
 const functionNames = [
   "cartSubmitEnabledFromLocation", "cartPanelVisibleFromLocation", "cartSubmissionAvailable",
-  "parentMessageOrigin", "effectivePrintMode", "buildSelectionPayload", "announceAndNotifyParent",
+  "parentMessageOrigin", "effectivePrintMode", "lensPriceLabel", "lensDisplayLabel",
+  "buildSelectionPayload", "announceAndNotifyParent",
   "createCartRequestId", "cartSelectionFingerprint", "setCustomizerControlsLocked",
   "setCartSubmitState", "syncCartSubmitAvailability", "clearCartResultTimer",
   "submitCustomizerSelection", "handleCartResult", "initializeCartSubmit"
@@ -251,6 +252,25 @@ assert.deepEqual(request.message.selection, {
   customizationSideLabel: "右外側鏡腳",
   summary: "實拍效果、框腳配色＋UV 彩印、尺寸 M、鏡框 霧面白、鏡腳 琥珀、鏡片 抗藍光鏡片、2 圖＋名字／圖案 01+04／eyefans／文字白色、客製位置 右外側鏡腳"
 }, "all manufacturing details must survive the UI submission");
+
+for (const mode of Object.keys(PRODUCT_PATHS)) {
+  const polarized = environment({
+    search: `?mode=${mode}&locked=1&cart=1`,
+    referrer: `${STOREFRONT}${PRODUCT_PATHS[mode]}`,
+    state: {
+      customizationMode: mode,
+      lens: { id: "polarized", name: "偏光鏡片", priceDelta: 300 }
+    }
+  });
+  polarized.submit();
+  assert.equal(polarized.submissions()[0].message.selection.lens, "偏光鏡片", mode);
+  assert.equal(polarized.submissions()[0].message.selection.lensId, "polarized", mode);
+  assert.match(
+    polarized.submissions()[0].message.selection.summary,
+    /鏡片 偏光鏡片（\+NT\$300）/,
+    `${mode}: polarized summary must disclose its surcharge without changing the lens name or stable id`
+  );
+}
 live.submit();
 assert.equal(live.submissions().length, 1, "double click cannot create a duplicate request");
 live.context.announceAndNotifyParent();

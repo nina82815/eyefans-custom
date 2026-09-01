@@ -57,20 +57,32 @@ const SIZE_COLOR_AVAILABILITY = {
   ])
 };
 
+const GRAY_LENS_VISUAL = Object.freeze({
+  value: "rgba(25,25,28,.78)",
+  swatch: "rgba(25,25,28,.78)",
+  photoFill: "transparent"
+});
+
 const LENS_COLORS = [
   {
     id: "gray",
     name: "三號灰片",
-    value: "rgba(25,25,28,.78)",
-    swatch: "rgba(25,25,28,.78)",
-    photoFill: "transparent"
+    priceDelta: 0,
+    ...GRAY_LENS_VISUAL
   },
   {
     id: "blue-tea",
     name: "抗藍光鏡片",
+    priceDelta: 0,
     value: "rgba(170,160,196,.24)",
     swatch: "rgba(183,174,204,.58)",
     photoFill: "rgba(157,139,207,.14)"
+  },
+  {
+    id: "polarized",
+    name: "偏光鏡片",
+    priceDelta: 300,
+    ...GRAY_LENS_VISUAL
   }
 ];
 
@@ -1043,17 +1055,30 @@ function renderLensOptions() {
   LENS_COLORS.forEach(item => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `lens-option${state.lens.name === item.name ? " is-active" : ""}`;
-    button.setAttribute("aria-pressed", String(state.lens.name === item.name));
-    button.innerHTML = `<i style="--lens:${item.swatch}"></i><span>${item.name}</span>`;
+    button.className = `lens-option${state.lens.id === item.id ? " is-active" : ""}`;
+    button.dataset.lensId = item.id;
+    button.setAttribute("aria-label", lensDisplayLabel(item));
+    button.setAttribute("aria-pressed", String(state.lens.id === item.id));
+    const priceLabel = lensPriceLabel(item);
+    button.innerHTML = `<i style="--lens:${item.swatch}"></i><span><b>${item.name}</b>${priceLabel ? `<small>${priceLabel}</small>` : ""}</span>`;
     button.addEventListener("click", () => {
       state.lens = item;
       setActiveButtons(mount, candidate => candidate === button);
-      document.getElementById("picked-lens").textContent = item.name;
+      document.getElementById("picked-lens").textContent = lensDisplayLabel(item);
       updateAll();
     });
     mount.appendChild(button);
   });
+}
+
+function lensPriceLabel(lens) {
+  const priceDelta = Number.isSafeInteger(lens?.priceDelta) ? lens.priceDelta : 0;
+  return priceDelta > 0 ? `+NT$${priceDelta.toLocaleString("en-US")}` : "";
+}
+
+function lensDisplayLabel(lens) {
+  const priceLabel = lensPriceLabel(lens);
+  return `${lens.name}${priceLabel ? `（${priceLabel}）` : ""}`;
 }
 
 function updateIconSlotUi() {
@@ -1192,7 +1217,9 @@ function updateSummary() {
   document.getElementById("size-chip").textContent = state.size;
   document.getElementById("frame-summary").textContent = state.frame.name;
   document.getElementById("temple-summary").textContent = state.temple.name;
-  document.getElementById("lens-summary").textContent = state.lens.name;
+  const lensSummary = document.getElementById("lens-summary");
+  lensSummary.textContent = lensDisplayLabel(state.lens);
+  lensSummary.title = lensDisplayLabel(state.lens);
   setChip("frame-chip", state.frame);
   setChip("temple-chip", state.temple);
   setChip("lens-chip", state.lens);
@@ -1215,7 +1242,7 @@ function buildSelectionPayload() {
   const customizationSideLabel = state.customizationMode !== "color" && printMode !== "none"
     ? "右外側鏡腳"
     : null;
-  const summary = `${previewMode}、${customizationConfig.label}、尺寸 ${state.size}、鏡框 ${state.frame.name}、鏡腳 ${state.temple.name}、鏡片 ${state.lens.name}、${personalization}${customizationSideLabel ? `、客製位置 ${customizationSideLabel}` : ""}`;
+  const summary = `${previewMode}、${customizationConfig.label}、尺寸 ${state.size}、鏡框 ${state.frame.name}、鏡腳 ${state.temple.name}、鏡片 ${lensDisplayLabel(state.lens)}、${personalization}${customizationSideLabel ? `、客製位置 ${customizationSideLabel}` : ""}`;
 
   return {
     customizationMode: state.customizationMode,

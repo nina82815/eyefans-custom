@@ -80,6 +80,25 @@ setup 合約仍核對已發布的 20260830／20260831 引用碼，並鎖定兩�
 新版的範圍、替換碼與待驗收項目見 `integration/CYBERBIZ_CART_EMPTY_CART_FIX_20260831.md`。
 20260901 候選的安全界線與回歸項目見 `integration/CYBERBIZ_CART_QUANTITY_FIX_20260901.md`。
 
+尺寸 × 鏡片的隔離測試快照為
+`integration/cyberbiz-cart-size-lens-development-loader.js`，另已由相同核心建立未發布
+production candidate：`integration/cyberbiz-cart-production-loader-20260901-polarized.js`。
+三個可見 SUN 商品是入口，
+每個入口會依鏡片選擇 SUN／BL／PL 三個獨立 target products，再依尺寸加入該商品的
+variant。九個 target products 與 36 個 variants 的實際 mapping 均已固定，live catalog
+也已全部 ready：color 與 engraving 的 SUN／BL 均為 available／deny／qty 1／
+NT$88,888，兩個 PL 均為 available／deny／qty 1／NT$89,188（已 +300）；UV 三商品維持
+ready。已無 catalog 或價格 blocker，但在未發布主題完成全套驗收前仍不可安裝至已發布
+主題。範圍、九組 mapping、catalog 狀態與上線前驗證見
+`integration/CYBERBIZ_CART_SIZE_LENS_DEVELOPMENT.md`。對應測試驗證三入口 → 九商品 →
+36 variants 的精確 mapping；完整 36 組使用假的可售回應，並另外以不可售 fixture 驗證
+fail-closed 與零 POST，不會連線到 CYBERBIZ：
+
+```text
+node tests/cyberbiz-cart-size-lens-development-loader.test.js
+node tests/cyberbiz-cart-polarized-production-candidate.test.js
+```
+
 ## 自動檢查正式橋接草稿
 
 以下測試以假的 `fetch` 執行正式 bridge，不會連線到 CYBERBIZ；它會驗證三個商品、四種尺寸共 12 組款式 ID，以及缺少 `cart=1` 時必須拒絕請求：
