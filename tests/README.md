@@ -74,8 +74,11 @@ iframe 送出：
 `integration/CYBERBIZ_CART_PRODUCTION_SETUP.md`。
 
 空購物車轉回首頁的修正版為 `integration/cyberbiz-cart-production-loader-20260831.js`；發布不代表主題已安裝或完成實際驗收。
-runtime 測試目前指向此版；setup 合約核對 20260830／20260831 引用碼，並鎖定兩個舊 loader 的 SRI。
+2026-09-01 的獨立後繼檔為 `integration/cyberbiz-cart-production-loader-20260901.js`，補上購物車行數／件數兼容、
+加入後有限唯讀重讀，以及重開機空車後隔離舊 pending。發布程式檔不代表主題已替換；runtime 測試目前指向此版；
+setup 合約仍核對已發布的 20260830／20260831 引用碼，並鎖定兩個舊 loader 的 SRI。
 新版的範圍、替換碼與待驗收項目見 `integration/CYBERBIZ_CART_EMPTY_CART_FIX_20260831.md`。
+20260901 候選的安全界線與回歸項目見 `integration/CYBERBIZ_CART_QUANTITY_FIX_20260901.md`。
 
 ## 自動檢查正式橋接草稿
 

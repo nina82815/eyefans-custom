@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const loaderPath = path.join(__dirname, "..", "integration", "cyberbiz-cart-production-loader-20260831.js");
+const loaderPath = path.join(__dirname, "..", "integration", "cyberbiz-cart-production-loader-20260901.js");
 const source = fs.readFileSync(loaderPath, "utf8");
 const TEST_PRODUCTS = Object.freeze({
   "cls-cus-mix-sun-rd": Object.freeze({
@@ -106,10 +106,13 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
       cart_item_id: `${variantId}_normal_`,
       quantity
     }));
-    return JSON.stringify({
+    const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
+    const payload = {
       items,
-      item_count: items.reduce((total, item) => total + item.quantity, 0)
-    });
+      item_count: behavior.cartJsonItemCountMode === "lines" ? items.length : totalQuantity
+    };
+    if (behavior.cartJsonIncludesTotalQuantity) payload.total_quantity = totalQuantity;
+    return JSON.stringify(payload);
   }
 
   function productJsonBody() {
@@ -147,7 +150,8 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
       listeners[type] = listener;
     },
     setTimeout(callback, delay) {
-      return delay === 20000 ? 0 : setTimeout(callback, delay);
+      if (delay === 20000) return 0;
+      return delay === 15000 ? setTimeout(callback, delay) : setImmediate(callback);
     },
     clearTimeout(handle) {
       if (handle) clearTimeout(handle);
@@ -190,10 +194,17 @@ function createProductEnvironment(href, mode = "uv", behavior = {}) {
         assert.equal(requestPath, "/cart.json");
         cartGetCount += 1;
         const phase = cartGetCount === 1 ? "preflight" : "postflight";
-        if (behavior[`${phase}Throws`]) throw new Error(`${phase} network failure`);
+        const postflightIndex = Math.max(0, cartGetCount - 2);
+        if (behavior[`${phase}Throws`] || (
+          phase === "postflight" && postflightIndex < Number(behavior.postflightThrowsCount || 0)
+        )) throw new Error(`${phase} network failure`);
+        const postflightBodies = behavior.postflightBodies;
+        const sequencedPostflightBody = phase === "postflight" && Array.isArray(postflightBodies)
+          ? postflightBodies[Math.min(postflightIndex, postflightBodies.length - 1)]
+          : undefined;
         return mockResponse({
           status: behavior[`${phase}Status`] ?? 200,
-          body: behavior[`${phase}Body`] ?? cartJsonBody(),
+          body: sequencedPostflightBody ?? behavior[`${phase}Body`] ?? cartJsonBody(),
           contentType: behavior[`${phase}ContentType`] ?? "application/json; charset=utf-8",
           redirected: behavior[`${phase}Redirected`] ?? false
         });
@@ -362,6 +373,14 @@ function requestInContext(context, requestId, selection) {
 
 function flushTasks() {
   return new Promise(resolve => setImmediate(resolve));
+}
+
+async function flushTaskQueue(turns = 12) {
+  for (let index = 0; index < turns; index += 1) await flushTasks();
+}
+
+function literalCartJson(items, itemCount, totalQuantity) {
+  return JSON.stringify({ items, item_count: itemCount, total_quantity: totalQuantity });
 }
 
 function genericElement(tagName, id = "") {
@@ -865,6 +884,198 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
   assert.equal(savedRecords[0].receipt.cartQuantityAfter, 1);
   assert.equal(savedRecords[0].receipt.verifiedByCartDelta, true);
   assert.equal(savedRecords[0].cartToken, "cart-token-123", "new verified designs must bind their actual cart token");
+
+  const uvMQuantity1 = [{ variant_id_int: 87452778, quantity: 1 }];
+  const uvMQuantity2 = [{ variant_id_int: 87452778, quantity: 2 }];
+  const lineCountSchema = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd",
+    "uv",
+    {
+      recordsJson: JSON.stringify(savedRecords),
+      initialCartQuantities: { 87452778: 1 },
+      preflightBody: literalCartJson(uvMQuantity1, 1, 1),
+      postflightBody: literalCartJson(uvMQuantity2, 1, 2)
+    }
+  );
+  lineCountSchema.listeners.message({
+    origin: "https://nina82815.github.io",
+    source: lineCountSchema.frameWindow,
+    data: requestInContext(lineCountSchema.context, "request-line-count-schema-0001", uvSelection({ name: "TEST2" }))
+  });
+  await flushTaskQueue();
+  assert.equal(lineCountSchema.replies.at(-1).message.ok, true,
+    "item_count may represent one cart row while total_quantity and items quantity represent two units");
+  assert.equal(lineCountSchema.requests.filter(request => request.options.method === "POST").length, 1);
+  assert.equal(productionRecords(lineCountSchema).filter(record => record.status === "active").length, 2);
+
+  const mixedRowsBefore = [
+    { variant_id_int: 87452778, quantity: 1 },
+    { variant_id_int: 99999999, quantity: 2 }
+  ];
+  const mixedRowsAfter = [
+    { variant_id_int: 87452778, quantity: 2 },
+    { variant_id_int: 99999999, quantity: 2 }
+  ];
+  const mixedLineCountSchema = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd",
+    "uv",
+    {
+      recordsJson: JSON.stringify(savedRecords),
+      initialCartQuantities: { 87452778: 1, 99999999: 2 },
+      preflightBody: literalCartJson(mixedRowsBefore, 2, 3),
+      postflightBody: literalCartJson(mixedRowsAfter, 2, 4)
+    }
+  );
+  mixedLineCountSchema.listeners.message({
+    origin: "https://nina82815.github.io",
+    source: mixedLineCountSchema.frameWindow,
+    data: requestInContext(mixedLineCountSchema.context, "request-mixed-line-count-0001", uvSelection({ name: "TEST3" }))
+  });
+  await flushTaskQueue();
+  assert.equal(mixedLineCountSchema.replies.at(-1).message.ok, true);
+  assert.equal(mixedLineCountSchema.requests.filter(request => request.options.method === "POST").length, 1);
+
+  for (const [label, invalidBody] of [
+    ["total quantity disagrees with items", literalCartJson(uvMQuantity1, 1, 2)],
+    ["item count is neither rows nor units", literalCartJson(uvMQuantity2, 9, 2)]
+  ]) {
+    const invalidSchema = createProductEnvironment(
+      "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd",
+      "uv",
+      { preflightBody: invalidBody }
+    );
+    invalidSchema.listeners.message({
+      origin: "https://nina82815.github.io",
+      source: invalidSchema.frameWindow,
+      data: requestInContext(invalidSchema.context, `request-invalid-schema-${label.length}`, uvSelection({ name: "INVALID" }))
+    });
+    await flushTaskQueue();
+    assert.equal(invalidSchema.replies.at(-1).message.ok, false, label);
+    assert.equal(invalidSchema.requests.filter(request => request.options.method === "POST").length, 0, label);
+  }
+
+  const stalePostflight = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd",
+    "uv",
+    {
+      recordsJson: JSON.stringify(savedRecords),
+      initialCartQuantities: { 87452778: 1 },
+      preflightBody: literalCartJson(uvMQuantity1, 1, 1),
+      postflightBodies: [
+        literalCartJson(uvMQuantity1, 1, 1),
+        literalCartJson(uvMQuantity1, 1, 1),
+        literalCartJson(uvMQuantity2, 1, 2)
+      ]
+    }
+  );
+  stalePostflight.listeners.message({
+    origin: "https://nina82815.github.io",
+    source: stalePostflight.frameWindow,
+    data: requestInContext(stalePostflight.context, "request-stale-postflight-0001", uvSelection({ name: "TEST4" }))
+  });
+  await flushTaskQueue();
+  assert.ok(stalePostflight.replies.length, JSON.stringify(stalePostflight.requests.map(request => ({
+    method: request.options.method,
+    path: new URL(request.url).pathname
+  }))));
+  assert.equal(stalePostflight.replies.at(-1).message.ok, true,
+    "read-only polling may observe a stale quantity before the verified +1 appears");
+  assert.equal(stalePostflight.requests.filter(request => request.options.method === "POST").length, 1,
+    "eventual consistency must never repeat the cart POST");
+  assert.equal(stalePostflight.requests.filter(request => new URL(request.url).pathname === "/cart.json").length, 4);
+
+  const transientPostflightRead = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd",
+    "uv",
+    {
+      recordsJson: JSON.stringify(savedRecords),
+      initialCartQuantities: { 87452778: 1 },
+      preflightBody: literalCartJson(uvMQuantity1, 1, 1),
+      postflightThrowsCount: 1
+    }
+  );
+  transientPostflightRead.listeners.message({
+    origin: "https://nina82815.github.io",
+    source: transientPostflightRead.frameWindow,
+    data: requestInContext(transientPostflightRead.context, "request-transient-read-0001", uvSelection({ name: "TEST8" }))
+  });
+  await flushTaskQueue();
+  assert.equal(transientPostflightRead.replies.at(-1).message.ok, true,
+    "one temporary cart read failure may recover through a later read-only verification");
+  assert.equal(transientPostflightRead.requests.filter(request => request.options.method === "POST").length, 1);
+  assert.equal(transientPostflightRead.requests.filter(request => new URL(request.url).pathname === "/cart.json").length, 3);
+
+  const malformedPostflight = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd",
+    "uv",
+    {
+      recordsJson: JSON.stringify(savedRecords),
+      initialCartQuantities: { 87452778: 1 },
+      preflightBody: literalCartJson(uvMQuantity1, 1, 1),
+      postflightBodies: ["{", literalCartJson(uvMQuantity2, 1, 2)]
+    }
+  );
+  malformedPostflight.listeners.message({
+    origin: "https://nina82815.github.io",
+    source: malformedPostflight.frameWindow,
+    data: requestInContext(malformedPostflight.context, "request-malformed-read-0001", uvSelection({ name: "TEST9" }))
+  });
+  await flushTaskQueue();
+  assert.equal(malformedPostflight.replies.at(-1).message.ok, false);
+  assert.equal(malformedPostflight.requests.filter(request => request.options.method === "POST").length, 1);
+  assert.equal(malformedPostflight.requests.filter(request => new URL(request.url).pathname === "/cart.json").length, 2,
+    "a structurally invalid cart response must fail immediately instead of polling into success");
+  assert.equal(productionRecords(malformedPostflight).find(record => record.selection.name === "TEST9").status, "pending");
+
+  const neverUpdated = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd",
+    "uv",
+    {
+      recordsJson: JSON.stringify(savedRecords),
+      initialCartQuantities: { 87452778: 1 },
+      preflightBody: literalCartJson(uvMQuantity1, 1, 1),
+      postflightBodies: [literalCartJson(uvMQuantity1, 1, 1)]
+    }
+  );
+  neverUpdated.listeners.message({
+    origin: "https://nina82815.github.io",
+    source: neverUpdated.frameWindow,
+    data: requestInContext(neverUpdated.context, "request-never-updated-0001", uvSelection({ name: "TEST5" }))
+  });
+  await flushTaskQueue();
+  assert.equal(neverUpdated.replies.at(-1).message.ok, false);
+  assert.equal(neverUpdated.requests.filter(request => request.options.method === "POST").length, 1);
+  assert.equal(productionRecords(neverUpdated).find(record => record.selection.name === "TEST5").status, "pending");
+  neverUpdated.listeners.message({
+    origin: "https://nina82815.github.io",
+    source: neverUpdated.frameWindow,
+    data: requestInContext(neverUpdated.context, "request-never-updated-retry", uvSelection({ name: "TEST5" }))
+  });
+  await flushTaskQueue();
+  assert.equal(neverUpdated.requests.filter(request => request.options.method === "POST").length, 1,
+    "an unresolved same design may not create a second POST");
+
+  const overIncremented = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd",
+    "uv",
+    {
+      recordsJson: JSON.stringify(savedRecords),
+      initialCartQuantities: { 87452778: 1 },
+      preflightBody: literalCartJson(uvMQuantity1, 1, 1),
+      postflightBody: literalCartJson([{ variant_id_int: 87452778, quantity: 3 }], 1, 3)
+    }
+  );
+  overIncremented.listeners.message({
+    origin: "https://nina82815.github.io",
+    source: overIncremented.frameWindow,
+    data: requestInContext(overIncremented.context, "request-over-increment-0001", uvSelection({ name: "TEST6" }))
+  });
+  await flushTaskQueue();
+  assert.equal(overIncremented.replies.at(-1).message.ok, false);
+  assert.equal(overIncremented.requests.filter(request => request.options.method === "POST").length, 1);
+  assert.equal(overIncremented.requests.filter(request => new URL(request.url).pathname === "/cart.json").length, 2,
+    "a quantity larger than the one requested must fail immediately instead of polling into success");
+
   const identityRequests = live.requests.filter(request => new URL(request.url).pathname === "/cart");
   assert.equal(identityRequests.length, 2);
   assert.ok(identityRequests.every(request => (
@@ -962,14 +1173,14 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
   oldPendingRetry.listeners.message({
     origin: "https://nina82815.github.io",
     source: oldPendingRetry.frameWindow,
-    data: requestInContext(oldPendingRetry.context, "request-old-pending-retry-0001", uvSelection())
+    data: requestInContext(oldPendingRetry.context, oldPendingRecord.requestId, uvSelection())
   });
   await flushTasks();
   await flushTasks();
   assert.equal(
     oldPendingRetry.requests.filter(request => request.options.method === "POST").length,
     0,
-    "an unresolved pending design must never auto-unlock into a second POST"
+    "the same pending request id must never auto-unlock into a second POST"
   );
 
   const beforeInvalidRequests = live.requests.filter(request => request.options.method === "POST").length;
@@ -1374,8 +1585,8 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
       `${label}: observed zero permits removing this token's stale same-variant bound design`);
     assert.deepEqual(retained.find(record => record.requestId === foreignBound.requestId), foreignBound,
       `${label}: another cart's same-variant design must survive`);
-    assert.deepEqual(retained.find(record => record.requestId === unrelatedBound.requestId), unrelatedBound,
-      `${label}: another size must not be removed by same-variant cleanup`);
+    assert.equal(retained.some(record => record.requestId === unrelatedBound.requestId), false,
+      `${label}: a strictly empty whole-cart snapshot may retire stale records bound to that same cart token`);
     const excludedLegacy = retained.find(record => record.requestId === legacyUnbound.requestId);
     assert.ok(excludedLegacy, `${label}: legacy unbound data must not be globally erased`);
     assert.equal(excludedLegacy.cartToken, null);
@@ -1407,6 +1618,139 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
     assert.ok(!refreshed.note.value.includes(oldBound.designId));
     assert.ok(!refreshed.note.value.includes(legacyUnbound.designId));
   }
+
+  const oldPendingTest5 = {
+    ...newTest.record,
+    status: "pending",
+    cartToken: null,
+    createdAt: Date.now() - (6 * 60 * 1000)
+  };
+  delete oldPendingTest5.receipt;
+  const oldOtherSizeFixture = await verifiedUvFixture("request-old-other-size-pending", {
+    name: "PENDINGS", size: "S"
+  });
+  const oldOtherSizePending = {
+    ...oldOtherSizeFixture.record,
+    status: "pending",
+    cartToken: null,
+    createdAt: Date.now() - (6 * 60 * 1000)
+  };
+  delete oldOtherSizePending.receipt;
+  const rebootRecoverySeed = [oldBound, oldPendingTest5, oldOtherSizePending, foreignBound, unrelatedBound];
+  const rebootRecovery = await verifiedUvFixture("request-reboot-recovery-TEST6", {
+    name: "TEST6", frame: "豆綠", temple: "奶油黃", lens: "三號灰片", lensId: "gray"
+  }, {
+    recordsJson: JSON.stringify(rebootRecoverySeed),
+    preCartIdentityUrl: "https://www.eyefans.com.tw/",
+    postCartIdentityUrl: `https://www.eyefans.com.tw/carts/${originalToken}`
+  });
+  const recoveredRecords = productionRecords(rebootRecovery.environment);
+  assert.equal(recoveredRecords.some(record => record.requestId === oldBound.requestId), false,
+    "a strictly empty cart may retire its stale bound design only after the replacement succeeds");
+  assert.equal(recoveredRecords.some(record => record.requestId === unrelatedBound.requestId), false,
+    "whole-cart emptiness also retires another stale size bound to the same recovered token");
+  assert.deepEqual(recoveredRecords.find(record => record.requestId === foreignBound.requestId), foreignBound,
+    "a record bound to another cart token must survive reboot recovery");
+  const quarantinedPending = recoveredRecords.find(record => record.requestId === oldPendingTest5.requestId);
+  assert.ok(quarantinedPending, "the uncertain test5 record must be preserved, not promoted or erased");
+  assert.equal(quarantinedPending.status, "pending");
+  assert.equal(quarantinedPending.cartToken, null);
+  assert.ok(quarantinedPending.excludedCartTokens.includes(originalToken),
+    "the old pending design must be excluded only from the newly verified cart token");
+  const quarantinedOtherSize = recoveredRecords.find(record => record.requestId === oldOtherSizePending.requestId);
+  assert.equal(quarantinedOtherSize.status, "pending");
+  assert.equal(quarantinedOtherSize.cartToken, null);
+  assert.ok(quarantinedOtherSize.excludedCartTokens.includes(originalToken),
+    "an old pending record for another size is also quarantined only after whole-cart empty recovery succeeds");
+  assert.equal(rebootRecovery.record.selection.name, "TEST6");
+  assert.equal(rebootRecovery.record.cartToken, originalToken);
+
+  const recoveredCheckout = createCartEnvironment({
+    recordsJson: JSON.stringify(recoveredRecords),
+    quantity: 1,
+    cartToken: originalToken,
+    initialNote: customerNote
+  });
+  assert.equal(recoveredCheckout.checkout.attributes.has("aria-disabled"), false,
+    "the new verified design must remain orderable after the old pending record is quarantined");
+  assert.match(recoveredCheckout.note.value, /文字：TEST6/);
+  assert.ok(!recoveredCheckout.note.value.includes(oldPendingTest5.designId));
+  assert.ok(recoveredCheckout.note.value.includes(customerNote));
+
+  const exactPendingRetry = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd", "uv", {
+      recordsJson: JSON.stringify([oldPendingTest5]),
+      preCartIdentityUrl: "https://www.eyefans.com.tw/"
+    }
+  );
+  exactPendingRetry.listeners.message({
+    origin: "https://nina82815.github.io", source: exactPendingRetry.frameWindow,
+    data: requestInContext(exactPendingRetry.context, "request-exact-pending-retry", uvSelection({
+      name: "TEST2", frame: "天藍", temple: "櫻花粉", lens: "三號灰片", lensId: "gray"
+    }))
+  });
+  await flushTaskQueue();
+  assert.equal(exactPendingRetry.replies.at(-1).message.ok, true,
+    "an explicit new request may re-add the same design after the old pending attempt and whole cart are safely stale");
+  assert.equal(exactPendingRetry.requests.filter(request => request.options.method === "POST").length, 1);
+  const exactRetryRecords = productionRecords(exactPendingRetry);
+  const exactRetryOldPending = exactRetryRecords.find(record => record.requestId === oldPendingTest5.requestId);
+  assert.equal(exactRetryOldPending.status, "pending");
+  assert.ok(exactRetryOldPending.excludedCartTokens.includes("cart-token-123"));
+  assert.ok(exactRetryRecords.some(record => (
+    record.requestId === "request-exact-pending-retry"
+    && record.status === "active"
+    && record.cartToken === "cart-token-123"
+  )));
+
+  const sameRequestIdRetry = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd", "uv", {
+      recordsJson: JSON.stringify([oldPendingTest5]),
+      preCartIdentityUrl: "https://www.eyefans.com.tw/"
+    }
+  );
+  sameRequestIdRetry.listeners.message({
+    origin: "https://nina82815.github.io", source: sameRequestIdRetry.frameWindow,
+    data: requestInContext(sameRequestIdRetry.context, oldPendingTest5.requestId, uvSelection({
+      name: "TEST2", frame: "天藍", temple: "櫻花粉", lens: "三號灰片", lensId: "gray"
+    }))
+  });
+  await flushTaskQueue();
+  assert.equal(sameRequestIdRetry.requests.length, 0,
+    "the exact same request id is an idempotency key and may never issue another network request");
+  assert.deepEqual(productionRecords(sameRequestIdRetry), [oldPendingTest5]);
+
+  const recentPending = { ...oldPendingTest5, createdAt: Date.now() };
+  const recentPendingRecovery = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd", "uv", {
+      recordsJson: JSON.stringify([recentPending]),
+      preCartIdentityUrl: "https://www.eyefans.com.tw/"
+    }
+  );
+  recentPendingRecovery.listeners.message({
+    origin: "https://nina82815.github.io", source: recentPendingRecovery.frameWindow,
+    data: requestInContext(recentPendingRecovery.context, "request-recent-pending-TEST6", uvSelection({ name: "TEST6" }))
+  });
+  await flushTaskQueue();
+  assert.equal(recentPendingRecovery.requests.filter(request => request.options.method === "POST").length, 0,
+    "a recent pending add may still be in-flight in another tab and must block an empty-cart retry");
+  assert.deepEqual(productionRecords(recentPendingRecovery), [recentPending]);
+
+  const recentOtherSizePending = { ...oldOtherSizePending, createdAt: Date.now(), excludedCartTokens: [] };
+  const recentOtherSizeRecovery = createProductEnvironment(
+    "https://www.eyefans.com.tw/products/cls-cus-mix-uv-sun-rd", "uv", {
+      recordsJson: JSON.stringify([recentOtherSizePending]),
+      preCartIdentityUrl: "https://www.eyefans.com.tw/"
+    }
+  );
+  recentOtherSizeRecovery.listeners.message({
+    origin: "https://nina82815.github.io", source: recentOtherSizeRecovery.frameWindow,
+    data: requestInContext(recentOtherSizeRecovery.context, "request-recent-other-size-M", uvSelection({ name: "TEST7" }))
+  });
+  await flushTaskQueue();
+  assert.equal(recentOtherSizeRecovery.requests.filter(request => request.options.method === "POST").length, 0,
+    "whole-cart emptiness must not quarantine a different-size pending add that may still be in flight");
+  assert.deepEqual(productionRecords(recentOtherSizeRecovery), [recentOtherSizePending]);
 
   const concurrentRecord = { ...foreignTest.record, cartToken: originalToken };
   const concurrentChange = createProductEnvironment(
@@ -1988,8 +2332,7 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
     source: strictReceiptWithoutDelta.frameWindow,
     data: requestInContext(strictReceiptWithoutDelta.context, "request-no-delta-0001", uvSelection())
   });
-  await flushTasks();
-  await flushTasks();
+  await flushTaskQueue();
   assert.equal(strictReceiptWithoutDelta.replies.at(-1).message.ok, false);
   assert.match(strictReceiptWithoutDelta.replies.at(-1).message.message, /無法確認購物車數量/);
   assert.equal(
@@ -2001,8 +2344,7 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
     source: strictReceiptWithoutDelta.frameWindow,
     data: requestInContext(strictReceiptWithoutDelta.context, "request-no-delta-retry-0001", uvSelection())
   });
-  await flushTasks();
-  await flushTasks();
+  await flushTaskQueue();
   assert.equal(
     strictReceiptWithoutDelta.requests.filter(request => request.options.method === "POST").length,
     1,
@@ -2019,8 +2361,7 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
     source: ambiguousWithoutDelta.frameWindow,
     data: requestInContext(ambiguousWithoutDelta.context, "request-ambiguous-no-delta-0001", uvSelection())
   });
-  await flushTasks();
-  await flushTasks();
+  await flushTaskQueue();
   assert.equal(ambiguousWithoutDelta.replies.at(-1).message.ok, false);
   assert.equal(
     JSON.parse(ambiguousWithoutDelta.localStorage.getItem("eyefansCustomCartDesignsProdV1"))[0].status,
@@ -2031,8 +2372,7 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
     source: ambiguousWithoutDelta.frameWindow,
     data: requestInContext(ambiguousWithoutDelta.context, "request-ambiguous-no-delta-retry-0001", uvSelection())
   });
-  await flushTasks();
-  await flushTasks();
+  await flushTaskQueue();
   assert.equal(ambiguousWithoutDelta.requests.filter(request => request.options.method === "POST").length, 1);
 
   const postflightFailure = createProductEnvironment(
@@ -2045,11 +2385,15 @@ function assertAmbiguousCheckoutBlocked(environment, label) {
     source: postflightFailure.frameWindow,
     data: requestInContext(postflightFailure.context, "request-postflight-fail-0001", uvSelection())
   });
-  await flushTasks();
-  await flushTasks();
+  await flushTaskQueue();
   assert.equal(postflightFailure.replies.at(-1).message.ok, false);
   assert.match(postflightFailure.replies.at(-1).message.message, /無法確認購物車數量/);
   assert.equal(postflightFailure.requests.filter(request => request.options.method === "POST").length, 1);
+  assert.equal(
+    postflightFailure.requests.filter(request => new URL(request.url).pathname === "/cart.json").length,
+    5,
+    "one preflight read plus four bounded postflight reads must terminate without another POST"
+  );
   assert.equal(
     JSON.parse(postflightFailure.localStorage.getItem("eyefansCustomCartDesignsProdV1"))[0].status,
     "pending"

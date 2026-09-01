@@ -36,6 +36,11 @@ assert.equal(
 const emptyCartLoader = fs.readFileSync(path.join(root, "integration", "cyberbiz-cart-production-loader-20260831.js"));
 const emptyCartSetup = fs.readFileSync(path.join(root, "integration", "CYBERBIZ_CART_EMPTY_CART_FIX_20260831.md"), "utf8");
 const emptyCartIntegrity = `sha384-${crypto.createHash("sha384").update(emptyCartLoader).digest("base64")}`;
+assert.equal(
+  crypto.createHash("sha384").update(emptyCartLoader).digest("base64"),
+  "chm9Bq3ogSrUepLXtLDiiu3bNt8Vl+2jzyWZX5xXiVDGtYrOIuDD/VvysX5S7O75",
+  "The installed 20260831 loader must remain byte-identical while its successor is developed"
+);
 assert.deepEqual(
   [...emptyCartSetup.matchAll(/integrity="(sha384-[A-Za-z0-9+/=]+)"/g)].map(match => match[1]),
   [emptyCartIntegrity]
@@ -45,4 +50,21 @@ assert.match(emptyCartSetup, /發布程式檔不代表 CYBERBIZ 主題已更新/
 assert.match(emptyCartSetup, /不要並排載入新舊版本/);
 assert.match(emptyCartSetup, /主題替換及真實測試仍需另外確認/);
 
-console.log(`Production setup contract passed: ${integrity}; empty-cart successor: ${emptyCartIntegrity}`);
+const quantityLoader = fs.readFileSync(path.join(root, "integration", "cyberbiz-cart-production-loader-20260901.js"));
+const quantitySetup = fs.readFileSync(path.join(root, "integration", "CYBERBIZ_CART_QUANTITY_FIX_20260901.md"), "utf8");
+const quantityIntegrity = `sha384-${crypto.createHash("sha384").update(quantityLoader).digest("base64")}`;
+assert.equal(
+  crypto.createHash("sha384").update(quantityLoader).digest("base64"),
+  "xZlyx3l6zmEO8oIcto+qyjzuaUc2HAkz9U/568H4Oslb/7zCX5pyDzwgqG6I0tR2",
+  "The published 20260901 loader must remain byte-identical after release"
+);
+assert.deepEqual(
+  [...quantitySetup.matchAll(/integrity="(sha384-[A-Za-z0-9+/=]+)"/g)].map(match => match[1]),
+  [quantityIntegrity]
+);
+assert.match(quantitySetup, /cyberbiz-cart-production-loader-20260901\.js/);
+assert.match(quantitySetup, /發布程式檔不代表\s*CYBERBIZ 主題已更新/);
+assert.match(quantitySetup, /不要並排載入新舊版本/);
+assert.match(quantitySetup, /主題替換及真實測試仍需另外確認/);
+
+console.log(`Production setup contract passed: ${integrity}; empty-cart successor: ${emptyCartIntegrity}; quantity successor: ${quantityIntegrity}`);
