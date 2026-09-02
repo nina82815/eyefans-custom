@@ -106,6 +106,8 @@ JSON fail-closed。測試不會連線到 CYBERBIZ：
 node tests/cyberbiz-cart-size-lens-development-loader.test.js
 node tests/cyberbiz-cart-polarized-production-candidate.test.js
 node tests/cyberbiz-cart-note-sync-v2.test.js
+node tests/customizer-mode-copy-and-resize.test.js
+node tests/cyberbiz-customizer-frame-autoheight.test.js
 ```
 
 ## 自動檢查正式橋接草稿
