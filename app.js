@@ -261,8 +261,6 @@ const PRINT_FONTS = {
 
 const ENGLISH_FONT_KEYS = new Set(["purpleSmile", "baksoSapi"]);
 const MESSAGE_SCHEMA_VERSION = 1;
-const FRAME_RESIZE_MESSAGE_TYPE = "eyefans-customizer-resize";
-const FRAME_RESIZE_REQUEST_TYPE = "eyefans-customizer-resize-request";
 const STOREFRONT_ORIGIN = "https://www.eyefans.com.tw";
 const STOREFRONT_PRODUCT_PATHS = Object.freeze({
   color: "/products/cls-cus-mix-sun-rd",
@@ -311,9 +309,6 @@ let pendingCartSelectionFingerprint = null;
 let lastAddedSelectionFingerprint = null;
 let cartResultTimer = null;
 let cartLockedControlStates = [];
-let frameResizeObserver = null;
-let frameResizeAnimationFrame = null;
-let lastPostedFrameHeight = null;
 const deferredModelColors = { frame: null, temple: null };
 let deferredModelView = null;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -618,68 +613,6 @@ function parentMessageOrigin() {
   }
 
   return STOREFRONT_ORIGIN;
-}
-
-function measuredFrameContentHeight() {
-  const height = document.body?.getBoundingClientRect?.().height;
-  return Number.isFinite(height) && height > 0 ? Math.ceil(height) : 0;
-}
-
-function postFrameResize() {
-  frameResizeAnimationFrame = null;
-  if (window.parent === window) return;
-
-  const height = measuredFrameContentHeight();
-  if (!height || height === lastPostedFrameHeight) return;
-  lastPostedFrameHeight = height;
-
-  window.parent.postMessage({
-    type: FRAME_RESIZE_MESSAGE_TYPE,
-    schemaVersion: MESSAGE_SCHEMA_VERSION,
-    height
-  }, parentMessageOrigin());
-}
-
-function scheduleFrameResize() {
-  if (window.parent === window || frameResizeAnimationFrame !== null) return;
-  if (typeof window.requestAnimationFrame === "function") {
-    frameResizeAnimationFrame = window.requestAnimationFrame(postFrameResize);
-    return;
-  }
-  postFrameResize();
-}
-
-function handleFrameResizeRequest(event) {
-  if (window.parent === window || event.source !== window.parent) return;
-  const expectedOrigin = parentMessageOrigin();
-  if (
-    expectedOrigin === "*"
-    || event.origin !== expectedOrigin
-    || event.data?.type !== FRAME_RESIZE_REQUEST_TYPE
-    || event.data?.schemaVersion !== MESSAGE_SCHEMA_VERSION
-  ) return;
-
-  lastPostedFrameHeight = null;
-  scheduleFrameResize();
-}
-
-function initializeFrameResize() {
-  if (window.parent === window) return;
-
-  window.addEventListener("message", handleFrameResizeRequest);
-  window.addEventListener("load", scheduleFrameResize);
-  window.addEventListener("resize", scheduleFrameResize);
-
-  if (typeof ResizeObserver === "function" && document.body) {
-    frameResizeObserver = new ResizeObserver(scheduleFrameResize);
-    frameResizeObserver.observe(document.body);
-  }
-
-  const fontsReady = document.fonts?.ready;
-  if (typeof fontsReady?.then === "function") {
-    fontsReady.then(scheduleFrameResize).catch(() => {});
-  }
-  scheduleFrameResize();
 }
 
 function syncCustomizationModeInUrl() {
@@ -1531,7 +1464,6 @@ function updateAll() {
   updateColorAvailability();
   updatePrintViewHint();
   announceAndNotifyParent();
-  scheduleFrameResize();
 }
 
 function bindControls() {
@@ -1683,7 +1615,6 @@ function bindControls() {
 async function init() {
   state.customizationMode = customizationModeFromLocation();
   state.customizationModeLocked = customizationModeLockedFromLocation();
-  initializeFrameResize();
   initializeCartSubmit();
   loadPersonalizationDraft(state.nameSource);
   preparePhotoLayers();
