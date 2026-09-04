@@ -5,14 +5,19 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
+const loaderFilename = process.env.EYEFANS_NOTE_SYNC_LOADER
+  || "cyberbiz-cart-production-loader-20260901-polarized-v2.js";
+const developmentQuery = process.env.EYEFANS_NOTE_SYNC_DEVELOPMENT_QUERY
+  || "eyefans_size_lens_development=1";
 const loaderPath = path.join(
   __dirname,
   "..",
   "integration",
-  "cyberbiz-cart-production-loader-20260901-polarized-v2.js"
+  loaderFilename
 );
 const source = fs.readFileSync(loaderPath, "utf8");
-const STORAGE_KEY = "eyefansCustomCartDesignsSizeLensDevV1";
+const STORAGE_KEY = process.env.EYEFANS_NOTE_SYNC_STORAGE_KEY
+  || "eyefansCustomCartDesignsSizeLensDevV1";
 const PRODUCTION_STORAGE_KEY = "eyefansCustomCartDesignsProdV1";
 const CART_TOKEN = "delayed-delete-cart";
 
@@ -170,7 +175,9 @@ function createEnvironment(records, {
   omitTotalQuantity = false,
   malformedItemCount = false,
   missingQuantityVariantId = null,
-  includeHiddenMobileDuplicates = false
+  includeHiddenMobileDuplicates = false,
+  extraItems = [],
+  initialItemsOverride = null
 } = {}) {
   const listeners = {};
   const jqueryHandlers = [];
@@ -200,11 +207,12 @@ function createEnvironment(records, {
   note.dispatchEvent = () => {};
   noteParent.append(note);
 
-  const initialItems = [
-    cartItem(TARGETS.polarized.variantId, 1),
-    cartItem(TARGETS.gray.variantId, 1),
-    cartItem(TARGETS["blue-tea"].variantId, 2)
-  ];
+  const initialItems = initialItemsOverride || [
+      cartItem(TARGETS.polarized.variantId, 1),
+      cartItem(TARGETS.gray.variantId, 1),
+      cartItem(TARGETS["blue-tea"].variantId, 2),
+      ...extraItems
+    ];
   let authoritativeItems = structuredClone(initialItems);
   let domItems = structuredClone(initialItems);
 
@@ -253,7 +261,7 @@ function createEnvironment(records, {
     body,
     scripts: [],
     currentScript: {
-      src: `https://example.invalid/cyberbiz-cart-production-loader-20260901-polarized-v2.js${productionRuntime ? "" : "?eyefans_size_lens_development=1"}`
+      src: `https://example.invalid/${loaderFilename}${productionRuntime ? "" : `?${developmentQuery}`}`
     },
     createElement: tagName => genericElement(tagName),
     getElementById: id => elements.get(id) || null,
@@ -725,7 +733,74 @@ async function flushMicrotasks(turns = 20) {
     true
   );
 
-  console.log("cyberbiz cart note-sync v2 delayed deletion tests passed");
+  if (loaderFilename.includes("uv-combined-v3")) {
+    const retiredUvCart = createEnvironment(records, {
+      extraItems: [cartItem("87452776", 1)]
+    });
+    await flushMicrotasks();
+    retiredUvCart.runTimer(150);
+    await flushMicrotasks();
+    assert.equal(retiredUvCart.checkout.attributes.get("aria-disabled"), "true",
+      "a retired UV variant must remain blocked until it is removed and re-added");
+    assert.equal(retiredUvCart.note.value, "客人原有備註",
+      "a retired variant must not receive a guessed design note");
+
+    const legacyUvSelection = {
+      customizationMode: "uv",
+      size: "M",
+      frame: "櫻花粉",
+      temple: "櫻花粉",
+      lensId: "gray",
+      printMode: "both",
+      uvPrintMode: "both",
+      icon1: "01",
+      icon2: "04",
+      name: "OLDM",
+      textColor: "white",
+      font: "baksoSapi",
+      caseMode: "preserve",
+      order: "normal",
+      namePosition: "center",
+      customizationSide: "right",
+      customizationSideLabel: "右外側鏡腳"
+    };
+    const legacyCreatedAt = Date.now() - 1000;
+    const legacyReusedIdRecord = {
+      designId: "EF-OLDUV-ABC123",
+      requestId: "request-old-uv-m-0001",
+      fingerprint: fingerprintFor("cls-cus-mix-uv-sun-rd", legacyUvSelection),
+      handle: "cls-cus-mix-uv-sun-rd",
+      mode: "uv",
+      targetHandle: "cls-cus-mix-uv-sun-rd",
+      targetProductId: "71536673",
+      variantId: "87452778",
+      selection: legacyUvSelection,
+      status: "active",
+      cartToken: CART_TOKEN,
+      createdAt: legacyCreatedAt,
+      receipt: {
+        variantId: "87452778",
+        cartItemId: "87452778_normal_",
+        quantity: 1,
+        cartQuantityBefore: 0,
+        cartQuantityAfter: 1,
+        verifiedByCartDelta: true,
+        verifiedAt: legacyCreatedAt + 100
+      }
+    };
+    const reusedVariantCart = createEnvironment([legacyReusedIdRecord], {
+      initialItemsOverride: [cartItem("87452778", 1)]
+    });
+    await flushMicrotasks();
+    reusedVariantCart.runTimer(150);
+    await flushMicrotasks();
+    assert.equal(reusedVariantCart.checkout.attributes.get("aria-disabled"), "true",
+      "the old M meaning of reused id 87452778 must not be accepted as the new XS variant");
+    assert.equal(reusedVariantCart.note.value, "客人原有備註",
+      "the reused id collision must not write a guessed size into the order note");
+  }
+
+  console.log(`cyberbiz cart note-sync regression passed: ${loaderFilename}`);
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

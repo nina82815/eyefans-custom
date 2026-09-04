@@ -92,8 +92,8 @@ SRI 載入同一份 v2 core，但隔離 production storage。原本的
 variant。九個 target products 與 36 個 variants 的實際 mapping 均已固定，live catalog
 也已全部 ready：color 與 engraving 的 SUN／BL 均為 available／deny／qty 1／
 NT$88,888，兩個 PL 均為 available／deny／qty 1／NT$89,188（已 +300）；UV 三商品維持
-ready。已無 catalog 或價格 blocker，但在未發布主題完成全套驗收前仍不可安裝至已發布
-主題。範圍、九組 mapping、catalog 狀態與上線前驗證見
+ready。這是 2026-09-01 的歷史快照；UV 商品於 2026-09-04 合併後，此 v2 已不再相容，
+不得安裝至任何主題。範圍、九組舊 mapping 與當時的 catalog 狀態見
 `integration/CYBERBIZ_CART_SIZE_LENS_DEVELOPMENT.md`。對應測試驗證三入口 → 九商品 →
 36 variants 的精確 mapping；完整 36 組使用假的可售回應，並另外以不可售 fixture 驗證
 fail-closed 與零 POST。v2 targeted regression 另驗證超過 350 ms 的延遲刪除、React DOM
@@ -107,6 +107,24 @@ node tests/cyberbiz-cart-size-lens-development-loader.test.js
 node tests/cyberbiz-cart-polarized-production-candidate.test.js
 node tests/cyberbiz-cart-note-sync-v2.test.js
 node tests/customizer-mode-copy.test.js
+```
+
+2026-09-04 起，UV 已改為單一商品 `71536673`，規格為「尺寸 × 鏡片」共 12 款；
+因此上述 v2 的 UV 三商品 mapping 只保留作歷史驗證，不得再安裝。新的未發布核心為
+`integration/cyberbiz-cart-production-loader-20260904-uv-combined-v3.js`，限定測試入口為
+`integration/cyberbiz-cart-uv-combined-live-test-loader-20260904-v1.js`。限定入口只有在三個
+客製入口網址帶 `eyefans_uv_combined_live_test=1`，或同一瀏覽器進入購物車且已有隔離
+測試紀錄時才載入核心；一般顧客網址保持靜默。完整 mapping、SRI、安裝與回歸步驟見
+`integration/CYBERBIZ_CART_UV_COMBINED_CANDIDATE_V3_20260904.md`。
+
+以下測試不連線到 CYBERBIZ；它們驗證 36 組精確 mapping、同一 UV 商品的
+`尺寸＋鏡片` tuple、網址閘門、SRI、舊檔不可變、缺貨／錯規格零 POST、舊 UV 購物車
+fail-closed，以及 v3 保留 v2 的刪除與備註同步安全性：
+
+```text
+node tests/cyberbiz-cart-uv-combined-candidate.test.js
+node tests/cyberbiz-cart-uv-combined-v3.test.js
+node tests/cyberbiz-cart-note-sync-v3.test.js
 ```
 
 ## 自動檢查正式橋接草稿
@@ -133,6 +151,7 @@ CYBERBIZ checkout event 的結帳阻擋：
 ```text
 node tests/cyberbiz-cart-production-loader.test.js
 node tests/customizer-cart-ui.contract.test.js
+node tests/anniversary-pricing.test.js
 node tests/cyberbiz-production-setup.contract.test.js
 ```
 
