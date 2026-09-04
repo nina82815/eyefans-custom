@@ -20,8 +20,12 @@ const STORAGE_KEY = process.env.EYEFANS_NOTE_SYNC_STORAGE_KEY
   || "eyefansCustomCartDesignsSizeLensDevV1";
 const PRODUCTION_STORAGE_KEY = "eyefansCustomCartDesignsProdV1";
 const CART_TOKEN = "delayed-delete-cart";
+const migrationProfile = process.env.EYEFANS_NOTE_SYNC_MIGRATION_PROFILE
+  || (loaderFilename.includes("uv-combined-v3") ? "uv-reused-id" : "");
+const retiredMigrationVariantId = process.env.EYEFANS_NOTE_SYNC_RETIRED_VARIANT_ID
+  || "87452776";
 
-const TARGETS = Object.freeze({
+const DEFAULT_TARGETS = {
   polarized: Object.freeze({
     handle: "cls-cus-mix-pl-rd",
     productId: "71536665",
@@ -40,7 +44,12 @@ const TARGETS = Object.freeze({
     variantId: "87452752",
     lens: "抗藍光鏡片"
   })
-});
+};
+const TARGETS = Object.freeze(
+  process.env.EYEFANS_NOTE_SYNC_TARGETS_JSON
+    ? JSON.parse(process.env.EYEFANS_NOTE_SYNC_TARGETS_JSON)
+    : DEFAULT_TARGETS
+);
 
 function memoryStorage(seed = {}) {
   const values = new Map(Object.entries(seed));
@@ -733,9 +742,9 @@ async function flushMicrotasks(turns = 20) {
     true
   );
 
-  if (loaderFilename.includes("uv-combined-v3")) {
+  if (migrationProfile === "uv-reused-id") {
     const retiredUvCart = createEnvironment(records, {
-      extraItems: [cartItem("87452776", 1)]
+      extraItems: [cartItem(retiredMigrationVariantId, 1)]
     });
     await flushMicrotasks();
     retiredUvCart.runTimer(150);

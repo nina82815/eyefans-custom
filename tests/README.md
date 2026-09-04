@@ -127,6 +127,21 @@ node tests/cyberbiz-cart-uv-combined-v3.test.js
 node tests/cyberbiz-cart-note-sync-v3.test.js
 ```
 
+同日自由配色與雷雕也改成各自一個「尺寸 × 鏡片」商品後，v4 候選版把三個入口
+全部固定到 3 個商品、36 個唯一款式。v4 使用新的限定測試參數與獨立瀏覽器資料鍵，
+不覆寫已發布的 UV v3；完整 mapping、雜湊與安裝步驟見
+`integration/CYBERBIZ_CART_ALL_COMBINED_CANDIDATE_V4_20260904.md`。
+
+以下測試不連線到 CYBERBIZ。它們驗證三個完整 4 × 3 矩陣、精確
+`尺寸＋鏡片＋option3=null` 配對、同尺寸三鏡片分流、27 個退休款式防守、v4 wrapper
+互斥與載入失敗攔截、歷史檔不可變，以及刪除與訂單備註同步回歸：
+
+```text
+node tests/cyberbiz-cart-all-combined-candidate.test.js
+node tests/cyberbiz-cart-all-combined-v4.test.js
+node tests/cyberbiz-cart-note-sync-v4.test.js
+```
+
 ## 自動檢查正式橋接草稿
 
 以下測試以假的 `fetch` 執行正式 bridge，不會連線到 CYBERBIZ；它會驗證三個商品、四種尺寸共 12 組款式 ID，以及缺少 `cart=1` 時必須拒絕請求：
