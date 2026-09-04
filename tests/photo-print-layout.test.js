@@ -132,8 +132,8 @@ assert.match(html, /<span id="name-count">7\/10<\/span>/, "initial count must ma
 const originalTransforms = {};
 const expectedModelText = {
   front: { size: 30.4007, scale: 1, transform: "matrix(0.9912 -0.1326 0.1326 0.9912 829.222 476.606)" },
-  side: { size: 36.3786, scale: .72, transform: "matrix(0.9951 -0.0988 0.0988 0.9951 714.9219 456.4347)" },
-  a45: { size: 22.2902, scale: .82, transform: "matrix(0.981 -0.1941 0.1941 0.981 152.612 235.9299)" }
+  side: { size: 36.3786, scale: .72, transform: "matrix(0.9903 -0.1392 0.1392 0.9903 714.9219 456.4347)" },
+  a45: { size: 22.2902, scale: .82, transform: "matrix(0.981 -0.1941 0.1941 0.981 152.612 230.9299)" }
 };
 
 for (const key of ["front", "side", "a45", "photo"]) {
@@ -269,4 +269,4 @@ for (const customizationMode of ["color", "engraving"]) {
   }
 }
 
-console.log(`Photo print layout passed: ${checkedLayouts} fitted layouts, all fonts/modes/arrangements, and unchanged 2D geometry.`);
+console.log(`Photo print layout passed: ${checkedLayouts} fitted layouts, all fonts/modes/arrangements, and calibrated 2D geometry.`);

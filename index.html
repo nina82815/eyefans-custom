@@ -14,7 +14,7 @@
   <meta name="twitter:description" content="配色・UV 彩印・姓名預覽">
   <meta name="twitter:image" content="https://nina82815.github.io/eyefans-custom/og.png">
   <title>eYeFans 客製眼鏡模擬器</title>
-  <link rel="stylesheet" href="styles.css?v=20260901a">
+  <link rel="stylesheet" href="styles.css?v=20260903a">
 </head>
 <body>
   <header class="site-header">
@@ -127,7 +127,7 @@
         </div>
         <div class="customization-mode-options" id="customization-mode-options" role="group" aria-label="選擇客製方案">
           <button type="button" data-customization-mode="color" aria-pressed="false"><b>框腳配色</b><small>自由選色</small></button>
-          <button type="button" data-customization-mode="engraving" aria-pressed="false"><b>配色＋雷雕</b><small>白色英文</small></button>
+          <button type="button" data-customization-mode="engraving" aria-pressed="false"><b>配色＋雷雕</b><small>英文文字</small></button>
           <button class="is-active" type="button" data-customization-mode="uv" aria-pressed="true"><b>配色＋UV 彩印</b><small>小圖與名字</small></button>
         </div>
       </section>
@@ -168,7 +168,7 @@
           <output id="picked-lens">三號灰片</output>
         </div>
         <div class="lens-options" id="lens-options"></div>
-        <p class="field-help lens-price-note">偏光鏡片在模擬器中與三號灰片呈現相同外觀，選購價加 NT$300。</p>
+        <p class="field-help lens-price-note" id="lens-price-note">以上為整副客製眼鏡售價，結帳金額以購物車為準；偏光鏡片與三號灰片呈現相同模擬外觀，價格已包含偏光升級費用。</p>
       </section>
 
       <section class="control-section personalization-section" id="personalization-section" aria-labelledby="personalization-title">
@@ -178,8 +178,8 @@
         </div>
 
         <p class="engraving-rule" id="engraving-rule" hidden>
-          <i aria-hidden="true"></i><strong>雷雕固定白色</strong>
-          <span>僅支援 A–Z／a–z，最多 10 個字母，不含中文、數字、空格與小圖。</span>
+          <i aria-hidden="true"></i><strong>雷雕色澤依素材而異</strong>
+          <span>雷雕會呈現鏡腳材質底色，實際色澤可能偏米白或淡黃，恕無法指定顏色。僅支援 A–Z／a–z，最多 10 個字母，不含中文、數字、空格與小圖。</span>
         </p>
 
         <fieldset class="choice-field" id="print-mode-field">
@@ -293,6 +293,6 @@
   </footer>
 
   <div class="sr-only" id="live-status" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260902a" defer></script>
+  <script src="app.js?v=20260904a" defer></script>
 </body>
 </html>

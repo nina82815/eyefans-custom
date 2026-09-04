@@ -69,7 +69,7 @@ const variableNames = [
 ];
 const functionNames = [
   "cartSubmitEnabledFromLocation", "cartPanelVisibleFromLocation", "cartSubmissionAvailable",
-  "parentMessageOrigin", "effectivePrintMode", "lensPriceLabel", "lensDisplayLabel",
+  "parentMessageOrigin", "effectivePrintMode", "lensDisplayLabel",
   "buildSelectionPayload", "announceAndNotifyParent",
   "createCartRequestId", "cartSelectionFingerprint", "setCustomizerControlsLocked",
   "setCartSubmitState", "syncCartSubmitAvailability", "clearCartResultTimer",
@@ -267,9 +267,18 @@ for (const mode of Object.keys(PRODUCT_PATHS)) {
   assert.equal(polarized.submissions()[0].message.selection.lensId, "polarized", mode);
   assert.match(
     polarized.submissions()[0].message.selection.summary,
-    /鏡片 偏光鏡片（\+NT\$300）/,
-    `${mode}: polarized summary must disclose its surcharge without changing the lens name or stable id`
+    /鏡片 偏光鏡片、/,
+    `${mode}: polarized summary must retain the canonical lens name`
   );
+  assert.doesNotMatch(
+    polarized.submissions()[0].message.selection.summary,
+    /NT\$|周年慶|原價|售價/,
+    `${mode}: display-only pricing must not enter the manufacturing summary`
+  );
+  if (mode === "engraving") {
+    assert.match(polarized.submissions()[0].message.selection.summary, /英文雷雕／eyefans/);
+    assert.doesNotMatch(polarized.submissions()[0].message.selection.summary, /白色英文|固定白色/);
+  }
 }
 live.submit();
 assert.equal(live.submissions().length, 1, "double click cannot create a duplicate request");

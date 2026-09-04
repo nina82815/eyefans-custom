@@ -191,7 +191,7 @@ const TEXT_COLOR_OPTIONS = {
 };
 
 const ENGRAVING_TEXT_STYLE = {
-  label: "白色雷雕示意",
+  label: "雷雕效果示意",
   fill: "#fffdf8",
   stroke: "none",
   outlineWidth: "0"
@@ -205,7 +205,7 @@ const CUSTOMIZATION_MODES = {
   },
   engraving: {
     label: "框腳配色＋雷雕",
-    shortLabel: "白色雷雕",
+    shortLabel: "英文雷雕",
     headerDescription: "自由配色・英文雷雕預覽"
   },
   uv: {
@@ -214,6 +214,22 @@ const CUSTOMIZATION_MODES = {
     headerDescription: "自由配色・UV 彩印預覽"
   }
 };
+
+const CUSTOMIZATION_PRICES = Object.freeze({
+  color: Object.freeze({ regular: 890, anniversary: 750 }),
+  engraving: Object.freeze({ regular: 990, anniversary: 850 }),
+  uv: Object.freeze({ regular: 1090, anniversary: 950 })
+});
+
+// Fixed UTC instants keep the promotion aligned to Asia/Taipei even when the
+// customer's device is configured for another time zone. The end is exclusive,
+// so all of September 20 remains part of the anniversary promotion.
+const ANNIVERSARY_PROMOTION = Object.freeze({
+  label: "周年慶價",
+  dateLabel: "9/14–9/20",
+  startsAt: Date.parse("2026-09-14T00:00:00+08:00"),
+  endsAt: Date.parse("2026-09-21T00:00:00+08:00")
+});
 
 const RAINBOW_PRINT_COLORS = ["#ef6a4b", "#efbd3f", "#63a56f", "#43a5bd", "#8b72c7", "#df6f99"];
 
@@ -309,6 +325,7 @@ let pendingCartSelectionFingerprint = null;
 let lastAddedSelectionFingerprint = null;
 let cartResultTimer = null;
 let cartLockedControlStates = [];
+let lensPriceRefreshTimer = null;
 const deferredModelColors = { frame: null, temple: null };
 let deferredModelView = null;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -1061,7 +1078,7 @@ function renderSwatches(mountId, items, stateKey, pickedId) {
   });
 }
 
-function renderLensOptions() {
+function renderLensOptions(timestamp = Date.now()) {
   const mount = document.getElementById("lens-options");
   mount.replaceChildren();
   LENS_COLORS.forEach(item => {
@@ -1069,10 +1086,10 @@ function renderLensOptions() {
     button.type = "button";
     button.className = `lens-option${state.lens.id === item.id ? " is-active" : ""}`;
     button.dataset.lensId = item.id;
-    button.setAttribute("aria-label", lensDisplayLabel(item));
+    button.setAttribute("aria-describedby", "lens-price-note");
     button.setAttribute("aria-pressed", String(state.lens.id === item.id));
-    const priceLabel = lensPriceLabel(item);
-    button.innerHTML = `<i style="--lens:${item.swatch}"></i><span><b>${item.name}</b>${priceLabel ? `<small>${priceLabel}</small>` : ""}</span>`;
+    button.innerHTML = `<i style="--lens:${item.swatch}"></i><span class="lens-option-copy"></span>`;
+    updateLensOptionPrice(button, item, timestamp);
     button.addEventListener("click", () => {
       state.lens = item;
       setActiveButtons(mount, candidate => candidate === button);
@@ -1081,16 +1098,99 @@ function renderLensOptions() {
     });
     mount.appendChild(button);
   });
+  updateLensPriceNote(anniversaryPromotionActive(timestamp));
 }
 
-function lensPriceLabel(lens) {
+function updateLensOptionPrice(button, lens, timestamp = Date.now()) {
+  const pricing = lensPricing(state.customizationMode, lens, timestamp);
+  button.setAttribute("aria-label", lensPriceAriaLabel(lens, pricing));
+  const copy = button.querySelector(".lens-option-copy");
+  copy.innerHTML = `<b>${lens.name}</b>${lensPriceMarkup(pricing)}`;
+}
+
+function anniversaryPromotionActive(timestamp = Date.now()) {
+  const numericTimestamp = timestamp instanceof Date ? timestamp.getTime() : Number(timestamp);
+  return Number.isFinite(numericTimestamp)
+    && numericTimestamp >= ANNIVERSARY_PROMOTION.startsAt
+    && numericTimestamp < ANNIVERSARY_PROMOTION.endsAt;
+}
+
+function lensPricing(customizationMode, lens, timestamp = Date.now()) {
+  const modePrices = CUSTOMIZATION_PRICES[customizationMode] || CUSTOMIZATION_PRICES.uv;
   const priceDelta = Number.isSafeInteger(lens?.priceDelta) ? lens.priceDelta : 0;
-  return priceDelta > 0 ? `+NT$${priceDelta.toLocaleString("en-US")}` : "";
+  return {
+    regular: modePrices.regular + priceDelta,
+    anniversary: modePrices.anniversary + priceDelta,
+    isPromotionActive: anniversaryPromotionActive(timestamp)
+  };
+}
+
+function formatNtd(amount) {
+  return `NT$${amount.toLocaleString("en-US")}`;
+}
+
+function lensPriceMarkup(pricing) {
+  if (!pricing.isPromotionActive) {
+    return `<small class="lens-price"><strong>${formatNtd(pricing.regular)}</strong></small>`;
+  }
+  return `<small class="lens-price lens-price--promotion"><strong><span>${ANNIVERSARY_PROMOTION.label}</span>${formatNtd(pricing.anniversary)}</strong><s>原價 ${formatNtd(pricing.regular)}</s></small>`;
+}
+
+function lensPriceAriaLabel(lens, pricing) {
+  if (!pricing.isPromotionActive) {
+    return `${lens.name}，整副售價 ${formatNtd(pricing.regular)}`;
+  }
+  return `${lens.name}，${ANNIVERSARY_PROMOTION.label} ${formatNtd(pricing.anniversary)}，原價 ${formatNtd(pricing.regular)}`;
+}
+
+function updateLensPriceNote(isPromotionActive) {
+  const note = document.getElementById("lens-price-note");
+  note.textContent = isPromotionActive
+    ? `${ANNIVERSARY_PROMOTION.dateLabel} 周年慶優惠；以上為整副客製眼鏡售價，結帳金額以購物車為準。偏光鏡片與三號灰片呈現相同模擬外觀。`
+    : "以上為整副客製眼鏡售價，結帳金額以購物車為準；偏光鏡片與三號灰片呈現相同模擬外觀，價格已包含偏光升級費用。";
+}
+
+function nextLensPriceRefreshAt(timestamp = Date.now()) {
+  if (timestamp < ANNIVERSARY_PROMOTION.startsAt) return ANNIVERSARY_PROMOTION.startsAt;
+  if (timestamp < ANNIVERSARY_PROMOTION.endsAt) return ANNIVERSARY_PROMOTION.endsAt;
+  return null;
+}
+
+function scheduleLensPriceRefresh(timestamp = Date.now()) {
+  if (lensPriceRefreshTimer !== null) {
+    window.clearTimeout(lensPriceRefreshTimer);
+    lensPriceRefreshTimer = null;
+  }
+
+  const nextBoundary = nextLensPriceRefreshAt(timestamp);
+  if (nextBoundary === null) return;
+
+  const maxTimeout = 2147483647;
+  const delay = Math.min(Math.max(nextBoundary - timestamp + 50, 50), maxTimeout);
+  lensPriceRefreshTimer = window.setTimeout(() => {
+    lensPriceRefreshTimer = null;
+    refreshLensPricing();
+  }, delay);
+}
+
+function refreshLensPricing() {
+  const now = Date.now();
+  const mount = document.getElementById("lens-options");
+  const buttons = Array.from(mount.querySelectorAll(".lens-option"));
+  if (!buttons.length) {
+    renderLensOptions(now);
+  } else {
+    buttons.forEach(button => {
+      const lens = LENS_COLORS.find(item => item.id === button.dataset.lensId);
+      if (lens) updateLensOptionPrice(button, lens, now);
+    });
+    updateLensPriceNote(anniversaryPromotionActive(now));
+  }
+  scheduleLensPriceRefresh(now);
 }
 
 function lensDisplayLabel(lens) {
-  const priceLabel = lensPriceLabel(lens);
-  return `${lens.name}${priceLabel ? `（${priceLabel}）` : ""}`;
+  return lens.name;
 }
 
 function updateIconSlotUi() {
@@ -1162,7 +1262,7 @@ function updateConditionalFields() {
   personalizationSection.hidden = mode === "color";
   document.getElementById("personalization-title").textContent = isEngraving ? "雷雕客製" : "UV 彩印客製";
   document.getElementById("picked-print").textContent = isEngraving
-    ? "白色英文雷雕"
+    ? "英文雷雕"
     : MODE_NAMES[state.printMode];
   document.getElementById("engraving-rule").hidden = !isEngraving;
 
@@ -1187,7 +1287,7 @@ function updateConditionalFields() {
     nameInput.removeAttribute("pattern");
   }
 
-  document.getElementById("name-legend-label").textContent = isEngraving ? "輸入雷雕英文" : "輸入名字";
+  document.getElementById("name-legend-label").textContent = isEngraving ? "輸入英文文字" : "輸入名字";
   document.getElementById("name-limit-label").textContent = isEngraving ? "英文 10 字" : "英文 10 字／中文 4 字";
   document.getElementById("name-count").textContent = nameCountLabel(state.nameSource, Array.from(state.nameSource).reduce((total, character) => total + printUnits(character), 0));
   document.getElementById("name-help").textContent = isEngraving
@@ -1197,7 +1297,7 @@ function updateConditionalFields() {
     ? "雷雕僅提供圓潤手寫體與童趣積木體兩款英文字體。"
     : "英文類字體不含中文字形；輸入中文時會自動以中文圓體補足。";
   document.getElementById("print-note").textContent = isEngraving
-    ? "模擬位置為右外側鏡腳；白色僅為雷雕效果示意，實品深淺會依鏡腳材質與正式打樣呈現。"
+    ? "模擬位置為右外側鏡腳；畫面色澤僅為雷雕效果示意，實品會呈現鏡腳材質底色，實際可能偏米白或淡黃。"
     : "模擬位置為右外側鏡腳；實拍與 2D 右側 45° 均可確認客製排列，另一側固定保留 eYeFANS 品牌 Logo。";
 
   const validation = document.getElementById("name-validation");
@@ -1248,7 +1348,7 @@ function buildSelectionPayload() {
   const personalization = state.customizationMode === "color"
     ? "不加印刷"
     : state.customizationMode === "engraving"
-      ? `白色英文雷雕／${state.name || "未輸入英文"}`
+      ? `英文雷雕／${state.name || "未輸入英文"}`
       : printMode === "none"
         ? "不加印刷"
         : `${MODE_NAMES[printMode]}${usesIcon ? `／圖案 ${state.icon1}+${state.icon2}` : ""}${usesName ? `／${state.name || "未輸入名字"}／文字${textColorLabel}` : ""}`;
@@ -1479,6 +1579,7 @@ function bindControls() {
     state.customizationMode = button.dataset.customizationMode;
     loadPersonalizationDraft(seedName);
     syncCustomizationModeInUrl();
+    renderLensOptions();
     updateAll();
   });
 
@@ -1623,7 +1724,11 @@ async function init() {
   syncSizeControls();
   renderSwatches("frame-swatches", FRAME_COLORS, "frame", "picked-frame");
   renderSwatches("temple-swatches", TEMPLE_COLORS, "temple", "picked-temple");
-  renderLensOptions();
+  refreshLensPricing();
+  window.addEventListener("pageshow", refreshLensPricing);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshLensPricing();
+  });
   renderIconCatalog();
   updateIconSlotUi();
   updateConditionalFields();
