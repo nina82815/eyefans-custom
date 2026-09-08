@@ -22,21 +22,35 @@ function implementation(name) {
   return match[0];
 }
 
-const context = {};
+const standaloneWindow = { location: { search: "" } };
+standaloneWindow.parent = standaloneWindow;
+const context = {
+  URL,
+  URLSearchParams,
+  window: standaloneWindow,
+  document: { referrer: "" }
+};
 vm.createContext(context);
 vm.runInContext([
   declaration("GRAY_LENS_VISUAL"),
   declaration("LENS_COLORS"),
   declaration("CUSTOMIZATION_PRICES"),
   declaration("ANNIVERSARY_PROMOTION"),
+  declaration("STOREFRONT_ORIGIN"),
+  declaration("ANNIVERSARY_PREVIEW_QUERY_KEY"),
+  implementation("customizationModeLockedFromLocation"),
+  implementation("cartSubmitEnabledFromLocation"),
+  implementation("anniversaryPreviewEnabledFromLocation"),
   implementation("anniversaryPromotionActive"),
+  implementation("anniversaryPromotionLabel"),
   implementation("lensPricing"),
   implementation("formatNtd"),
   implementation("lensPriceMarkup"),
   implementation("lensPriceAriaLabel"),
+  implementation("updateLensPriceNote"),
   implementation("nextLensPriceRefreshAt"),
   implementation("lensDisplayLabel"),
-  "this.api = { LENS_COLORS, CUSTOMIZATION_PRICES, ANNIVERSARY_PROMOTION, anniversaryPromotionActive, lensPricing, formatNtd, lensPriceMarkup, lensPriceAriaLabel, nextLensPriceRefreshAt, lensDisplayLabel };"
+  "this.api = { LENS_COLORS, CUSTOMIZATION_PRICES, ANNIVERSARY_PROMOTION, anniversaryPreviewEnabledFromLocation, anniversaryPromotionActive, anniversaryPromotionLabel, lensPricing, formatNtd, lensPriceMarkup, lensPriceAriaLabel, updateLensPriceNote, nextLensPriceRefreshAt, lensDisplayLabel };"
 ].join("\n"), context);
 
 const api = context.api;
@@ -53,6 +67,68 @@ assert.equal(api.anniversaryPromotionActive(Number.NaN), false, "invalid clocks 
 assert.equal(api.nextLensPriceRefreshAt(start - 1), start, "pre-sale pages schedule the start boundary");
 assert.equal(api.nextLensPriceRefreshAt(start), end, "sale pages schedule the end boundary");
 assert.equal(api.nextLensPriceRefreshAt(end), null, "finished promotions do not leave a timer running");
+
+context.window.location.search = "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=1";
+assert.equal(api.anniversaryPreviewEnabledFromLocation(), false,
+  "a standalone iframe must never enable the anniversary preview");
+context.window.parent = {};
+context.document.referrer = "https://www.eyefans.com.tw/products/cls-cus-mix-sun-rd?eyefans_all_combined_live_test=1&eyefans_anniversary_preview=1";
+assert.equal(api.anniversaryPreviewEnabledFromLocation(), true,
+  "an embedded locked cart iframe with the exact preview flag and storefront referrer may preview");
+context.window.location.search = "?mode=color&lock=1&cart=1&eyefans_anniversary_preview=1";
+assert.equal(api.anniversaryPreviewEnabledFromLocation(), true,
+  "the exact legacy lock=1 alias may preview");
+context.window.location.search = "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=1";
+assert.equal(api.anniversaryPromotionActive(start - 1), true,
+  "the trusted preview forces only the promotional pricing state before the real start");
+assert.equal(api.anniversaryPromotionActive(end), true,
+  "the explicit test preview remains available outside the real campaign dates");
+assert.equal(api.anniversaryPromotionLabel(), "周年慶價預覽");
+assert.match(api.lensPriceMarkup(api.lensPricing("color", api.LENS_COLORS[0], start - 1)), /周年慶價預覽/);
+const previewNote = { textContent: "" };
+context.document.getElementById = id => {
+  assert.equal(id, "lens-price-note");
+  return previewNote;
+};
+api.updateLensPriceNote(true);
+assert.match(previewNote.textContent, /周年慶價預覽（僅供測試）/);
+assert.match(previewNote.textContent, /實際結帳金額以購物車為準/);
+
+for (const [label, search, referrer] of [
+  ["missing preview flag", "?mode=color&locked=1&cart=1", context.document.referrer],
+  ["empty preview flag", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=", context.document.referrer],
+  ["zero preview flag", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=0", context.document.referrer],
+  ["numeric-looking preview flag", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=01", context.document.referrer],
+  ["non-exact preview flag", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=true", context.document.referrer],
+  ["missing cart permission", "?mode=color&locked=1&eyefans_anniversary_preview=1", context.document.referrer],
+  ["zero cart permission", "?mode=color&locked=1&cart=0&eyefans_anniversary_preview=1", context.document.referrer],
+  ["non-exact cart permission", "?mode=color&locked=1&cart=true&eyefans_anniversary_preview=1", context.document.referrer],
+  ["numeric-looking cart permission", "?mode=color&locked=1&cart=01&eyefans_anniversary_preview=1", context.document.referrer],
+  ["unlocked iframe", "?mode=color&cart=1&eyefans_anniversary_preview=1", context.document.referrer],
+  ["zero lock", "?mode=color&locked=0&cart=1&eyefans_anniversary_preview=1", context.document.referrer],
+  ["numeric-looking lock", "?mode=color&locked=01&cart=1&eyefans_anniversary_preview=1", context.document.referrer],
+  ["non-exact locked flag", "?mode=color&locked=true&cart=1&eyefans_anniversary_preview=1", context.document.referrer],
+  ["non-exact lock alias", "?mode=color&lock=true&cart=1&eyefans_anniversary_preview=1", context.document.referrer],
+  ["missing referrer", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=1", ""],
+  ["invalid referrer", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=1", "not a URL"],
+  ["foreign referrer", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=1", "https://evil.example/products/fake"],
+  ["similar host referrer", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=1", "https://www.eyefans.com.tw.evil.example/products/fake"],
+  ["insecure storefront referrer", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=1", "http://www.eyefans.com.tw/products/fake"],
+  ["unexpected storefront port", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=1", "https://www.eyefans.com.tw:8443/products/fake"],
+  ["same-origin customizer referrer", "?mode=color&locked=1&cart=1&eyefans_anniversary_preview=1", "https://nina82815.github.io/eyefans-custom/tests/cart-host.html"]
+]) {
+  context.window.location.search = search;
+  context.document.referrer = referrer;
+  assert.equal(api.anniversaryPreviewEnabledFromLocation(), false, `${label} must fail closed`);
+}
+context.window.location.search = "";
+context.window.parent = context.window;
+context.document.referrer = "";
+api.updateLensPriceNote(true);
+assert.match(previewNote.textContent, /9\/14–9\/20 周年慶優惠/,
+  "the real campaign note retains its scheduled copy outside preview mode");
+assert.doesNotMatch(previewNote.textContent, /預覽|僅供測試/,
+  "the formal campaign note must never be labelled as a preview");
 
 const expected = {
   color: {
@@ -97,6 +173,7 @@ assert.equal(
   '<small class="lens-price"><strong>NT$890</strong></small>'
 );
 assert.match(api.lensPriceMarkup(salePricing), /周年慶價/);
+assert.doesNotMatch(api.lensPriceMarkup(salePricing), /周年慶價預覽/);
 assert.match(api.lensPriceMarkup(salePricing), /NT\$750/);
 assert.match(api.lensPriceMarkup(salePricing), /<s>原價 NT\$890<\/s>/);
 assert.equal(api.lensPriceAriaLabel(gray, regularPricing), "三號灰片，整副售價 NT$890");
@@ -108,7 +185,7 @@ assert.doesNotMatch(api.lensDisplayLabel(polarized), /NT\$|周年慶|原價|售�
 
 assert.match(htmlSource, /id="lens-price-note"/);
 assert.match(htmlSource, /styles\.css\?v=20260903a/);
-assert.match(htmlSource, /app\.js\?v=20260904a/);
+assert.match(htmlSource, /app\.js\?v=20260908a/);
 assert.match(styleSource, /\.lens-price--promotion s/);
 
 let controlledNow = start - 1;
@@ -139,24 +216,30 @@ const mount = {
 };
 const note = { textContent: "" };
 const runtimeState = { customizationMode: "color" };
+const runtimeWindow = {
+  location: { search: "" },
+  setTimeout(callback, delay) {
+    const id = ++timerId;
+    timers.set(id, { callback, delay });
+    return id;
+  },
+  clearTimeout(id) { timers.delete(id); }
+};
+runtimeWindow.parent = runtimeWindow;
 const runtimeContext = {
+  URL,
+  URLSearchParams,
   Date: ControlledDate,
   state: runtimeState,
   document: {
+    referrer: "",
     getElementById(id) {
       if (id === "lens-options") return mount;
       if (id === "lens-price-note") return note;
       throw new Error(`unexpected element: ${id}`);
     }
   },
-  window: {
-    setTimeout(callback, delay) {
-      const id = ++timerId;
-      timers.set(id, { callback, delay });
-      return id;
-    },
-    clearTimeout(id) { timers.delete(id); }
-  }
+  window: runtimeWindow
 };
 vm.createContext(runtimeContext);
 vm.runInContext([
@@ -164,8 +247,14 @@ vm.runInContext([
   declaration("LENS_COLORS"),
   declaration("CUSTOMIZATION_PRICES"),
   declaration("ANNIVERSARY_PROMOTION"),
+  declaration("STOREFRONT_ORIGIN"),
+  declaration("ANNIVERSARY_PREVIEW_QUERY_KEY"),
   declaration("lensPriceRefreshTimer"),
+  implementation("customizationModeLockedFromLocation"),
+  implementation("cartSubmitEnabledFromLocation"),
+  implementation("anniversaryPreviewEnabledFromLocation"),
   implementation("anniversaryPromotionActive"),
+  implementation("anniversaryPromotionLabel"),
   implementation("lensPricing"),
   implementation("formatNtd"),
   implementation("lensPriceMarkup"),

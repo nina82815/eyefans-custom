@@ -26,6 +26,9 @@ const v3TestEntry = read("cyberbiz-cart-uv-combined-live-test-loader-20260904-v1
 const v4Core = read("cyberbiz-cart-production-loader-20260904-all-combined-v4.js");
 const v4TestEntry = read("cyberbiz-cart-all-combined-live-test-loader-20260904-v1.js");
 const guide = read("CYBERBIZ_CART_ALL_COMBINED_CANDIDATE_V4_20260904.md");
+const v41Core = read("cyberbiz-cart-production-loader-20260908-all-combined-v4-1.js");
+const v41TestEntry = read("cyberbiz-cart-all-combined-live-test-loader-20260908-v2.js");
+const v41Guide = read("CYBERBIZ_CART_ALL_COMBINED_CANDIDATE_V4_1_20260908.md");
 
 assert.equal(
   sha256(legacyLiveTest),
@@ -89,4 +92,28 @@ assert.ok(guide.includes(expectedV4Sri));
 assert.ok(guide.includes(expectedEntrySha256));
 assert.ok(guide.includes(expectedEntrySri));
 
-console.log("all-combined v4 candidate hashes + historical immutability contract passed");
+const expectedV41Sha256 = "9b2cf8b81b5d5c9f0e188b8417bb569be1fd6ede2aaf083e68374fdb4a4408eb";
+const expectedV41Sri = "sha384-IbRQI33QiUSpoMg4CPulYLtBVBIBaTJDVXzW4X5g0xz+kred7xGrQVZnbklup5bP";
+const expectedV2EntrySha256 = "6ddcbb0807250a143020e4a3d0e9a1a148d5a2af94d7c9e864c7602f0d560fc9";
+const expectedV2EntrySri = "sha384-o8PtKgCnAm3/unrS9+uV46ZErpZudH3gnOsu7GbKysBRPCKJpNjmoiaR7Ers7yX1";
+
+assert.equal(sha256(v41Core), expectedV41Sha256);
+assert.equal(sri(v41Core), expectedV41Sri);
+assert.equal(sha256(v41TestEntry), expectedV2EntrySha256);
+assert.equal(sri(v41TestEntry), expectedV2EntrySri);
+assert.match(v41Core, /UNPUBLISHED PRODUCTION CANDIDATE V4\.1/);
+assert.match(v41Core, /eyefansCyberbizCartAllCombinedProductionCandidateV4_1Loader/);
+assert.match(v41Core, /eyefans_anniversary_preview/);
+assert.match(v41Core, /eyefans_all_combined_live_test/);
+assert.doesNotMatch(v41Core, /Date\s*=|window\.Date\s*=/);
+assert.match(v41TestEntry, /eyefansCyberbizCartAllCombinedLiveTestEntryV2/);
+assert.match(v41TestEntry, /__eyefansCartAllCombinedLiveTestEntryV2Active/);
+assert.match(v41TestEntry, /__eyefansCartAllCombinedLiveTestEntryV1Active/);
+assert.ok(v41TestEntry.includes(expectedV41Sri));
+assert.doesNotMatch(v41TestEntry, /PLACEHOLDER/);
+assert.ok(v41Guide.includes(expectedV41Sha256));
+assert.ok(v41Guide.includes(expectedV41Sri));
+assert.ok(v41Guide.includes(expectedV2EntrySha256));
+assert.ok(v41Guide.includes(expectedV2EntrySri));
+
+console.log("all-combined v4/v4.1 candidate hashes + historical immutability contract passed");

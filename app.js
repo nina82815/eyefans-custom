@@ -278,6 +278,7 @@ const PRINT_FONTS = {
 const ENGLISH_FONT_KEYS = new Set(["purpleSmile", "baksoSapi"]);
 const MESSAGE_SCHEMA_VERSION = 1;
 const STOREFRONT_ORIGIN = "https://www.eyefans.com.tw";
+const ANNIVERSARY_PREVIEW_QUERY_KEY = "eyefans_anniversary_preview";
 const STOREFRONT_PRODUCT_PATHS = Object.freeze({
   color: "/products/cls-cus-mix-sun-rd",
   engraving: "/products/cls-cus-mix-laser-sun-rd",
@@ -587,6 +588,22 @@ function customizationModeLockedFromLocation() {
 function cartSubmitEnabledFromLocation() {
   try {
     return new URLSearchParams(window.location.search).get("cart") === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function anniversaryPreviewEnabledFromLocation() {
+  if (window.parent === window) return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const requestedLock = params.get("locked") || params.get("lock");
+    if (
+      params.get(ANNIVERSARY_PREVIEW_QUERY_KEY) !== "1"
+      || !cartSubmitEnabledFromLocation()
+      || requestedLock !== "1"
+    ) return false;
+    return new URL(document.referrer).origin === STOREFRONT_ORIGIN;
   } catch (error) {
     return false;
   }
@@ -1109,10 +1126,15 @@ function updateLensOptionPrice(button, lens, timestamp = Date.now()) {
 }
 
 function anniversaryPromotionActive(timestamp = Date.now()) {
+  if (anniversaryPreviewEnabledFromLocation()) return true;
   const numericTimestamp = timestamp instanceof Date ? timestamp.getTime() : Number(timestamp);
   return Number.isFinite(numericTimestamp)
     && numericTimestamp >= ANNIVERSARY_PROMOTION.startsAt
     && numericTimestamp < ANNIVERSARY_PROMOTION.endsAt;
+}
+
+function anniversaryPromotionLabel() {
+  return anniversaryPreviewEnabledFromLocation() ? "周年慶價預覽" : ANNIVERSARY_PROMOTION.label;
 }
 
 function lensPricing(customizationMode, lens, timestamp = Date.now()) {
@@ -1133,20 +1155,23 @@ function lensPriceMarkup(pricing) {
   if (!pricing.isPromotionActive) {
     return `<small class="lens-price"><strong>${formatNtd(pricing.regular)}</strong></small>`;
   }
-  return `<small class="lens-price lens-price--promotion"><strong><span>${ANNIVERSARY_PROMOTION.label}</span>${formatNtd(pricing.anniversary)}</strong><s>原價 ${formatNtd(pricing.regular)}</s></small>`;
+  return `<small class="lens-price lens-price--promotion"><strong><span>${anniversaryPromotionLabel()}</span>${formatNtd(pricing.anniversary)}</strong><s>原價 ${formatNtd(pricing.regular)}</s></small>`;
 }
 
 function lensPriceAriaLabel(lens, pricing) {
   if (!pricing.isPromotionActive) {
     return `${lens.name}，整副售價 ${formatNtd(pricing.regular)}`;
   }
-  return `${lens.name}，${ANNIVERSARY_PROMOTION.label} ${formatNtd(pricing.anniversary)}，原價 ${formatNtd(pricing.regular)}`;
+  return `${lens.name}，${anniversaryPromotionLabel()} ${formatNtd(pricing.anniversary)}，原價 ${formatNtd(pricing.regular)}`;
 }
 
 function updateLensPriceNote(isPromotionActive) {
   const note = document.getElementById("lens-price-note");
+  const isPreview = isPromotionActive && anniversaryPreviewEnabledFromLocation();
   note.textContent = isPromotionActive
-    ? `${ANNIVERSARY_PROMOTION.dateLabel} 周年慶優惠；以上為整副客製眼鏡售價，結帳金額以購物車為準。偏光鏡片與三號灰片呈現相同模擬外觀。`
+    ? isPreview
+      ? `周年慶價預覽（僅供測試）；以上為整副客製眼鏡預覽售價，實際結帳金額以購物車為準。偏光鏡片與三號灰片呈現相同模擬外觀。`
+      : `${ANNIVERSARY_PROMOTION.dateLabel} 周年慶優惠；以上為整副客製眼鏡售價，結帳金額以購物車為準。偏光鏡片與三號灰片呈現相同模擬外觀。`
     : "以上為整副客製眼鏡售價，結帳金額以購物車為準；偏光鏡片與三號灰片呈現相同模擬外觀，價格已包含偏光升級費用。";
 }
 

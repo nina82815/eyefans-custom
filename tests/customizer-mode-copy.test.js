@@ -52,6 +52,6 @@ for (const misleadingCopy of ["白色英文", "雷雕固定白色", "白色雷�
   assert.equal(htmlSource.includes(misleadingCopy), false, `HTML must not promise ${misleadingCopy}`);
   assert.equal(appSource.includes(misleadingCopy), false, `app must not promise ${misleadingCopy}`);
 }
-assert.match(htmlSource, /<script src="app\.js\?v=20260904a" defer><\/script>/);
+assert.match(htmlSource, /<script src="app\.js\?v=20260908a" defer><\/script>/);
 
 console.log("customizer mode-specific header copy contract passed");

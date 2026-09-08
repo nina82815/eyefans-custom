@@ -253,6 +253,17 @@ assert.deepEqual(request.message.selection, {
   summary: "實拍效果、框腳配色＋UV 彩印、尺寸 M、鏡框 霧面白、鏡腳 琥珀、鏡片 抗藍光鏡片、2 圖＋名字／圖案 01+04／eyefans／文字白色、客製位置 右外側鏡腳"
 }, "all manufacturing details must survive the UI submission");
 
+const preview = environment({
+  search: "?mode=uv&locked=1&cart=1&eyefans_anniversary_preview=1",
+  referrer: `${STOREFRONT}${PRODUCT_PATHS.uv}?eyefans_all_combined_live_test=1&eyefans_anniversary_preview=1`
+});
+preview.submit();
+const previewRequest = preview.submissions()[0];
+assert.deepEqual(previewRequest.message, request.message,
+  "the display-only anniversary preview must not alter the cart message or manufacturing selection");
+assert.doesNotMatch(JSON.stringify(previewRequest.message), /anniversary|preview|price/i,
+  "preview state and display prices must not enter the cart payload");
+
 for (const mode of Object.keys(PRODUCT_PATHS)) {
   const polarized = environment({
     search: `?mode=${mode}&locked=1&cart=1`,
