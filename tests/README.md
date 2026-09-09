@@ -137,6 +137,10 @@ node tests/cyberbiz-cart-note-sync-v3.test.js
 正式日期排程、成交價與購物車 payload 不變。安裝、雙參數網址、固定雜湊與回滾方式見
 `integration/CYBERBIZ_CART_ALL_COMBINED_CANDIDATE_V4_1_20260908.md`。
 
+2026-09-09 的 v4.2 在相同限定測試入口中，把手機底部原生購買列改成單一
+「開始客製設計」動作，點擊只捲動到模擬器；手機立即購買與其他原生購買控制會被
+攔截。安裝與回滾見 `integration/CYBERBIZ_CART_ALL_COMBINED_CANDIDATE_V4_2_20260909.md`。
+
 以下測試不連線到 CYBERBIZ。它們驗證三個完整 4 × 3 矩陣、精確
 `尺寸＋鏡片＋option3=null` 配對、同尺寸三鏡片分流、27 個退休款式防守、v4 wrapper
 互斥與載入失敗攔截、歷史檔不可變，以及刪除與訂單備註同步回歸：
@@ -145,8 +149,11 @@ node tests/cyberbiz-cart-note-sync-v3.test.js
 node tests/cyberbiz-cart-all-combined-candidate.test.js
 node tests/cyberbiz-cart-all-combined-v4.test.js
 node tests/cyberbiz-cart-all-combined-v4-1.test.js
+node tests/cyberbiz-cart-all-combined-v4-2.test.js
+node tests/cyberbiz-cart-mobile-cta-v4-2.test.js
 node tests/cyberbiz-cart-note-sync-v4.test.js
 node tests/cyberbiz-cart-note-sync-v4-1.test.js
+node tests/cyberbiz-cart-note-sync-v4-2.test.js
 node tests/anniversary-pricing.test.js
 node tests/customizer-cart-ui.contract.test.js
 ```
