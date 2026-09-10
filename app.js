@@ -223,12 +223,12 @@ const CUSTOMIZATION_PRICES = Object.freeze({
 
 // Fixed UTC instants keep the promotion aligned to Asia/Taipei even when the
 // customer's device is configured for another time zone. The end is exclusive,
-// so all of September 20 remains part of the anniversary promotion.
+// so all of September 21 remains part of the anniversary promotion.
 const ANNIVERSARY_PROMOTION = Object.freeze({
   label: "周年慶價",
-  dateLabel: "9/14–9/20",
+  dateLabel: "9/14–9/21",
   startsAt: Date.parse("2026-09-14T00:00:00+08:00"),
-  endsAt: Date.parse("2026-09-21T00:00:00+08:00")
+  endsAt: Date.parse("2026-09-22T00:00:00+08:00")
 });
 
 const RAINBOW_PRINT_COLORS = ["#ef6a4b", "#efbd3f", "#63a56f", "#43a5bd", "#8b72c7", "#df6f99"];

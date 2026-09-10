@@ -58,11 +58,13 @@ const start = api.ANNIVERSARY_PROMOTION.startsAt;
 const end = api.ANNIVERSARY_PROMOTION.endsAt;
 
 assert.equal(start, Date.parse("2026-09-14T00:00:00+08:00"));
-assert.equal(end, Date.parse("2026-09-21T00:00:00+08:00"));
+assert.equal(end, Date.parse("2026-09-22T00:00:00+08:00"));
 assert.equal(api.anniversaryPromotionActive(start - 1), false, "promotion must not start early");
 assert.equal(api.anniversaryPromotionActive(start), true, "promotion starts at midnight in Taipei");
-assert.equal(api.anniversaryPromotionActive(end - 1), true, "all of September 20 stays discounted");
-assert.equal(api.anniversaryPromotionActive(end), false, "promotion ends at midnight after September 20");
+assert.equal(api.anniversaryPromotionActive(Date.parse("2026-09-21T00:00:00+08:00")), true,
+  "the previous end boundary now remains discounted");
+assert.equal(api.anniversaryPromotionActive(end - 1), true, "all of September 21 stays discounted");
+assert.equal(api.anniversaryPromotionActive(end), false, "promotion ends at midnight after September 21");
 assert.equal(api.anniversaryPromotionActive(Number.NaN), false, "invalid clocks fail closed to regular pricing");
 assert.equal(api.nextLensPriceRefreshAt(start - 1), start, "pre-sale pages schedule the start boundary");
 assert.equal(api.nextLensPriceRefreshAt(start), end, "sale pages schedule the end boundary");
@@ -125,7 +127,7 @@ context.window.location.search = "";
 context.window.parent = context.window;
 context.document.referrer = "";
 api.updateLensPriceNote(true);
-assert.match(previewNote.textContent, /9\/14–9\/20 周年慶優惠/,
+assert.match(previewNote.textContent, /9\/14–9\/21 周年慶優惠/,
   "the real campaign note retains its scheduled copy outside preview mode");
 assert.doesNotMatch(previewNote.textContent, /預覽|僅供測試/,
   "the formal campaign note must never be labelled as a preview");
@@ -185,7 +187,7 @@ assert.doesNotMatch(api.lensDisplayLabel(polarized), /NT\$|周年慶|原價|售�
 
 assert.match(htmlSource, /id="lens-price-note"/);
 assert.match(htmlSource, /styles\.css\?v=20260910-no-none/);
-assert.match(htmlSource, /app\.js\?v=20260910-no-none/);
+assert.match(htmlSource, /app\.js\?v=20260910-anniversary-sep22/);
 assert.match(styleSource, /\.lens-price--promotion s/);
 
 let controlledNow = start - 1;
@@ -294,6 +296,11 @@ assert.match(copy.innerHTML, /周年慶價/);
 assert.match(copy.innerHTML, /NT\$750/);
 assert.match(copy.innerHTML, /原價 NT\$890/);
 assert.equal(button.disabled, true, "start-boundary refresh preserves disabled state");
+
+controlledNow = Date.parse("2026-09-21T00:00:00+08:00");
+runtimeContext.runtime.refreshLensPricing();
+assert.match(copy.innerHTML, /NT\$750/, "September 21 retains the anniversary price");
+assert.match(note.textContent, /9\/14–9\/21/);
 
 controlledNow = end;
 runOnlyTimer();
