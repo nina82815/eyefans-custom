@@ -412,6 +412,12 @@ function createEnvironment(records, {
         cartItemVariantId(item) !== TARGETS["blue-tea"].variantId
       ));
     },
+    hideDomRows() {
+      domItems = [];
+    },
+    restoreDomRows() {
+      domItems = structuredClone(authoritativeItems);
+    },
     setBlueQuantity(quantity) {
       authoritativeItems = authoritativeItems.map(item => (
         cartItemVariantId(item) === TARGETS["blue-tea"].variantId
@@ -535,6 +541,28 @@ async function flushMicrotasks(turns = 20) {
   assert.equal(environment.checkout.attributes.has("aria-disabled"), false);
   assert.match(environment.note.value, /EF-TEST-BLUE01/);
   assert.match(environment.note.value, /EF-TEST-BLUE02/);
+
+  if (process.env.EYEFANS_NOTE_SYNC_RERENDER_GUARD === "1") {
+    // Checkout v3 temporarily unmounts its cart rows during responsive/sticky
+    // rerenders (for example, while scrolling). This is cosmetic and must not
+    // be treated as an empty-cart mutation when no shopper action is pending.
+    const pendingBeforeCosmeticRerender = environment.pendingDelays().length;
+    environment.hideDomRows();
+    const cosmeticRemovedRow = genericElement("tr");
+    cosmeticRemovedRow.matches = selector => String(selector).includes("tr.line-item");
+    environment.observerCallbacks.at(-1)([{
+      type: "childList",
+      target: genericElement("tbody"),
+      addedNodes: [],
+      removedNodes: [cosmeticRemovedRow]
+    }]);
+    await flushMicrotasks();
+    assert.equal(environment.pendingDelays().length, pendingBeforeCosmeticRerender,
+      "a transient zero-row cosmetic rerender must not start cart reconciliation");
+    assert.equal(environment.checkout.attributes.has("aria-disabled"), false,
+      "ordinary scrolling/rerendering must not block checkout");
+    environment.restoreDomRows();
+  }
 
   environment.triggerDeleteClick();
   await flushMicrotasks();
