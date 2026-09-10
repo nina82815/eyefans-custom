@@ -366,8 +366,7 @@ for (const mode of ["uv", "engraving"]) {
 }
 for (const state of [
   { customizationMode: "color", name: "" },
-  { customizationMode: "uv", printMode: "icon", name: "" },
-  { customizationMode: "uv", printMode: "none", name: "" }
+  { customizationMode: "uv", printMode: "icon", name: "" }
 ]) {
   const ui = environment({ state });
   ui.submit();
@@ -375,12 +374,20 @@ for (const state of [
   const selection = ui.submissions()[0].message.selection;
   assert.equal(selection.name, "");
   assert.equal(selection.font, null);
-  if (state.customizationMode === "color" || state.printMode === "none") {
+  if (state.customizationMode === "color") {
     assert.equal(selection.icon1, null);
     assert.equal(selection.icon2, null);
     assert.equal(selection.customizationSide, null);
   }
 }
+
+const retiredUvNoPrint = environment({
+  state: { customizationMode: "uv", printMode: "none", name: "" }
+});
+retiredUvNoPrint.submit();
+assert.equal(retiredUvNoPrint.submissions().length, 0,
+  "a stale UV no-print state must not be submitted");
+assert.match(retiredUvNoPrint.status.textContent, /UV 彩印商品請選擇圖案或名字內容/);
 
 const permissionLost = environment();
 permissionLost.submit();

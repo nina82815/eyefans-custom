@@ -1261,6 +1261,9 @@ function updateConditionalFields() {
   const config = CUSTOMIZATION_MODES[mode] || CUSTOMIZATION_MODES.uv;
   const isUv = mode === "uv";
   const isEngraving = mode === "engraving";
+  // UV is a paid-print product. A stale page state must never restore the
+  // retired no-print choice after the control is removed from the UI.
+  if (isUv && state.printMode === "none") state.printMode = "both";
   const printMode = effectivePrintMode();
   const usesIcon = printMode === "both" || printMode === "icon";
   const usesName = printMode === "both" || printMode === "name";
@@ -1510,6 +1513,10 @@ function submitCustomizerSelection() {
 
   const selection = buildSelectionPayload();
   if (cartSelectionFingerprint(selection) === lastAddedSelectionFingerprint) return;
+  if (selection.customizationMode === "uv" && selection.printMode === "none") {
+    setCartSubmitState("error", "UV 彩印商品請選擇圖案或名字內容。");
+    return;
+  }
   const needsName = selection.customizationMode === "engraving"
     || (selection.customizationMode === "uv" && ["both", "name"].includes(selection.printMode));
 

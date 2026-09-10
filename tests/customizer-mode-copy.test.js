@@ -52,6 +52,9 @@ for (const misleadingCopy of ["白色英文", "雷雕固定白色", "白色雷�
   assert.equal(htmlSource.includes(misleadingCopy), false, `HTML must not promise ${misleadingCopy}`);
   assert.equal(appSource.includes(misleadingCopy), false, `app must not promise ${misleadingCopy}`);
 }
-assert.match(htmlSource, /<script src="app\.js\?v=20260908a" defer><\/script>/);
+assert.doesNotMatch(htmlSource, /data-mode="none"[^>]*>不加印刷<\/button>/,
+  "UV print controls must not offer a no-print choice");
+assert.match(htmlSource, /class="segmented segmented-three" id="print-mode-options"/);
+assert.match(htmlSource, /<script src="app\.js\?v=20260910-no-none" defer><\/script>/);
 
 console.log("customizer mode-specific header copy contract passed");
