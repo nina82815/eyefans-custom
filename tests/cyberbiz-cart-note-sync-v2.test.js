@@ -24,6 +24,7 @@ const migrationProfile = process.env.EYEFANS_NOTE_SYNC_MIGRATION_PROFILE
   || (loaderFilename.includes("uv-combined-v3") ? "uv-reused-id" : "");
 const retiredMigrationVariantId = process.env.EYEFANS_NOTE_SYNC_RETIRED_VARIANT_ID
   || "87452776";
+const cartVariantIdFormat = process.env.EYEFANS_NOTE_SYNC_VARIANT_ID_FORMAT || "integer";
 
 const DEFAULT_TARGETS = {
   polarized: Object.freeze({
@@ -170,12 +171,23 @@ function activeRecord({ requestId, designId, lensId, frame, before, after }) {
 }
 
 function cartItem(variantId, quantity) {
-  return {
-    variant_id_int: Number(variantId),
-    variant_id: `${variantId}_normal_`,
+  const item = {
     cart_item_id: `${variantId}_normal_`,
     quantity
   };
+  if (cartVariantIdFormat === "numeric-string") item.variant_id = String(variantId);
+  else if (cartVariantIdFormat === "cart-key") item.variant_id = `${variantId}_normal_`;
+  else {
+    item.variant_id_int = Number(variantId);
+    item.variant_id = `${variantId}_normal_`;
+  }
+  return item;
+}
+
+function cartItemVariantId(item) {
+  const rawVariantId = item.variant_id_int ?? item.variant_id;
+  const match = String(rawVariantId ?? "").match(/^(\d+)(?:_normal_)?$/);
+  return match ? match[1] : "";
 }
 
 function createEnvironment(records, {
@@ -234,7 +246,7 @@ function createEnvironment(records, {
       row.matches = selector => String(selector).includes("tr.line-item");
       row.querySelector = selector => (
         selector === '[data-testid="quantity-input"]'
-          && String(item.variant_id_int) !== String(missingQuantityVariantId)
+          && cartItemVariantId(item) !== String(missingQuantityVariantId)
           ? input
           : null
       );
@@ -306,7 +318,7 @@ function createEnvironment(records, {
     // Deliberately never updated: this reproduces Checkout v3's boot-time
     // window.lineItems remaining stale after a React/AJAX row deletion.
     lineItems: structuredClone(initialItems).map(item => ({
-      variant_id: String(item.variant_id_int),
+      variant_id: cartItemVariantId(item),
       quantity: item.quantity
     })),
     localStorage: memoryStorage({
@@ -394,20 +406,20 @@ function createEnvironment(records, {
     window,
     deleteBlueRows() {
       authoritativeItems = authoritativeItems.filter(item => (
-        String(item.variant_id_int) !== TARGETS["blue-tea"].variantId
+        cartItemVariantId(item) !== TARGETS["blue-tea"].variantId
       ));
       domItems = domItems.filter(item => (
-        String(item.variant_id_int) !== TARGETS["blue-tea"].variantId
+        cartItemVariantId(item) !== TARGETS["blue-tea"].variantId
       ));
     },
     setBlueQuantity(quantity) {
       authoritativeItems = authoritativeItems.map(item => (
-        String(item.variant_id_int) === TARGETS["blue-tea"].variantId
+        cartItemVariantId(item) === TARGETS["blue-tea"].variantId
           ? { ...item, quantity }
           : item
       ));
       domItems = domItems.map(item => (
-        String(item.variant_id_int) === TARGETS["blue-tea"].variantId
+        cartItemVariantId(item) === TARGETS["blue-tea"].variantId
           ? { ...item, quantity }
           : item
       ));
