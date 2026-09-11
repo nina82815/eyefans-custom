@@ -29,3 +29,19 @@ The original theme was 301,003 characters. Editor clipboard readback verified th
 ## Rollback
 
 In the same published theme, remove only the script element with ID `eyefans-checkout-analytics-compat-20260911`, then save and verify a fresh page. Do not revert the entire theme, replace custom loaders, remove design records or undo unrelated theme edits.
+
+## Mobile CVS-return follow-up (same day, afternoon)
+
+The user confirmed the morning scroll-only phone test passed, then reported another failure after selecting a 7-Eleven store on the phone; desktop checkout was unaffected. The second recording shows successful external store selection followed by the checkout disappearing on return.
+
+The platform checkout application's `setupApplaction` first receives `/carts/:token/redirect_cvs`, then uses history replacement to normalize it to `/carts/:token`. The early head bootstrap must therefore accept the initial CVS-return path, not just the later canonical cart path. The original narrow path check skipped the mobile return.
+
+- Added only the exact optional `/redirect_cvs` suffix to the existing cart-token route. Other subpaths remain excluded.
+- Added a regression that fails against the morning version and passes after the fix, checking initialization before the platform URL normalization and successful analytics calls afterward.
+- Updated only the existing inline script block in published theme 133170. The surrounding theme source was preserved exactly (102 characters added inside the block).
+- Final live inline source was verified to match the edited source; no exposed code text.
+- Full test run: 44 passed, 0 failed.
+- The previously open desktop cart token became unavailable during testing and the standard cart entrance returned to the homepage with a zero-item count. Its cause was not established; no item/order mutation was performed by this diagnostic. This is not evidence that the phone return path passed or failed.
+- Actual phone store-selection round-trip confirmation is pending separately; do not claim a completed phone checkout test until the user confirms it.
+
+To roll back only this follow-up, revert the optional CVS-return suffix and its explanatory comments within the same inline block, retaining the morning ordinary-cart protection.

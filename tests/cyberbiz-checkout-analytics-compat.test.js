@@ -28,6 +28,20 @@ test("ordinary cart without custom data safely queues scroll-step analytics", ()
   assert.equal(window.__eyefansCartAllCombinedDevelopmentLoaderActive, undefined);
 });
 
+test("mobile CVS return initializes analytics before CYBERBIZ rewrites its URL", () => {
+  const token = "0123456789abcdef0123456789abcdef";
+  const { window, context } = boot(`/carts/${token}/redirect_cvs`);
+  assert.equal(typeof window.gtag, "function", "head bootstrap must run on the initial return URL");
+  const queue = window.dataLayer;
+  // Checkout setup later replaces the callback path with the normal cart URL.
+  window.location.pathname = `/carts/${token}`;
+  vm.runInContext('gtag("event", "checkout_progress", { checkout_step: 3 })', context);
+  assert.equal(window.dataLayer, queue);
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0][2].checkout_step, 3);
+  assert.equal(window.__eyefansCartProductionLoaderActive, undefined);
+});
+
 test("the same scroll call throws when the compatibility bootstrap is absent", () => {
   const context = vm.createContext({});
   assert.throws(() => vm.runInContext('gtag("event", "checkout_progress")', context), /gtag is not defined/);
@@ -63,11 +77,11 @@ test("a later loaded implementation can replace the queue normally", () => {
 
 test("only exact storefront checkout paths are enabled", () => {
   for (const hostname of ["www.eyefans.com.tw", "eyefans.cyberbiz.co"]) {
-    for (const pathname of ["/cart", "/cart/", "/carts/abc-123_456", "/carts/abc/"]) {
+    for (const pathname of ["/cart", "/cart/", "/carts/abc-123_456", "/carts/abc/", "/carts/abc/redirect_cvs", "/carts/abc/redirect_cvs/"]) {
       assert.equal(typeof boot(pathname, {}, hostname).window.gtag, "function");
     }
   }
-  for (const pathname of ["/", "/products/cpc-nai", "/pages/custom", "/admin", "/admin/carts/abc", "/carts/abc/orders", "/carts/"]) {
+  for (const pathname of ["/", "/products/cpc-nai", "/pages/custom", "/admin", "/admin/carts/abc", "/carts/abc/orders", "/carts/", "/cart/redirect_cvs", "/carts/abc/redirect_cvs/extra", "/carts/abc/redirect_cvs_extra"]) {
     assert.equal(boot(pathname).window.gtag, undefined, pathname);
   }
   assert.equal(boot("/carts/abc", {}, "other.example").window.gtag, undefined);
