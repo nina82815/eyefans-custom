@@ -187,7 +187,7 @@ assert.doesNotMatch(api.lensDisplayLabel(polarized), /NT\$|周年慶|原價|售�
 
 assert.match(htmlSource, /id="lens-price-note"/);
 assert.match(htmlSource, /styles\.css\?v=20260915-tsuhsian2/);
-assert.match(htmlSource, /app\.js\?v=20260915-tsuhsian2/);
+assert.match(htmlSource, /app\.js\?v=20260915-cart-recovery16/);
 assert.match(styleSource, /\.lens-price--promotion s/);
 
 let controlledNow = start - 1;

@@ -1483,19 +1483,21 @@ function setCartSubmitState(status, message) {
   const button = document.getElementById("cart-submit-button");
   const statusElement = document.getElementById("cart-submit-status");
   const isLoading = status === "loading";
+  const isUncertain = status === "uncertain";
   const isSuccess = status === "success";
   panel.dataset.state = status;
-  button.disabled = isLoading || isSuccess || status === "unavailable" || !cartSubmissionAvailable();
+  button.disabled = isLoading || isUncertain || isSuccess || status === "unavailable" || !cartSubmissionAvailable();
   button.setAttribute("aria-busy", String(isLoading));
   button.textContent = isLoading
     ? "正在加入購物車…"
+    : isUncertain ? "確認結果尚未完成"
     : isSuccess
       ? "已加入購物車"
       : "確認設計並加入購物車";
-  setCustomizerControlsLocked(isLoading);
+  setCustomizerControlsLocked((isLoading || isUncertain) && cartSubmissionAvailable());
   statusElement.textContent = message;
   // This is a fixed store URL, never a redirect supplied in a postMessage.
-  document.getElementById("cart-view-link").hidden = !isSuccess;
+  document.getElementById("cart-view-link").hidden = !(isSuccess || isUncertain);
 }
 
 function syncCartSubmitAvailability() {
@@ -1555,10 +1557,11 @@ function submitCustomizerSelection() {
   clearCartResultTimer();
   cartResultTimer = window.setTimeout(() => {
     if (pendingCartRequestId !== requestId) return;
-    pendingCartRequestId = null;
-    pendingCartSelectionFingerprint = null;
     cartResultTimer = null;
-    setCartSubmitState("error", "尚未收到購物車確認，請先查看購物車後再重試。");
+    // This is a slow-result notice, not proof that POST failed. Retain the
+    // request identity and locked selection so a late result remains valid,
+    // and never invite another POST while the first result is unknown.
+    setCartSubmitState("uncertain", "購物車確認比預期久，商品可能已加入。請先查看購物車，不要重複加入；收到確認後此畫面會自動更新。");
   }, CART_RESULT_TIMEOUT_MS);
 }
 

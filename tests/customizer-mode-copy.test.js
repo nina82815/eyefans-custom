@@ -55,6 +55,6 @@ for (const misleadingCopy of ["白色英文", "雷雕固定白色", "白色雷�
 assert.doesNotMatch(htmlSource, /data-mode="none"[^>]*>不加印刷<\/button>/,
   "UV print controls must not offer a no-print choice");
 assert.match(htmlSource, /class="segmented segmented-three" id="print-mode-options"/);
-assert.match(htmlSource, /<script src="app\.js\?v=20260915-tsuhsian2" defer><\/script>/);
+assert.match(htmlSource, /<script src="app\.js\?v=20260915-cart-recovery16" defer><\/script>/);
 
 console.log("customizer mode-specific header copy contract passed");

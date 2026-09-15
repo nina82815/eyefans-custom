@@ -348,13 +348,18 @@ assert.notEqual(failed.submissions()[0].message.requestId, failed.submissions()[
 const timedOut = environment();
 timedOut.submit();
 timedOut.expire();
-assert.equal(timedOut.panel.dataset.state, "error");
+assert.equal(timedOut.panel.dataset.state, "uncertain");
 assert.match(timedOut.status.textContent, /確認|查看購物車/, "timeout warns to verify the real cart before retrying");
-assert.equal(timedOut.button.disabled, false);
-assert.equal(timedOut.viewLink.hidden, true, "timeout is not proof of a successful cart addition");
-assert.deepEqual(timedOut.controls.map(control => control.disabled), [false, true, false]);
+assert.equal(timedOut.button.disabled, true);
+assert.equal(timedOut.viewLink.hidden, false, "allow inspection without claiming successful addition");
+assert.deepEqual(timedOut.controls.map(control => control.disabled), [true, true, true]);
+timedOut.submit();
+assert.equal(timedOut.submissions().length, 1, "uncertain state never creates another request");
+timedOut.result({ requestId: 'wrong-request' });
+assert.equal(timedOut.panel.dataset.state, "uncertain", "ignore unrelated late response");
 timedOut.result();
-assert.equal(timedOut.panel.dataset.state, "error", "late reply after timeout is not an active request");
+assert.equal(timedOut.panel.dataset.state, "success", "late matching success is still processed");
+assert.deepEqual(timedOut.controls.map(control => control.disabled), [false, true, false]);
 
 for (const mode of ["uv", "engraving"]) {
   const ui = environment({ state: { customizationMode: mode, name: "   " } });
