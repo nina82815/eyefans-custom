@@ -1,4 +1,12 @@
 @font-face {
+  font-family: "eYeFans JinXuan Latte";
+  src: url("assets/fonts/jf-jinxuanlatte-3.0-extrabold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "eYeFans Tsuhsian";
   src: url("assets/fonts/tsuhsianti-proportional.ttf") format("truetype");
   font-style: normal;
@@ -275,7 +283,7 @@ button { color: inherit; }
 .font-options small { color: var(--muted); font-size: 7px; font-weight: 750; letter-spacing: .04em; white-space: nowrap; }
 .font-preview { min-width: 48px; font-size: 17px; line-height: 1.2; color: var(--accent); white-space: nowrap; }
 .font-preview--zh-bold { font-family: "eYeFans Tsuhsian", "PingFang TC", sans-serif; font-weight: 700; }
-.font-preview--zh-rounded { font-family: "eYeFans GenSen Rounded", "PingFang TC", sans-serif; font-weight: 700; }
+.font-preview--zh-rounded { font-family: "eYeFans JinXuan Latte", "PingFang TC", sans-serif; font-weight: 800; }
 .font-preview--purple-smile { font-family: "eYeFans Purple Smile", "eYeFans GenSen Rounded", sans-serif; font-weight: 400; }
 .font-preview--bakso-sapi { font-family: "eYeFans Bakso Sapi", "eYeFans GenSen Rounded", sans-serif; font-weight: 400; }
 

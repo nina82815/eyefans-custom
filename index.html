@@ -14,7 +14,7 @@
   <meta name="twitter:description" content="配色・UV 彩印・姓名預覽">
   <meta name="twitter:image" content="https://nina82815.github.io/eyefans-custom/og.png">
   <title>eYeFans 客製眼鏡模擬器</title>
-  <link rel="stylesheet" href="styles.css?v=20260910-no-none">
+  <link rel="stylesheet" href="styles.css?v=20260915-jinxuan-case1">
 </head>
 <body>
   <header class="site-header">
@@ -211,7 +211,7 @@
             <input id="name-input" type="text" value="eyefans" maxlength="24" inputmode="text" autocomplete="off" enterkeyhint="done" aria-describedby="name-help name-validation">
             <span id="name-count">7/10</span>
           </div>
-          <p class="field-help" id="name-help">支援中文、英文與數字；中文可使用注音、拼音等輸入法，完成選字後計算字數。</p>
+          <p class="field-help" id="name-help">支援中文、英文與數字；中文可使用注音、拼音等輸入法，完成選字後計算字數。英文大小寫將依照您的輸入呈現。</p>
           <p class="field-validation" id="name-validation" role="status" aria-live="polite" hidden></p>
         </fieldset>
 
@@ -244,15 +244,6 @@
             </div>
           </div>
           <p class="field-help" id="font-help">英文類字體不含中文字形；輸入中文時會自動以中文圓體補足。</p>
-        </fieldset>
-
-        <fieldset class="choice-field" id="case-field">
-          <legend>英文字母格式</legend>
-          <div class="case-options" id="case-options">
-            <button type="button" class="is-active" data-case="preserve" aria-pressed="true">照原輸入</button>
-            <button type="button" data-case="upper" aria-pressed="false">全大寫</button>
-            <button type="button" data-case="lower" aria-pressed="false">全小寫</button>
-          </div>
         </fieldset>
 
         <fieldset class="choice-field" id="layout-field">
@@ -292,6 +283,6 @@
   </footer>
 
   <div class="sr-only" id="live-status" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260910-anniversary-sep22" defer></script>
+  <script src="app.js?v=20260915-jinxuan-case1" defer></script>
 </body>
 </html>

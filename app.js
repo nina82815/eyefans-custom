@@ -251,8 +251,8 @@ const PRINT_FONTS = {
   },
   zhRounded: {
     label: "中文圓體",
-    family: '"eYeFans GenSen Rounded", "PingFang TC", sans-serif',
-    weight: "700",
+    family: '"eYeFans JinXuan Latte", "PingFang TC", sans-serif',
+    weight: "800",
     uppercaseWidth: .668,
     lowercaseWidth: .566,
     hanWidth: 1
@@ -701,7 +701,7 @@ function loadPersonalizationDraft(seedName = state.nameSource) {
   }
 
   state.nameSource = draft.nameSource || "";
-  state.caseMode = draft.caseMode || "preserve";
+  state.caseMode = "preserve";
   state.name = applyCase(state.nameSource);
   state.font = key === "engraving" && !ENGLISH_FONT_KEYS.has(draft.font)
     ? "baksoSapi"
@@ -813,9 +813,7 @@ function normalizeName(value) {
     : normalizeUvName(value);
 }
 
-function applyCase(value, mode = state.caseMode) {
-  if (mode === "upper") return value.replace(/[A-Za-z]/g, character => character.toUpperCase());
-  if (mode === "lower") return value.replace(/[A-Za-z]/g, character => character.toLowerCase());
+function applyCase(value) {
   return value;
 }
 
@@ -1299,7 +1297,6 @@ function updateConditionalFields() {
   document.getElementById("name-field").hidden = !usesName;
   document.getElementById("text-color-field").hidden = !isUv || !usesName;
   document.getElementById("font-field").hidden = !usesName;
-  document.getElementById("case-field").hidden = !usesName;
   document.getElementById("layout-field").hidden = !isUv || state.printMode !== "both";
   document.getElementById("chinese-font-group").hidden = isEngraving;
 
@@ -1319,8 +1316,8 @@ function updateConditionalFields() {
   document.getElementById("name-limit-label").textContent = isEngraving ? "英文 10 字" : "英文 10 字／中文 4 字";
   document.getElementById("name-count").textContent = nameCountLabel(state.nameSource, Array.from(state.nameSource).reduce((total, character) => total + printUnits(character), 0));
   document.getElementById("name-help").textContent = isEngraving
-    ? "僅支援 A–Z／a–z，最多 10 個英文字母；不接受中文、數字、空格與符號。"
-    : "支援中文、英文與數字；中文可使用注音、拼音等輸入法，完成選字後計算字數。";
+    ? "僅支援 A–Z／a–z，最多 10 個英文字母；不接受中文、數字、空格與符號。英文大小寫將依照您的輸入呈現。"
+    : "支援中文、英文與數字；中文可使用注音、拼音等輸入法，完成選字後計算字數。英文大小寫將依照您的輸入呈現。";
   document.getElementById("font-help").textContent = isEngraving
     ? "雷雕僅提供圓潤手寫體與童趣積木體兩款英文字體。"
     : "英文類字體不含中文字形；輸入中文時會自動以中文圓體補足。";
@@ -1339,10 +1336,6 @@ function updateConditionalFields() {
   setActiveButtons(
     document.getElementById("print-mode-options"),
     button => button.dataset.mode === state.printMode
-  );
-  setActiveButtons(
-    document.getElementById("case-options"),
-    button => button.dataset.case === state.caseMode
   );
 }
 
@@ -1406,7 +1399,7 @@ function buildSelectionPayload() {
       ? state.customizationMode === "engraving" ? "white" : state.textColor
       : null,
     font: usesName ? state.font : null,
-    caseMode: usesName ? state.caseMode : null,
+    caseMode: usesName ? "preserve" : null,
     order: usesIcon ? state.order : null,
     namePosition: printMode === "both" ? state.namePosition : null,
     customizationSide: customizationSideLabel ? "right" : null,
@@ -1698,18 +1691,6 @@ function bindControls() {
     if (!button) return;
     state.textColor = button.dataset.textColor;
     setActiveButtons(document.getElementById("text-color-options"), candidate => candidate === button);
-    updateAll();
-  });
-
-  document.getElementById("case-options").addEventListener("click", event => {
-    const button = event.target.closest("button[data-case]");
-    if (!button) return;
-    state.caseMode = button.dataset.case;
-    state.name = applyCase(state.nameSource);
-    const draftKey = personalizationDraftKey();
-    if (draftKey) customizationDrafts[draftKey].caseMode = state.caseMode;
-    document.getElementById("name-input").value = state.name;
-    setActiveButtons(document.getElementById("case-options"), candidate => candidate === button);
     updateAll();
   });
 
