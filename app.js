@@ -874,9 +874,27 @@ function updatePrint() {
     layer.root.style.display = printMode === "none" || key === "front" ? "none" : "inline";
 
     const selectedFont = PRINT_FONTS[state.font];
+    // Measure rendered SVG glyphs after applying the selected font.
+    layer.text.setAttribute("font-family", selectedFont.family);
+    layer.text.setAttribute("font-weight", selectedFont.weight);
+    layer.text.setAttribute("font-size", String(layer.fontSize));
+    layer.text.setAttribute("x", "0");
+    layer.text.style.display = showName ? "inline" : "none";
+    applyPrintTextColor(layer.text, state.name);
     const baseIconSize = layer.fontSize * .88;
     const baseGap = layer.fontSize * .22;
-    const baseNameWidth = printTextWidth(state.name || " ", layer.fontSize, selectedFont);
+    let baseNameWidth = printTextWidth(state.name || " ", layer.fontSize, selectedFont);
+    let textInset = 0;
+    if (showName) {
+      try {
+        const advance = layer.text.getComputedTextLength();
+        const bounds = layer.text.getBBox();
+        if (advance > 0 && bounds.width > 0) {
+          textInset = Math.max(0, -bounds.x);
+          baseNameWidth = Math.max(advance, bounds.x + bounds.width) + textInset;
+        }
+      } catch (_) { /* Hidden previews use the canvas fallback. */ }
+    }
     const sequence = visiblePrintSequence(showIcons, showName);
     const baseTotalWidth = Math.max(1, printSequenceWidth(sequence, baseIconSize, baseNameWidth, baseGap));
     const fitScale = Math.min(1, (MAX_PRINT_WIDTH[key] || baseTotalWidth) / baseTotalWidth);
@@ -899,6 +917,9 @@ function updatePrint() {
     layer.text.style.display = showName ? "inline" : "none";
 
     positionPrintSequence(layer, sequence, startX, iconSize, nameWidth, gap);
+    if (showName && textInset) {
+      layer.text.setAttribute("x", String(Number(layer.text.getAttribute("x")) + textInset * fitScale));
+    }
   });
 
 }
@@ -1732,6 +1753,7 @@ async function init() {
   initializeCartSubmit();
   loadPersonalizationDraft(state.nameSource);
   preparePhotoLayers();
+  document.fonts?.addEventListener('loadingdone', updatePrint);
   bindControls();
   syncViewControls();
   syncSizeControls();

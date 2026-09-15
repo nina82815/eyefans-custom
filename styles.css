@@ -8,7 +8,7 @@
 
 @font-face {
   font-family: "eYeFans Tsuhsian";
-  src: url("assets/fonts/tsuhsianti-proportional.ttf") format("truetype");
+  src: url("assets/fonts/tsuhsianti-proportional.ttf?v=93e02cc3") format("truetype");
   font-style: normal;
   font-weight: 700;
   font-display: swap;
