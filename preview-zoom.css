@@ -1,0 +1,13 @@
+.viewer { touch-action: none; }
+.viewer > .view { transform: translate(var(--preview-x, 0px), var(--preview-y, 0px)) scale(var(--preview-scale, 1)); transform-origin: center; user-select: none; }
+.viewer.is-zoomed { cursor: grab; }
+.viewer.is-panning { cursor: grabbing; }
+.viewer:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.preview-zoom-controls { position: absolute; z-index: 5; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,253,248,.96); box-shadow: 0 3px 12px rgba(31,44,39,.1); cursor: default; touch-action: manipulation; }
+.preview-zoom-controls button { min-width: 44px; min-height: 44px; padding: 6px 10px; background: transparent; border: 0; border-radius: 9px; cursor: pointer; font-size: 18px; }
+.preview-zoom-controls button[data-zoom="reset"] { font-size: 14px; }
+.preview-zoom-controls button:hover:not(:disabled) { background: var(--accent-soft); }
+.preview-zoom-controls button:focus-visible { outline: 2px solid var(--accent); }
+.preview-zoom-controls button:disabled { opacity: .35; cursor: default; }
+.preview-zoom-controls output { min-width: 48px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
+.preview-zoom-hint { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }

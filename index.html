@@ -15,6 +15,7 @@
   <meta name="twitter:image" content="https://nina82815.github.io/eyefans-custom/og.png">
   <title>eYeFans 客製眼鏡模擬器</title>
   <link rel="stylesheet" href="styles.css?v=20260915-jinxuan-case1">
+  <link rel="stylesheet" href="preview-zoom.css?v=20260915zoom1">
 </head>
 <body>
   <header class="site-header">
@@ -48,7 +49,7 @@
       </div>
       <p class="photo-mode-note" id="photo-mode-note"><b>實拍效果</b> 固定呈現右側 45° 客製面，支援全部 22 種在售色；另一側固定保留 eYeFANS 品牌 Logo。</p>
 
-      <div class="viewer is-photo-mode" id="viewer" aria-live="polite">
+      <div class="viewer is-photo-mode" id="viewer" tabindex="0" role="group" aria-label="眼鏡預覽，可用加減鍵縮放、方向鍵移動，0 鍵重設" aria-describedby="preview-zoom-hint">
         <div class="loading" id="loading-state"><span></span>正在載入眼鏡模型</div>
         <div class="view" id="view-front" hidden></div>
         <div class="view" id="view-side" hidden></div>
@@ -103,7 +104,14 @@
           </svg>
         </div>
         <p class="print-view-hint" id="print-view-hint" hidden>UV 彩印位於右外側鏡腳，請切換「側面」或「右側 45°」查看。</p>
+        <div class="preview-zoom-controls" id="preview-zoom-controls" role="group" aria-label="預覽縮放">
+          <button type="button" data-zoom="out" aria-label="縮小預覽" disabled>−</button>
+          <output id="preview-zoom-value" aria-live="polite" aria-label="預覽倍率">100%</output>
+          <button type="button" data-zoom="in" aria-label="放大預覽">＋</button>
+          <button type="button" data-zoom="reset" aria-label="重設預覽大小與位置">重設</button>
+        </div>
       </div>
+      <p class="preview-zoom-hint" id="preview-zoom-hint">放大後可拖曳查看細節，也可雙指縮放；不影響實際印字大小。</p>
 
       <div class="selection-strip" aria-label="目前選擇">
         <span><i class="size-chip" id="size-chip" aria-hidden="true">M</i><b>尺寸</b><em id="size-summary">M</em></span>
@@ -284,5 +292,6 @@
 
   <div class="sr-only" id="live-status" role="status" aria-live="polite"></div>
   <script src="app.js?v=20260915-jinxuan-case1" defer></script>
+  <script src="preview-zoom.js?v=20260915zoom1" defer></script>
 </body>
 </html>
