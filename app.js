@@ -1313,7 +1313,7 @@ function renderIconCatalog() {
     button.className = `icon-option${state[state.activeIconSlot] === id ? " is-active" : ""}`;
     button.setAttribute("aria-label", `UV 彩印圖案 ${id}`);
     button.setAttribute("aria-pressed", String(state[state.activeIconSlot] === id));
-    button.innerHTML = `<img src="${INLINE_PHOTO_ASSETS[uvIconAsset(id)] || uvIconAsset(id)}" alt="" loading="lazy"><span>${id}</span>`;
+    button.innerHTML = `<img src="${INLINE_PHOTO_ASSETS[uvIconAsset(id)] || uvIconAsset(id)}" alt="" loading="eager" decoding="sync" width="64" height="64"><span>${id}</span>`;
     button.addEventListener("click", () => chooseIcon(id));
     fragment.appendChild(button);
   }

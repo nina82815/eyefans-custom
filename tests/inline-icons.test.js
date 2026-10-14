@@ -2,10 +2,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-test('All 56 catalog and print images load from identical embedded SVG bytes', () => {
+const crypto = require('node:crypto');
+test('All 56 catalog and print images load from embedded PNG previews matching source manifests', () => {
  const app=fs.readFileSync('app.js','utf8'), html=fs.readFileSync('index.html','utf8');
  const bundle=JSON.parse(html.match(/<script type="application\/json" id="inline-photo-assets">([^]*?)<\/script>/)[1]);
- const buttons=[], slots={};
+ const buttons=[];
+ const manifest=JSON.parse(fs.readFileSync('assets/uv-icons/preview/manifest.json','utf8'));
+ const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
  const context={INLINE_PHOTO_ASSETS:bundle,UV_ICON_COUNT:56,XLINK_NS:'http://www.w3.org/1999/xlink',state:{activeIconSlot:'icon1'},
  document:{getElementById:id=>id==='icon-catalog'?{appendChild:f=>buttons.push(...f.children)}:{textContent:''},
  createDocumentFragment:()=>({children:[],appendChild(x){this.children.push(x);}}),createElement:()=>({dataset:{},setAttribute(){},addEventListener(){}})}};
@@ -15,8 +18,12 @@ test('All 56 catalog and print images load from identical embedded SVG bytes', (
  assert.equal(buttons.length,56);
  for(let n=1;n<=56;n++) {
   const id=String(n).padStart(2,'0'), path=context.uvIconAsset(id), uri=bundle[path];
-  assert.ok(uri.startsWith('data:image/svg+xml;base64,'));
-  assert.deepEqual(Buffer.from(uri.split(',')[1],'base64'),fs.readFileSync(path));
+  assert.ok(uri.startsWith('data:image/png;base64,'));
+  const png=Buffer.from(uri.split(',')[1],'base64'), name=path.split('/').pop().replace('.svg','');
+  assert.equal(sha(fs.readFileSync(path)),manifest[name].sourceSha256);
+  assert.equal(sha(png),manifest[name].pngSha256);
+  assert.equal(png.readUInt32BE(16),512); assert.equal(png.readUInt32BE(20),512);
+  assert.ok(buttons[n-1].innerHTML.includes('loading="eager"'));
   assert.ok(buttons[n-1].innerHTML.includes(uri));
   const attributes={};context.setSvgHref({setAttribute:(k,v)=>attributes[k]=v,setAttributeNS:(ns,k,v)=>attributes[k]=v},path);
   assert.equal(attributes.href,uri); assert.equal(attributes['xlink:href'],uri);

@@ -75,7 +75,7 @@ function implementation(name) {
   assert.equal(html.match(/<script id="customizer-app"[^>]*>([^]*?)<\/script>/)[1], source, "startup script matches app.js without another download");
   const photoBundle = JSON.parse(html.match(/<script type="application\/json" id="inline-photo-assets">([^]*?)<\/script>/)[1]);
   for (const [file, data] of Object.entries(photoBundle)) {
-    assert.deepEqual(Buffer.from(data.split(",")[1], "base64"), fs.readFileSync(require("node:path").join(__dirname, "..", file)));
+    assert.deepEqual(Buffer.from(data.split(",")[1], "base64"), fs.readFileSync(require("node:path").join(__dirname, "..", file.startsWith("assets/uv-icons/") ? file.replace("uv-icons/", "uv-icons/preview/").replace(".svg", ".png") : file)));
   }
   const image = {setAttribute(_, value) { this.href = value; },setAttributeNS() {}};
   Object.assign(sandbox, {INLINE_PHOTO_ASSETS:photoBundle,XLINK_NS:"http://www.w3.org/1999/xlink"});
