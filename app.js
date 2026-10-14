@@ -317,6 +317,7 @@ const customizationDrafts = {
 
 let nameValidationMessage = "";
 
+const INLINE_PHOTO_ASSETS = JSON.parse(document.getElementById("inline-photo-assets")?.textContent || "{}");
 const svgs = {};
 const modelLoadErrors = {};
 const MODEL_LOAD_TIMEOUT_MS = 12000;
@@ -347,8 +348,9 @@ function svgElement(tag) {
 }
 
 function setSvgHref(element, href) {
-  element.setAttribute("href", href);
-  element.setAttributeNS(XLINK_NS, "xlink:href", href);
+  const source = INLINE_PHOTO_ASSETS[href.split("?")[0]] || href;
+  element.setAttribute("href", source);
+  element.setAttributeNS(XLINK_NS, "xlink:href", source);
 }
 
 function ensureAmberPattern(svg, key) {
@@ -454,7 +456,8 @@ function syncPreviewLoading() {
 }
 
 async function loadSvg(key, fileName) {
-  const source = await fetchModelSource(fileName);
+  const embedded = document.getElementById(`model-${key}`);
+  const source = embedded?.innerHTML || await fetchModelSource(fileName);
 
   const mount = document.getElementById(`view-${key}`);
   const holder = document.createElement("div");

@@ -46,6 +46,45 @@ function implementation(name) {
   sandbox.state.view = "front";
   sandbox.syncPreviewLoading(); assert.equal(hidden, false);
 
+  // Embedded models must work even if every network request would stall.
+  let fetches = 0;
+  const embeddedSvg = {setAttribute(){}};
+  Object.assign(sandbox, {
+    fetchModelSource:() => { fetches++; throw new Error("network unavailable"); },
+    ensureAmberPattern(){}, preparePrintLayer(){},
+    document:{
+      getElementById:id => id.startsWith("model-")
+        ? {innerHTML:"<svg/>"} : {querySelector:() => null,prepend(){}},
+      createElement:() => ({querySelector:() => embeddedSvg})
+    }
+  });
+  vm.runInContext(implementation("loadSvg"), sandbox);
+  for (const view of ["front", "side", "a45"]) {
+    await sandbox.loadSvg(view, `${view}.svg`);
+    assert.equal(sandbox.svgs[view], embeddedSvg);
+  }
+  assert.equal(fetches, 0, "inline models never require network fetches");
+  const html = fs.readFileSync(require("node:path").join(__dirname, "..", "index.html"), "utf8");
+  for (const view of ["front", "side", "a45"]) {
+    const inline = html.match(new RegExp(`<template id="model-${view}">([^]*?)</template>`));
+    assert.ok(inline, `${view} model is embedded`);
+    const original = fs.readFileSync(require("node:path").join(__dirname, "..", `${view}.svg`), "utf8");
+    assert.equal(inline[1], original.slice(original.indexOf("<svg")).replace(/\r\n/g, "\n").split("\n").map(line => line.trimEnd()).join("\n"), "inline artwork matches source");
+  }
+
+  const photoBundle = JSON.parse(html.match(/<script type="application\/json" id="inline-photo-assets">([^]*?)<\/script>/)[1]);
+  for (const [file, data] of Object.entries(photoBundle)) {
+    assert.deepEqual(Buffer.from(data.split(",")[1], "base64"), fs.readFileSync(require("node:path").join(__dirname, "..", file)));
+  }
+  const image = {setAttribute(_, value) { this.href = value; },setAttributeNS() {}};
+  Object.assign(sandbox, {INLINE_PHOTO_ASSETS:photoBundle,XLINK_NS:"http://www.w3.org/1999/xlink"});
+  vm.runInContext(implementation("setSvgHref"), sandbox);
+  const pink = "assets/photos/right-a45/normalized/gray/sakura-pink.png";
+  sandbox.setSvgHref(image, `${pink}?v=20260830a`);
+  assert.equal(image.href, photoBundle[pink], "startup photo does not require another download");
+  sandbox.setSvgHref(image, "assets/uv-icons/01.svg");
+  assert.equal(image.href, "assets/uv-icons/01.svg", "other assets keep their existing paths");
+
   const initCalls = [];
   const initSandbox = {
     state:{nameSource:"eyefans"}, VIEW_FILES:{front:"front.svg",side:"side.svg",a45:"a45.svg"},

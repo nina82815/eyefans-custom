@@ -77,6 +77,7 @@ const canvasContext = {
 };
 const sandbox = {
   state: {},
+  INLINE_PHOTO_ASSETS: {},
   printLayers: {},
   textMeasureContext: undefined,
   document: {
