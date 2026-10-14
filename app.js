@@ -318,6 +318,8 @@ const customizationDrafts = {
 let nameValidationMessage = "";
 
 const svgs = {};
+const modelLoadErrors = {};
+const MODEL_LOAD_TIMEOUT_MS = 12000;
 const printLayers = {};
 const photoLayers = {};
 let textMeasureContext;
@@ -418,13 +420,45 @@ function preparePrintLayer(svg, key, rootSelector = "#engravetext") {
   printLayers[key] = { root, content, iconA, iconB, text, fontSize, latinFontFamily };
 }
 
+async function fetchModelSource(fileName) {
+  const controller = new AbortController();
+  let timer;
+  try {
+    // Bound both response headers and body reads, including a stalled connection.
+    return await Promise.race([
+      (async () => {
+        const response = await fetch(fileName, { signal: controller.signal });
+        if (!response.ok) throw new Error(`${fileName} 載入失敗`);
+        return response.text();
+      })(),
+      new Promise((_, reject) => {
+        timer = window.setTimeout(() => {
+          reject(new Error(`${fileName} 載入逾時`));
+          controller.abort();
+        }, MODEL_LOAD_TIMEOUT_MS);
+      })
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+function syncPreviewLoading() {
+  const loading = document.getElementById("loading-state");
+  const ready = state.renderMode === "photo" || Boolean(svgs[state.view]);
+  loading.classList.toggle("is-hidden", ready);
+  if (ready) return;
+  loading.textContent = modelLoadErrors[state.view]
+    ? "此角度模型載入失敗，請重新整理，或切換實拍效果。"
+    : "正在載入眼鏡模型";
+}
+
 async function loadSvg(key, fileName) {
-  const response = await fetch(fileName, { cache: "no-store" });
-  if (!response.ok) throw new Error(`${fileName} 載入失敗`);
+  const source = await fetchModelSource(fileName);
 
   const mount = document.getElementById(`view-${key}`);
   const holder = document.createElement("div");
-  holder.innerHTML = await response.text();
+  holder.innerHTML = source;
   const svg = holder.querySelector("svg");
   if (!svg) throw new Error(`${fileName} 找不到 SVG 內容`);
   mount.querySelector("svg:not(.photo-composite)")?.remove();
@@ -933,6 +967,7 @@ function setActiveButtons(container, matcher) {
 }
 
 function syncViewControls() {
+  syncPreviewLoading();
   Object.keys(VIEW_FILES).forEach(key => {
     document.getElementById(`view-${key}`).hidden = key !== state.view;
   });
@@ -1612,6 +1647,7 @@ function updateAll() {
   updateSummary();
   updateColorAvailability();
   updatePrintViewHint();
+  syncPreviewLoading();
   announceAndNotifyParent();
 }
 
@@ -1772,15 +1808,19 @@ async function init() {
   updateConditionalFields();
   updateColorAvailability();
 
-  try {
-    await Promise.all(Object.entries(VIEW_FILES).map(([key, file]) => loadSvg(key, file)));
-    document.getElementById("loading-state").classList.add("is-hidden");
-    updateAll();
-    document.fonts?.ready.then(updatePrint);
-  } catch (error) {
-    console.error(error);
-    document.getElementById("loading-state").textContent = "模型載入失敗，請重新整理頁面。";
-  }
+  // The inline photo preview is usable without any 2D model downloads.
+  updateAll();
+  await Promise.allSettled(Object.entries(VIEW_FILES).map(async ([key, file]) => {
+    try {
+      await loadSvg(key, file);
+      updateAll();
+    } catch (error) {
+      modelLoadErrors[key] = error;
+      console.error(error);
+      syncPreviewLoading();
+    }
+  }));
+  document.fonts?.ready.then(updatePrint);
 }
 
 init();
