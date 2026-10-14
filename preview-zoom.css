@@ -11,3 +11,14 @@
 .preview-zoom-controls button:disabled { opacity: .35; cursor: default; }
 .preview-zoom-controls output { min-width: 48px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
 .preview-zoom-hint { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+.preview-general-zoom { display: flex; align-items: center; }
+.is-print-detail .preview-general-zoom { display: none; }
+#preview-print-detail { font-size: 14px; font-weight: 700; min-height: 44px; padding: 6px 12px; }
+#print-detail-slider { display: flex; align-items: center; gap: 6px; font-size: 14px; padding-left: 8px; }
+#print-detail-slider[hidden] { display: none; }
+#print-detail-range { width: clamp(60px, 12vw, 140px); min-width: 0; height: 36px; margin: 0; accent-color: var(--accent); touch-action: none; }
+#print-detail-percent { min-width: 40px; font-size: 13px; }
+@media (max-width: 600px) {
+  .preview-zoom-controls { max-width: calc(100% - 8px); flex-wrap: wrap; justify-content: flex-end; }
+}

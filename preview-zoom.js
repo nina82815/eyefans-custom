@@ -15,6 +15,7 @@ function initPreviewZoom() {
       y: event.clientY - rect.top - rect.height / 2 };
   };
   function render() {
+    if (viewer.dataset?.printDetail === 'true') return;
     const rect = viewer.getBoundingClientRect();
     x = clamp(x, -(scale - 1) * rect.width / 2, (scale - 1) * rect.width / 2);
     y = clamp(y, -(scale - 1) * rect.height / 2, (scale - 1) * rect.height / 2);
@@ -52,6 +53,7 @@ function initPreviewZoom() {
   plus.addEventListener('click', () => zoom(scale + .25));
   reset.addEventListener('click', resetView);
   viewer.addEventListener('pointerdown', event => {
+    if (viewer.dataset?.printDetail === 'true') return;
     if (event.target.closest('#preview-zoom-controls') || (event.pointerType === 'mouse' && event.button !== 0)) return;
     if (pointers.size >= 2) return;
     pointers.set(event.pointerId, local(event));
@@ -82,7 +84,7 @@ function initPreviewZoom() {
   ['pointerup','pointercancel','lostpointercapture'].forEach(type => viewer.addEventListener(type, finish));
   viewer.addEventListener('dragstart', event => event.preventDefault());
   viewer.addEventListener('keydown', event => {
-    if (event.target !== viewer) return;
+    if (event.target !== viewer || viewer.dataset?.printDetail === 'true') return;
     if (event.key === '+' || event.key === '=') zoom(scale + .25);
     else if (event.key === '-') zoom(scale - .25);
     else if (event.key === '0' || event.key === 'Home' || event.key === 'Escape') resetView();

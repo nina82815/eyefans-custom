@@ -11,6 +11,8 @@ source = re.sub(r'\n<template id="model-(front|side|a45)">.*?</template>', "", s
 source = re.sub(r'\n<script type="application/json" id="inline-photo-assets">.*?</script>', "", source, flags=re.S)
 source = re.sub(r'\n<script id="customizer-app"[^>]*>.*?</script>', "", source, flags=re.S)
 source = re.sub(r'  <script src="app.js[^"]*" defer></script>\n?', "", source)
+source = re.sub(r'\n<script id="print-detail-app">.*?</script>', "", source, flags=re.S)
+source = source.replace('  <script src="mobile-studio.js?', '<script id="print-detail-app">' + (root / "print-detail.js").read_text() + '</script>\n  <script src="mobile-studio.js?', 1)
 models = []
 for view in ("front", "side", "a45"):
     artwork = (root / f"{view}.svg").read_text()

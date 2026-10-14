@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="https://nina82815.github.io/eyefans-custom/og.png">
   <title>eYeFans 客製眼鏡模擬器</title>
   <link rel="stylesheet" href="styles.css?v=20260915-tsuhsian2">
-  <link rel="stylesheet" href="preview-zoom.css?v=20260915zoom1">
+  <link rel="stylesheet" href="preview-zoom.css?v=20261014-printdetail1">
   <link rel="stylesheet" href="mobile-studio.css?v=20260923-1">
 </head>
 <body>
@@ -106,13 +106,21 @@
         </div>
         <p class="print-view-hint" id="print-view-hint" hidden>UV 彩印位於右外側鏡腳，請切換「側面」或「右側 45°」查看。</p>
         <div class="preview-zoom-controls" id="preview-zoom-controls" role="group" aria-label="預覽縮放">
+          <span class="preview-general-zoom">
           <button type="button" data-zoom="out" aria-label="縮小預覽" disabled>−</button>
           <output id="preview-zoom-value" aria-live="polite" aria-label="預覽倍率">100%</output>
           <button type="button" data-zoom="in" aria-label="放大預覽">＋</button>
           <button type="button" data-zoom="reset" aria-label="重設預覽大小與位置">重設</button>
+          </span>
+          <label id="print-detail-slider" hidden>
+            <span>特寫</span>
+            <input id="print-detail-range" type="range" min="100" max="200" step="5" value="100" aria-label="印刷特寫放大倍率" aria-valuetext="特寫 100%">
+            <output id="print-detail-percent" for="print-detail-range">100%</output>
+          </label>
+          <button type="button" id="preview-print-detail" aria-pressed="false">放大預覽印刷</button>
         </div>
       </div>
-      <p class="preview-zoom-hint" id="preview-zoom-hint">放大後可拖曳查看細節，也可雙指縮放；不影響實際印字大小。</p>
+      <p class="preview-zoom-hint" id="preview-zoom-hint">點選「放大預覽印刷」查看鏡腳圖案與姓名，使用滑桿調整特寫倍率；不影響實際印字大小。</p>
 
       <div class="selection-strip" aria-label="目前選擇">
         <span><i class="size-chip" id="size-chip" aria-hidden="true">M</i><b>尺寸</b><em id="size-summary">M</em></span>
@@ -2971,7 +2979,89 @@ async function init() {
 
 init();
 </script>
-  <script src="preview-zoom.js?v=20260915zoom1" defer></script>
+  <script src="preview-zoom.js?v=20261014-printdetail1" defer></script>
+<script id="print-detail-app">// Presentation only: frame the live print layer, never the saved artwork.
+(() => {
+  const viewer = document.getElementById('viewer');
+  const button = document.getElementById('preview-print-detail');
+  const slider = document.getElementById('print-detail-slider');
+  const range = document.getElementById('print-detail-range');
+  const output = document.getElementById('print-detail-percent');
+  let detailed = false, previousView = null, pending = 0;
+  function fit() {
+    pending = 0;
+    viewer.dataset.printDetail = String(detailed);
+    viewer.classList.toggle('is-print-detail', detailed);
+    if (detailed) viewer.style.setProperty('--preview-scale', '1');
+    if (detailed) {
+      viewer.style.setProperty('--preview-x', '0px');
+      viewer.style.setProperty('--preview-y', '0px');
+    }
+    const label = detailed ? '返回整副預覽' : '放大預覽印刷';
+    if (button.textContent !== label) button.textContent = label;
+    button.setAttribute('aria-pressed', String(detailed));
+    slider.hidden = !detailed;
+    if (!detailed) range.value = '100';
+    const percent = Math.max(100, Math.min(200, Number(range.value) || 100));
+    const percentLabel = `${percent}%`;
+    if (output.textContent !== percentLabel) output.textContent = percentLabel;
+    range.setAttribute('aria-valuetext', `特寫 ${percentLabel}`);
+    if (!detailed) return;
+    const content = [...viewer.querySelectorAll('.uv-print-content, #photo-engravetext')].find(node => {
+      const rect = node.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && getComputedStyle(node).display !== 'none';
+    });
+    if (!content) return; // Loading geometry/fonts will schedule another fit.
+    const print = content.getBoundingClientRect();
+    const view = content.closest('.view').getBoundingClientRect();
+    const bounds = viewer.getBoundingClientRect();
+    const height = Math.max(30, bounds.height - 64);
+    const scale = Math.max(1, Math.min(12, bounds.width * .78 / print.width, height * .65 / print.height)) * percent / 100;
+    const ox = view.left + view.width / 2, oy = view.top + view.height / 2;
+    const x = bounds.left + bounds.width / 2 - ox - (print.left + print.width / 2 - ox) * scale;
+    const y = bounds.top + 12 + height / 2 - oy - (print.top + print.height / 2 - oy) * scale;
+    viewer.style.setProperty('--preview-scale', String(scale));
+    viewer.style.setProperty('--preview-x', `${x}px`);
+    viewer.style.setProperty('--preview-y', `${y}px`);
+  }
+  function schedule() { if (!pending) pending = requestAnimationFrame(fit); }
+  range.addEventListener('input', schedule);
+  function leave() {
+    detailed = false;
+    viewer.dataset.printDetail = 'false';
+    document.querySelector('[data-zoom="reset"]')?.click();
+    if (previousView) document.querySelector(`#view-tabs [data-view="${previousView}"]`)?.click();
+    previousView = null;
+    fit();
+  }
+  button.addEventListener('click', () => {
+    if (detailed) return leave();
+    const active = document.querySelector('#view-tabs [aria-pressed="true"]');
+    const original = active?.dataset.view || 'a45';
+    if (original === 'front') document.querySelector('#view-tabs [data-view="a45"]')?.click();
+    previousView = original;
+    document.querySelector('[data-zoom="reset"]')?.click();
+    detailed = true;
+    fit();
+  });
+  viewer.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && detailed) { event.preventDefault(); leave(); }
+  });
+  ['frame-style-options','view-tabs','render-mode-options'].forEach(id => {
+    document.getElementById(id).addEventListener('click', event => {
+      if (!event.target.closest('button')) return;
+      detailed = false; previousView = null; viewer.dataset.printDetail = 'false';
+      document.querySelector('[data-zoom="reset"]')?.click(); schedule();
+    });
+  });
+  new MutationObserver(records => {
+    if (detailed && records.some(r => r.type === 'childList' || r.target.closest?.('.uv-print-content'))) schedule();
+  }).observe(viewer, {subtree:true, childList:true, attributes:true, characterData:true});
+  new ResizeObserver(() => { if (detailed) schedule(); }).observe(viewer);
+  document.fonts?.addEventListener('loadingdone', schedule);
+  fit();
+})();
+</script>
   <script src="mobile-studio.js?v=20260923-2" defer></script>
 </body>
 </html>
