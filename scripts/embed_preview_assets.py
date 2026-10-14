@@ -21,6 +21,12 @@ for view in ("front", "side", "a45"):
 paths = list((root / "assets/photos/right-a45/normalized/masks/standard").glob("*.png"))
 paths.append(root / "assets/photos/right-a45/normalized/gray/sakura-pink.png")
 photos = {p.relative_to(root).as_posix(): "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode() for p in paths}
+# Embed the complete catalog so thumbnails and printed SVG images do not
+# depend on dozens of separate requests in the storefront iframe.
+for n in range(1, 57):
+    name = "44-v3" if n == 44 else f"{n:02}"
+    icon = root / f"assets/uv-icons/{name}.svg"
+    photos[icon.relative_to(root).as_posix()] = "data:image/svg+xml;base64," + base64.b64encode(icon.read_bytes()).decode()
 inline = '\n'.join(models) + '\n<script type="application/json" id="inline-photo-assets">' + json.dumps(photos, separators=(',', ':')) + '</script>\n'
 startup = '<script id="customizer-app" data-source="app.js?v=20261014-icons56">' + (root / "app.js").read_text() + '</script>\n'
 source = source.replace('  <script src="preview-zoom.js?', inline + startup + '  <script src="preview-zoom.js?', 1)

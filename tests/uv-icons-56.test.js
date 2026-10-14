@@ -16,7 +16,7 @@ function fn(source,name,indent='') {
 const buttons=[];
 const mount={appendChild(fragment){buttons.push(...fragment.children);}};
 const label={textContent:''};
-const sandbox={UV_ICON_COUNT:56,state:{activeIconSlot:'icon1',icon1:'01',icon2:'04'},
+const sandbox={INLINE_PHOTO_ASSETS:{},UV_ICON_COUNT:56,state:{activeIconSlot:'icon1',icon1:'01',icon2:'04'},
   document:{getElementById:id=>id==='icon-catalog'?mount:label,
     createDocumentFragment:()=>({children:[],appendChild(el){this.children.push(el);}}),
     createElement:()=>({dataset:{},setAttribute(){},addEventListener(event,handler){this.click=handler;}})},

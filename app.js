@@ -1283,7 +1283,7 @@ function lensDisplayLabel(lens) {
 
 function updateIconSlotUi() {
   ["icon1", "icon2"].forEach(slot => {
-    document.getElementById(`${slot}-preview`).src = uvIconAsset(state[slot]);
+    document.getElementById(`${slot}-preview`).src = INLINE_PHOTO_ASSETS[uvIconAsset(state[slot])] || uvIconAsset(state[slot]);
     document.getElementById(`${slot}-label`).textContent = `NO.${state[slot]}`;
   });
   setActiveButtons(document.getElementById("icon-slots"), button => button.dataset.slot === state.activeIconSlot);
@@ -1313,7 +1313,7 @@ function renderIconCatalog() {
     button.className = `icon-option${state[state.activeIconSlot] === id ? " is-active" : ""}`;
     button.setAttribute("aria-label", `UV 彩印圖案 ${id}`);
     button.setAttribute("aria-pressed", String(state[state.activeIconSlot] === id));
-    button.innerHTML = `<img src="${uvIconAsset(id)}" alt="" loading="lazy"><span>${id}</span>`;
+    button.innerHTML = `<img src="${INLINE_PHOTO_ASSETS[uvIconAsset(id)] || uvIconAsset(id)}" alt="" loading="lazy"><span>${id}</span>`;
     button.addEventListener("click", () => chooseIcon(id));
     fragment.appendChild(button);
   }

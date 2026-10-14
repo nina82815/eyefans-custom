@@ -84,7 +84,9 @@ function implementation(name) {
   sandbox.setSvgHref(image, `${pink}?v=20260830a`);
   assert.equal(image.href, photoBundle[pink], "startup photo does not require another download");
   sandbox.setSvgHref(image, "assets/uv-icons/01.svg");
-  assert.equal(image.href, "assets/uv-icons/01.svg", "other assets keep their existing paths");
+  assert.equal(image.href, photoBundle["assets/uv-icons/01.svg"], "printed icons do not require another download");
+  sandbox.setSvgHref(image, "amber.png");
+  assert.equal(image.href, "amber.png", "unbundled assets keep their existing paths");
 
   const initCalls = [];
   const initSandbox = {
