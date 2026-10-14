@@ -6,9 +6,9 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const app = fs.readFileSync(path.join(root,'app.js'),'utf8');
 const html = fs.readFileSync(path.join(root,'index.html'),'utf8');
-const bridgeFile = 'cyberbiz-cart-production-loader-20261014-all-combined-v4-21.js';
+const bridgeFile = 'cyberbiz-cart-production-loader-20261014-all-combined-v4-22.js';
 const bridge = fs.readFileSync(path.join(root,'integration',bridgeFile),'utf8');
-assert.match(bridge, /CUSTOMIZER_UI_VERSION = "20261014-png1"/, 'storefront must bypass pre-P1 iframe caches');
+assert.match(bridge, /CUSTOMIZER_UI_VERSION = "20261014-png1-fast1"/, 'storefront must bypass pre-P1 iframe caches');
 function fn(source,name,indent='') {
   const match=source.match(new RegExp(`${indent}function ${name}\\([^]*?\\n${indent}\\}`));
   assert.ok(match,name); return match[0];

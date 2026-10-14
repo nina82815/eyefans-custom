@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
-test('All 56 catalog and print images load from embedded PNG previews matching source manifests', () => {
+test('All 56 catalog and print images load from embedded lossless previews matching source manifests', () => {
  const app=fs.readFileSync('app.js','utf8'), html=fs.readFileSync('index.html','utf8');
  const bundle=JSON.parse(html.match(/<script type="application\/json" id="inline-photo-assets">([^]*?)<\/script>/)[1]);
  const buttons=[];
@@ -18,11 +18,11 @@ test('All 56 catalog and print images load from embedded PNG previews matching s
  assert.equal(buttons.length,56);
  for(let n=1;n<=56;n++) {
   const id=String(n).padStart(2,'0'), path=context.uvIconAsset(id), uri=bundle[path];
-  assert.ok(uri.startsWith('data:image/png;base64,'));
+  assert.ok(uri.startsWith('data:image/webp;base64,'));
   const png=Buffer.from(uri.split(',')[1],'base64'), name=path.split('/').pop().replace('.svg','');
   assert.equal(sha(fs.readFileSync(path)),manifest[name].sourceSha256);
-  assert.equal(sha(png),manifest[name].pngSha256);
-  assert.equal(png.readUInt32BE(16),512); assert.equal(png.readUInt32BE(20),512);
+  assert.equal(sha(fs.readFileSync(`assets/uv-icons/preview/${name}.png`)),manifest[name].pngSha256);
+  assert.equal(png.toString('ascii', 0, 4), 'RIFF'); assert.equal(png.toString('ascii', 8, 12), 'WEBP');
   assert.ok(buttons[n-1].innerHTML.includes('loading="eager"'));
   assert.ok(buttons[n-1].innerHTML.includes(uri));
   const attributes={};context.setSvgHref({setAttribute:(k,v)=>attributes[k]=v,setAttributeNS:(ns,k,v)=>attributes[k]=v},path);

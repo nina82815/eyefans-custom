@@ -7,7 +7,7 @@ test('Print detail follows live artwork, slider and Escape, and restores overvie
     style:{setProperty(k,v){this.owner.values[k]=v;}},classList:{toggle(){}},
     setAttribute(k,v){this[k]=v;},addEventListener(k,v){this.handlers[k]=v;},
     fire(k,e={}){this.handlers[k]?.({target:this,preventDefault(){},...e});}};}
-  const ids={}; for (const id of ['viewer','preview-print-detail','print-detail-slider','print-detail-range','print-detail-percent','frame-style-options','view-tabs','render-mode-options']) { ids[id]=node(); ids[id].style.owner=ids[id]; }
+  const ids={}; for (const id of ['viewer','preview-print-detail','print-detail-slider','print-detail-range','print-detail-percent','view-tabs','render-mode-options']) { ids[id]=node(); ids[id].style.owner=ids[id]; }
   const viewer=ids.viewer, rect={left:0,top:0,width:600,height:400};
   viewer.getBoundingClientRect=()=>rect;
   let printWidth=100, mutation;

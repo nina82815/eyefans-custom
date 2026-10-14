@@ -186,7 +186,7 @@ assert.equal(api.lensDisplayLabel(polarized), "偏光鏡片");
 assert.doesNotMatch(api.lensDisplayLabel(polarized), /NT\$|周年慶|原價|售價/);
 
 assert.match(htmlSource, /id="lens-price-note"/);
-assert.match(htmlSource, /styles\.css\?v=20260915-tsuhsian2/);
+assert.match(htmlSource, /id="inline-styles-css"/);
 assert.match(htmlSource, /app\.js\?v=20261014-icons56/);
 assert.match(styleSource, /\.lens-price--promotion s/);
 

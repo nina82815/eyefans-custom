@@ -66,7 +66,7 @@
     if (event.key === 'Escape' && detailed) { event.preventDefault(); leave(); }
   });
   ['frame-style-options','view-tabs','render-mode-options'].forEach(id => {
-    document.getElementById(id).addEventListener('click', event => {
+    document.getElementById(id)?.addEventListener('click', event => {
       if (!event.target.closest('button')) return;
       detailed = false; previousView = null; viewer.dataset.printDetail = 'false';
       document.querySelector('[data-zoom="reset"]')?.click(); schedule();
