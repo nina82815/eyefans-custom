@@ -94,7 +94,7 @@ const constantNames = [
   "MAX_PRINT_WIDTH", "TEXT_COLOR_OPTIONS", "ENGRAVING_TEXT_STYLE", "RAINBOW_PRINT_COLORS"
 ];
 const functionNames = [
-  "svgElement", "setSvgHref", "preparePrintLayer", "effectivePrintMode",
+  "uvIconAsset", "svgElement", "setSvgHref", "preparePrintLayer", "effectivePrintMode",
   "effectiveTextStyle", "usesRainbowText", "isCjk", "estimatedTextWidth",
   "measuredTextWidth", "printTextWidth", "applyPrintTextColor", "positionIcon",
   "visiblePrintSequence", "printSequenceWidth", "positionPrintSequence", "updatePrint"

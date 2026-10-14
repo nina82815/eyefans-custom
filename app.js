@@ -26,6 +26,12 @@ const FRAME_COLORS = [
   { name: "琥珀", type: "pattern", value: "amber", thumb: "amber.png" }
 ];
 
+const UV_ICON_COUNT = 56;
+
+function uvIconAsset(id) {
+  return `assets/uv-icons/${id === "44" ? "44-v3" : id}.svg`;
+}
+
 const TEMPLE_COLORS = FRAME_COLORS.map(color => ({ ...color }));
 
 const SIZE_OPTIONS = [
@@ -942,8 +948,8 @@ function updatePrint() {
     const totalWidth = baseTotalWidth * fitScale;
     const startX = (PRINT_CENTER_OFFSET[key] || 0) - (totalWidth / 2);
 
-    setSvgHref(layer.iconA, `assets/uv-icons/${state.icon1}.svg`);
-    setSvgHref(layer.iconB, `assets/uv-icons/${state.icon2}.svg`);
+    setSvgHref(layer.iconA, uvIconAsset(state.icon1));
+    setSvgHref(layer.iconB, uvIconAsset(state.icon2));
     layer.text.setAttribute("font-family", selectedFont.family);
     layer.text.setAttribute("font-weight", selectedFont.weight);
     layer.text.setAttribute("font-size", String(fontSize));
@@ -1277,7 +1283,7 @@ function lensDisplayLabel(lens) {
 
 function updateIconSlotUi() {
   ["icon1", "icon2"].forEach(slot => {
-    document.getElementById(`${slot}-preview`).src = `assets/uv-icons/${state[slot]}.svg`;
+    document.getElementById(`${slot}-preview`).src = uvIconAsset(state[slot]);
     document.getElementById(`${slot}-label`).textContent = `NO.${state[slot]}`;
   });
   setActiveButtons(document.getElementById("icon-slots"), button => button.dataset.slot === state.activeIconSlot);
@@ -1298,7 +1304,8 @@ function chooseIcon(id) {
 function renderIconCatalog() {
   const mount = document.getElementById("icon-catalog");
   const fragment = document.createDocumentFragment();
-  for (let number = 1; number <= 33; number += 1) {
+  document.getElementById("icon-catalog-label").textContent = `圖案目錄，共 ${UV_ICON_COUNT} 款`;
+  for (let number = 1; number <= UV_ICON_COUNT; number += 1) {
     const id = String(number).padStart(2, "0");
     const button = document.createElement("button");
     button.type = "button";
@@ -1306,7 +1313,7 @@ function renderIconCatalog() {
     button.className = `icon-option${state[state.activeIconSlot] === id ? " is-active" : ""}`;
     button.setAttribute("aria-label", `UV 彩印圖案 ${id}`);
     button.setAttribute("aria-pressed", String(state[state.activeIconSlot] === id));
-    button.innerHTML = `<img src="assets/uv-icons/${id}.svg" alt="" loading="lazy"><span>${id}</span>`;
+    button.innerHTML = `<img src="${uvIconAsset(id)}" alt="" loading="lazy"><span>${id}</span>`;
     button.addEventListener("click", () => chooseIcon(id));
     fragment.appendChild(button);
   }
