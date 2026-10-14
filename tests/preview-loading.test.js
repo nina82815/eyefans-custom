@@ -72,6 +72,7 @@ function implementation(name) {
     assert.equal(inline[1], original.slice(original.indexOf("<svg")).replace(/\r\n/g, "\n").split("\n").map(line => line.trimEnd()).join("\n"), "inline artwork matches source");
   }
 
+  assert.equal(html.match(/<script id="customizer-app"[^>]*>([^]*?)<\/script>/)[1], source, "startup script matches app.js without another download");
   const photoBundle = JSON.parse(html.match(/<script type="application\/json" id="inline-photo-assets">([^]*?)<\/script>/)[1]);
   for (const [file, data] of Object.entries(photoBundle)) {
     assert.deepEqual(Buffer.from(data.split(",")[1], "base64"), fs.readFileSync(require("node:path").join(__dirname, "..", file)));
